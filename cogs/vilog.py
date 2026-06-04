@@ -476,6 +476,13 @@ class Vilog(commands.Cog):
             except Exception as e:
                 print(f"[Vilog] Gagal kirim log: {e}")
 
+        # Refresh leaderboard Top Spender (transaksi baru tercatat)
+        try:
+            from cogs.top_spender import refresh_top_spender
+            await refresh_top_spender(self.bot)
+        except Exception as e:
+            print(f"[TopSpender] refresh error (Vilog): {e}")
+
         # Stock Robux (global)
         try:
             record_robux_outgoing(int(ticket.get("boost", {}).get("robux", 0) or 0))

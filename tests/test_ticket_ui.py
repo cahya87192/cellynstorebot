@@ -79,9 +79,13 @@ def test_success_log_text_belum_dan_sudah_rating():
     assert "Rp 11.000" in belum
     assert "Belum Aktif" in belum
     assert "<#999>" in belum  # mention channel rating
+    # Garis pemisah tipis hanya di AKHIR (bukan di atas)
+    assert belum.rstrip().endswith(tu.LOG_DIVIDER)
+    assert not belum.lstrip().startswith(tu.LOG_DIVIDER)
 
     # Sudah rating -> teks otomatis berubah
     sudah = tu.success_log_text(rating=5, **common)
-    assert "✅" in sudah and "Aktif (Sudah DiRating 5" in sudah
+    assert "◈" in sudah and "Aktif (Sudah DiRating 5" in sudah
     assert "Belum Aktif" not in sudah
+    assert sudah.rstrip().endswith(tu.LOG_DIVIDER)
 

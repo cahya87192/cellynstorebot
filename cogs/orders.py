@@ -128,6 +128,13 @@ class OrdersAdmin(commands.Cog):
             except Exception as e:
                 print(f"[Orders] Log send error: {e}")
 
+        # Refresh leaderboard Top Spender (transaksi baru tercatat)
+        try:
+            from cogs.top_spender import refresh_top_spender
+            await refresh_top_spender(self.bot)
+        except Exception as e:
+            print(f"[TopSpender] refresh error (Orders): {e}")
+
         # Royal Customer
         try:
             royal_role = discord.utils.get(ctx.guild.roles, name="Royal Customer")

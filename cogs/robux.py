@@ -862,6 +862,13 @@ class RobuxStore(commands.Cog):
             except Exception as e:
                 print(f"[Robux] Gagal kirim log: {e}")
 
+        # Refresh leaderboard Top Spender (transaksi baru tercatat)
+        try:
+            from cogs.top_spender import refresh_top_spender
+            await refresh_top_spender(self.bot)
+        except Exception as e:
+            print(f"[TopSpender] refresh error (Robux): {e}")
+
         await ctx.channel.send(
             f"Item berhasil diberikan. Terima kasih telah berbelanja di {STORE_NAME}!\n"
             f"Tiket ditutup dalam 5 detik."

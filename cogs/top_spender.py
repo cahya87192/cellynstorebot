@@ -160,6 +160,22 @@ class TopSpender(commands.Cog):
         except Exception as e:
             print(f"[TopSpender] Update error: {e}")
 
+    # ── Refresh segera (dipanggil setelah transaksi berhasil) ──
+    async def refresh_now(self):
+        """Update leaderboard bulan berjalan SEGERA, tanpa menunggu loop 30 menit.
+
+        Dipanggil otomatis oleh cog layanan tiap kali ada transaksi berhasil
+        (lihat helper modul `refresh_top_spender`). Aman bila channel leaderboard
+        belum di-set (langsung no-op) maupun bila dipanggil beruntun.
+        """
+        if not self._channel_id:
+            return
+        now = datetime.datetime.now(datetime.timezone.utc)
+        try:
+            await self._update_leaderboard(now.year, now.month)
+        except Exception as e:
+            print(f"[TopSpender] refresh_now error: {e}")
+
     # ── Announce pemenang bulan lalu ──────────
     async def _announce_winner(self, year: int, month: int):
         channel = self.bot.get_channel(self._channel_id)
@@ -348,6 +364,18 @@ class TopSpender(commands.Cog):
         if auto:
             await self._announce_winner(year, month)
             await self._update_roles(spenders, ch.guild)
+
+
+async def refresh_top_spender(bot):
+    """Trigger refresh leaderboard Top Spender dari cog manapun.
+
+    Dipakai cog layanan setelah mencatat transaksi (log_transaction) supaya
+    leaderboard langsung diperbarui tanpa menunggu loop 30 menit. Aman dipanggil
+    walau cog TopSpender belum ter-load atau channel leaderboard belum di-set.
+    """
+    cog = bot.get_cog("TopSpender")
+    if cog is not None:
+        await cog.refresh_now()
 
 
 async def setup(bot: commands.Bot):
