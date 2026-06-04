@@ -869,10 +869,9 @@ class RobuxStore(commands.Cog):
         except Exception as e:
             print(f"[TopSpender] refresh error (Robux): {e}")
 
-        await ctx.channel.send(
-            f"Item berhasil diberikan. Terima kasih telah berbelanja di {STORE_NAME}!\n"
-            f"Tiket ditutup dalam 5 detik."
-        )
+        await ctx.channel.send(embed=ticket_ui.ticket_success_embed(
+            f"Item berhasil diberikan. Terima kasih telah berbelanja di {STORE_NAME}!"
+        ))
 
         # Stock Robux (global across Robux-related services)
         try:
@@ -914,11 +913,9 @@ class RobuxStore(commands.Cog):
         ticket = self.active_tickets[channel_id]
         ctx.guild.get_member(ticket["user_id"])
         alasan_str = alasan if alasan else "Tidak ada alasan"
-        await ctx.channel.send(
-            f"Tiket dibatalkan oleh {ctx.author.mention}.\n"
-            f"Alasan: {alasan_str}\n"
-            f"Channel akan dihapus dalam 5 detik."
-        )
+        await ctx.channel.send(embed=ticket_ui.ticket_cancel_embed(
+            by_mention=ctx.author.mention, reason=alasan_str
+        ))
         delete_robux_ticket(channel_id)
         del self.active_tickets[channel_id]
         await asyncio.sleep(5)

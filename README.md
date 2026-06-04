@@ -1,6 +1,6 @@
 # Midman Bot — Cellyn Store Community
 
-Bot Discord untuk operasional toko digital. Menangani transaksi middleman trade, middleman jual beli, robux store, topup Mobile Legends & Free Fire, Cloud Phone, Discord Nitro, selfroles, giveaway, welcome, dan admin panel berbasis web.
+Bot Discord untuk operasional toko digital. Menangani transaksi middleman trade, middleman jual beli, robux store, topup Mobile Legends & Free Fire, Cloud Phone, Discord Nitro, selfroles, welcome, dan admin panel berbasis web.
 
 ---
 
@@ -13,7 +13,6 @@ Bot Discord untuk operasional toko digital. Menangani transaksi middleman trade,
 - **Stock Robux** — tampilkan stock tersedia + total robux keluar di catalog (auto update saat transaksi selesai)
 - **ML & FF Topup** — topup diamond Mobile Legends, Free Fire, dan Weekly Diamond Pass (WDP)
 - **Cloud Phone & Discord Nitro** — order Redfinger cloud phone dan Discord Nitro via tiket
-- **Giveaway** — slash command giveaway dengan timer, auto-end, reroll, dan persistent setelah restart
 - **Welcome** — welcome/leave/boost notif dengan GIF, auto-assign role Customer saat member join
 - **Broadcast** — kirim pengumuman ke channel dengan modal preview, cooldown per admin
 - **Auto React** — auto react emoji ke pesan di channel tertentu atau semua pesan admin
@@ -208,14 +207,6 @@ Perubahan produk via web langsung berlaku ke bot tanpa restart.
 | `!autopost toggle [id]` | Toggle on/off |
 | `!autopost delete [id]` | Hapus task |
 
-### Giveaway
-| Command | Fungsi |
-|---|---|
-| `/giveaway` | Buat giveaway baru |
-| `/giveaway_end` | Akhiri giveaway lebih awal |
-| `/giveaway_reroll` | Reroll pemenang |
-| `/giveaway_list` | Lihat giveaway aktif |
-
 ### Welcome & Tools
 | Command | Fungsi |
 |---|---|
@@ -319,7 +310,6 @@ midman/
     ├── ml.py             # Topup ML, FF & WDP
     ├── lainnya.py        # Cloud Phone & Discord Nitro
     ├── orders.py         # Shared !done & !cancel
-    ├── giveaway.py        # Giveaway slash commands
     ├── welcome.py         # Welcome/leave/boost notif + auto role Customer
     ├── broadcast.py       # Broadcast pengumuman dengan cooldown
     ├── auto_react.py      # Auto react emoji per channel
@@ -360,7 +350,6 @@ SQLite (`midman.db`) tidak di-push ke GitHub. Di-generate otomatis saat `bash st
 - `robux_rate` — rate Robux saat ini
 
 **Tabel lainnya:**
-- `giveaways` — giveaway aktif
 - `auto_react` — channel auto react
 - `bot_state` — state bot (embed message ID catalog, welcome settings, broadcast cooldown, dll)
 - `autopost_tasks` — task autopost (channel, message, interval, user_token, loop_counter)

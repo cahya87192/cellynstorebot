@@ -501,11 +501,11 @@ class GPStore(commands.Cog):
         except Exception as e:
             print(f"[GP] Gagal assign Royal Customer: {e}")
 
-        await ctx.channel.send(
-            f"✅ Gamepass sudah dibeli! Robux kamu akan masuk dalam 3-7 hari kerja.\n"
-            f"Terima kasih telah berbelanja di {STORE_NAME}!\n"
-            f"Channel ini akan dihapus dalam 10 detik."
-        )
+        await ctx.channel.send(embed=ticket_ui.ticket_success_embed(
+            f"Gamepass sudah dibeli! Robux kamu akan masuk dalam 3-7 hari kerja.\n"
+            f"Terima kasih telah berbelanja di {STORE_NAME}!",
+            countdown=10,
+        ))
         delete_gp_ticket(channel_id)
         del self.active_tickets[channel_id]
         await asyncio.sleep(10)
@@ -544,11 +544,9 @@ class GPStore(commands.Cog):
             await ctx.send("Channel ini bukan tiket GP aktif.", delete_after=5)
             return
         alasan_str = alasan or "Tidak ada alasan"
-        await ctx.channel.send(
-            f"Tiket dibatalkan oleh {ctx.author.mention}.\n"
-            f"Alasan: {alasan_str}\n"
-            f"Channel akan dihapus dalam 5 detik."
-        )
+        await ctx.channel.send(embed=ticket_ui.ticket_cancel_embed(
+            by_mention=ctx.author.mention, reason=alasan_str
+        ))
         delete_gp_ticket(channel_id)
         del self.active_tickets[channel_id]
         await asyncio.sleep(5)

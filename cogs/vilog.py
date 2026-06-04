@@ -503,10 +503,10 @@ class Vilog(commands.Cog):
         except Exception:
             pass
 
-        await ctx.channel.send(
-            f"✅ Topup Vilog selesai diproses. Terima kasih telah berbelanja di {STORE_NAME}!\n"
-            f"Channel akan dihapus dalam 10 detik."
-        )
+        await ctx.channel.send(embed=ticket_ui.ticket_success_embed(
+            f"Topup Vilog selesai diproses. Terima kasih telah berbelanja di {STORE_NAME}!",
+            countdown=10,
+        ))
         delete_vilog_ticket(channel_id)
         del self.active_tickets[channel_id]
         await asyncio.sleep(10)
@@ -524,11 +524,9 @@ class Vilog(commands.Cog):
         if channel_id not in self.active_tickets:
             await ctx.send("Channel ini bukan tiket Vilog aktif.", delete_after=5)
             return
-        await ctx.channel.send(
-            f"❌ Tiket Vilog dibatalkan oleh {ctx.author.mention}.\n"
-            f"Alasan: {alasan}\n"
-            f"Channel akan dihapus dalam 5 detik."
-        )
+        await ctx.channel.send(embed=ticket_ui.ticket_cancel_embed(
+            by_mention=ctx.author.mention, reason=alasan, title="❌ Tiket Vilog Dibatalkan"
+        ))
         delete_vilog_ticket(channel_id)
         del self.active_tickets[channel_id]
         await asyncio.sleep(5)

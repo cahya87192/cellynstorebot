@@ -671,12 +671,9 @@ class JualBeli(commands.Cog):
         p1 = guild.get_member(ticket["p1_id"])
         p2 = guild.get_member(ticket["p2_id"]) if ticket.get("p2_id") else None
 
-        e = discord.Embed(title="Tiket Jual Beli Dibatalkan", color=COLOR_BATAL,
-                          timestamp=datetime.datetime.now(datetime.timezone.utc))
-        e.add_field(name="Dibatalkan oleh", value=ctx.author.mention, inline=True)
-        e.add_field(name="Alasan", value=alasan, inline=False)
-        e.add_field(name="\u200b", value="Tiket akan ditutup dalam 5 detik.", inline=False)
-        e.set_footer(text=STORE_NAME)
+        e = ticket_ui.ticket_cancel_embed(
+            by_mention=ctx.author.mention, reason=alasan, title="❌ Jual Beli Dibatalkan"
+        )
 
         mentions = " ".join(filter(None, [p1.mention if p1 else None, p2.mention if p2 else None]))
         await ctx.send(content=mentions or None, embed=e)
