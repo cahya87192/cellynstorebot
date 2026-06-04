@@ -17,7 +17,15 @@ TOP_SPENDER_ROLE_ID = 1508950886251106517
 TOP_SPENDER_TOP_N   = 10
 LEADERBOARD_LIMIT   = 20
 
-MEDAL = {1: "🥇", 2: "🥈", 3: "🥉", 4: "4️⃣", 5: "5️⃣", 6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣", 10: "🔟"}
+MEDAL = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+
+def _rupiah(n) -> str:
+    """Format Rupiah gaya Indonesia: 1000000 -> 'Rp 1.000.000'."""
+    try:
+        return f"Rp {int(n):,}".replace(",", ".")
+    except (TypeError, ValueError):
+        return f"Rp {n}"
 
 
 # ─────────────────────────────────────────────
@@ -236,23 +244,45 @@ class TopSpender(commands.Cog):
                      guild: discord.Guild) -> discord.Embed:
         embed = discord.Embed(
             title=f"🏆 Top Spender — {month_name}",
-            description=f"Pelanggan terbaik {STORE_NAME} bulan ini!\n*(diperbarui tiap 30 menit)*",
+            description=f"Pelanggan terbaik {STORE_NAME} bulan ini!\n*(diperbarui otomatis tiap ada transaksi)*",
             color=0xF0A500,
             timestamp=datetime.datetime.now(datetime.timezone.utc),
         )
 
         if not spenders:
             embed.add_field(name="\u200b", value="Belum ada data transaksi bulan ini.", inline=False)
-        else:
-            text = ""
-            for i, s in enumerate(spenders, 1):
-                medal  = MEDAL.get(i, f"`#{i:02d}`")
-                member = guild.get_member(s['user_id'])
-                name   = member.display_name if member else f"User {s['user_id']}"
-                crown  = " 👑" if i <= TOP_SPENDER_TOP_N else ""
-                text  += f"{medal} **{name}**{crown} — Rp {s['total']:,}\n"
-            embed.add_field(name="\u200b", value=text, inline=False)
+            embed.set_footer(text=f"{STORE_NAME} • Reset tiap awal bulan")
+            return embed
 
+        top_lines, rest_lines = [], []
+        for i, s in enumerate(spenders, 1):
+            member = guild.get_member(s['user_id'])
+            name   = member.display_name if member else f"User {s['user_id']}"
+            rupiah = _rupiah(s['total'])
+            if i <= TOP_SPENDER_TOP_N:
+                rank = MEDAL.get(i, f"`#{i:02d}`")
+                top_lines.append(f"{rank} **{name}** 👑 — {rupiah}")
+            else:
+                rest_lines.append(f"`#{i:02d}` {name} — {rupiah}")
+
+        embed.add_field(
+            name=f"👑 Top {TOP_SPENDER_TOP_N} (dapat role spesial)",
+            value="\n".join(top_lines)[:1024],
+            inline=False,
+        )
+        if rest_lines:
+            embed.add_field(
+                name="Peringkat selanjutnya",
+                value="\n".join(rest_lines)[:1024],
+                inline=False,
+            )
+
+        total_all = sum(s['total'] for s in spenders)
+        embed.add_field(
+            name="\u200b",
+            value=f"────────────────────\n💰 **Total belanja Top {len(spenders)}** — {_rupiah(total_all)}",
+            inline=False,
+        )
         embed.set_footer(text=f"{STORE_NAME} • Reset tiap awal bulan")
         return embed
 
@@ -284,7 +314,7 @@ class TopSpender(commands.Cog):
         conn.commit()
         conn.close()
         await interaction.response.send_message(
-            f"✅ Ditambahkan spending **Rp {nominal:,}** untuk {member.mention}"
+            f"✅ Ditambahkan spending **{_rupiah(nominal)}** untuk {member.mention}"
             + (f" — `{note}`" if note else ""),
             ephemeral=True
         )
@@ -308,7 +338,7 @@ class TopSpender(commands.Cog):
         conn.commit()
         conn.close()
         await interaction.response.send_message(
-            f"✅ Berhasil mengurangi spending **Rp {nominal:,}** dari {member.mention}"
+            f"✅ Berhasil mengurangi spending **{_rupiah(nominal)}** dari {member.mention}"
             + (f" — `{note}`" if note else ""),
             ephemeral=True
         )

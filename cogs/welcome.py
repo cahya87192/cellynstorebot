@@ -309,7 +309,7 @@ class WelcomeCog(commands.Cog):
             return
         try:
             await channel.send(
-                f"Welcome {member.mention} Selamat bergabung!\n"
+                f"👋 Halo, saya {member.mention} member baru di {STORE_NAME}!"
             )
         except Exception as e:
             print(f"[Welcome] General greeting error: {e}")

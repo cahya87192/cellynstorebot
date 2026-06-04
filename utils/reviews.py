@@ -531,6 +531,22 @@ def get_daily_report(date_str: str) -> dict:
     rating_count = rr["n"] or 0
     rating_avg = round(rr["avg"], 2) if rr["avg"] is not None else 0.0
 
+    # Produk terlaris hari itu (berdasarkan jumlah transaksi item yang sama).
+    c.execute(
+        """
+        SELECT item, COUNT(*) AS qty
+        FROM transaction_log
+        WHERE closed_at LIKE ? AND item IS NOT NULL AND item != ''
+        GROUP BY item
+        ORDER BY qty DESC, item ASC
+        LIMIT 1
+        """,
+        (like,),
+    )
+    br = c.fetchone()
+    best_item = br["item"] if br else None
+    best_item_qty = br["qty"] if br else 0
+
     conn.close()
     return {
         "date": date_str,
@@ -539,4 +555,6 @@ def get_daily_report(date_str: str) -> dict:
         "per_layanan": per_layanan,
         "rating_count": rating_count,
         "rating_avg": rating_avg,
+        "best_item": best_item,
+        "best_item_qty": best_item_qty,
     }
