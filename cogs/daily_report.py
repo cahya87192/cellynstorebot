@@ -23,30 +23,10 @@ REPORT_MINUTE_UTC = 1
 # Kunci bot_state agar laporan tidak terkirim ganda dalam satu hari.
 LAST_REPORT_KEY = "daily_report_last_date"
 
-LAYANAN_LABEL = {
-    "robux": "Robux",
-    "vilog": "Vilog (Via Login)",
-    "gp_topup": "Robux Gamepass",
-    "jualbeli": "Jual Beli",
-    "midman": "Middleman",
-    "ml": "Mobile Legends",
-    "ff": "Free Fire",
-    "lainnya": "Layanan Lainnya",
-    "cloudphone": "Cloud Phone",
-    "nitro": "Discord Nitro",
-}
-
-
 def _pretty(layanan: str | None) -> str:
-    if not layanan:
-        return "Lainnya"
-    base = layanan.split(":", 1)[0]
-    label = LAYANAN_LABEL.get(base, base.replace("_", " ").title())
-    if ":" in layanan:
-        sub = layanan.split(":", 1)[1]
-        if sub:
-            label += f" · {sub.title()}"
-    return label
+    # Label terpusat (utils.layanan) agar konsisten dgn insight & review.
+    from utils.layanan import pretty_layanan
+    return pretty_layanan(layanan, default="Lainnya")
 
 
 def _get_state(key: str):
