@@ -98,7 +98,7 @@ class WelcomeCog(commands.Cog):
 
     @app_commands.command(name="setwelcome", description="[ADMIN] Set channel & gambar welcome/boost (PNG/JPG)")
     @app_commands.describe(
-        action="channel / image / boostimage / test / testboost / off",
+        action="channel / image / boostimage / test / testboost / testdm / off",
         channel="Channel untuk pesan welcome",
         image="File gambar PNG/JPG (upload langsung)"
     )
@@ -140,13 +140,15 @@ class WelcomeCog(commands.Cog):
             await self._send_welcome(interaction.user, test=True, interaction=interaction)
         elif action == "testboost":
             await self._send_boost(interaction.user, test=True, interaction=interaction)
+        elif action == "testdm":
+            await self._send_welcome_dm(interaction.user, interaction=interaction)
         elif action == "off":
             self._welcome_channel_id = None
             _set_setting("welcome_channel_id", "")
             await interaction.followup.send("✅ Welcome message dinonaktifkan.", ephemeral=True)
         else:
             await interaction.followup.send(
-                "Action tidak dikenal. Gunakan: `channel`, `image`, `boostimage`, `test`, `testboost`, `off`",
+                "Action tidak dikenal. Gunakan: `channel`, `image`, `boostimage`, `test`, `testboost`, `testdm`, `off`",
                 ephemeral=True
             )
 
@@ -162,6 +164,8 @@ class WelcomeCog(commands.Cog):
                 print(f"[Welcome] Auto role error: {e}")
         await self._send_welcome(member)
         await self._send_general_greeting(member)
+        if not member.bot:
+            await self._send_welcome_dm(member)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
@@ -313,6 +317,78 @@ class WelcomeCog(commands.Cog):
             )
         except Exception as e:
             print(f"[Welcome] General greeting error: {e}")
+
+    async def _send_welcome_dm(self, member: discord.Member, interaction=None):
+        """Kirim DM sambutan ke member baru: salam, penjelasan store, peraturan,
+        dan penutup. Best-effort — kalau DM member tertutup, dilewati diam-diam.
+
+        Bila dipanggil lewat `/setwelcome action:testdm`, preview dikirim ephemeral
+        ke admin (lewat `interaction`) alih-alih ke DM member.
+        """
+        embed = discord.Embed(
+            title=f"🤍 Selamat Datang di {STORE_NAME}!",
+            description=(
+                f"Hai **{member.display_name}**! 👋\n"
+                f"Makasih banyak udah gabung ke **{STORE_NAME}** — tempat jual-beli "
+                f"& top-up digital yang aman dan terpercaya. Biar kamu makin nyaman "
+                f"belanja, baca info singkat di bawah ini ya 🙏"
+            ),
+            color=0x00BFFF,
+        )
+        embed.add_field(
+            name="🏪 Tentang Kami",
+            value=(
+                f"{STORE_NAME} melayani kebutuhan game & akunmu dengan proses "
+                f"**cepat**, harga **bersahabat**, dan admin yang **ramah**. "
+                f"Setiap transaksi memakai sistem **tiket** + **garansi** supaya aman."
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="🛍️ Layanan Kami",
+            value=(
+                "• Top-up Mobile Legends & Free Fire\n"
+                "• Robux (Store, Via Login, Gamepass)\n"
+                "• Middleman Trade & Jual Beli\n"
+                "• Cloud Phone & Discord Nitro\n"
+                "• dan layanan lainnya!"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="📜 Peraturan Singkat",
+            value=(
+                "**1.** Hormati semua member & admin — no toxic/SARA.\n"
+                "**2.** Dilarang spam & promosi toko lain tanpa izin.\n"
+                "**3.** Transaksi **WAJIB** lewat tiket & admin resmi — "
+                "waspada admin palsu/penipu!\n"
+                "**4.** Selalu simpan bukti pembayaranmu.\n"
+                "**5.** Jangan lupa beri **rating** tiap selesai order — "
+                "rating = garansimu aktif."
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="💬 Siap Order?",
+            value=(
+                "Buka tiket di channel layanan yang sesuai, admin kami siap bantu. "
+                "Kalau ada pertanyaan, tanya aja langsung di server ya!"
+            ),
+            inline=False,
+        )
+        embed.set_thumbnail(url=THUMBNAIL)
+        embed.set_footer(text=f"{STORE_NAME} • Selamat berbelanja & semoga betah! 🤍")
+
+        # Mode test: kirim preview ephemeral ke admin, jangan ke DM member.
+        if interaction is not None:
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+        try:
+            await member.send(embed=embed)
+        except discord.Forbidden:
+            print(f"[Welcome] DM sambutan ke {member.id} ditolak (DM tertutup).")
+        except Exception as e:
+            print(f"[Welcome] DM sambutan error {member.id}: {e}")
 
 
 async def setup(bot: commands.Bot):
