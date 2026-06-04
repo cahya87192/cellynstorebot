@@ -271,7 +271,7 @@ def build_prompt_embed(review: dict, avatar_url: str = None) -> discord.Embed:
     if review.get("item"):
         embed.add_field(name="Item", value=str(review["item"])[:256], inline=True)
     if review.get("nominal"):
-        embed.add_field(name="Nominal", value=f"Rp {review['nominal']:,}", inline=True)
+        embed.add_field(name="Nominal", value=f"Rp {review['nominal']:,}".replace(",", "."), inline=True)
     embed.set_footer(text=f"{STORE_NAME} • Tanpa rating = tanpa garansi")
     return embed
 
@@ -297,42 +297,46 @@ def build_expired_embed(review: dict) -> discord.Embed:
 def build_published_embed(review: dict, member: discord.abc.User | None) -> discord.Embed:
     """Embed ulasan yang diposting ke channel rating setelah member memberi rating.
 
-    Format: title = nama member (thumbnail = foto profilnya), lalu bintang,
-    ulasan, produk, tanggal, dan baris terima kasih.
+    Tampilan kartu: bintang + kutipan ulasan, lalu data pelanggan/produk/layanan
+    dalam kolom, ditutup garis pemisah & ucapan terima kasih. Foto profil member
+    dipakai sebagai thumbnail.
     """
     name = member.display_name if member else f"User {review['user_id']}"
-    rating = int(review.get("rating") or 0)
+    rating = max(0, min(5, int(review.get("rating") or 0)))
+    star_line = "★" * rating + "☆" * (5 - rating)
 
     ulasan = (review.get("review_text") or "").strip()
-    ulasan_line = f'Ulasan: "{ulasan}"' if ulasan else "Ulasan: -"
+    quote = f"❝ {ulasan} ❞" if ulasan else "_(tanpa ulasan teks)_"
 
-    # Tanggal DD/MM/YY dari rated_at (fallback hari ini).
+    # Tanggal DD/MM/YYYY dari rated_at (fallback hari ini).
     tgl = datetime.datetime.now(datetime.timezone.utc)
     if review.get("rated_at"):
         try:
             tgl = datetime.datetime.fromisoformat(review["rated_at"])
         except Exception:
             pass
-    tgl_str = tgl.strftime("%d/%m/%y")
+    tgl_str = tgl.strftime("%d/%m/%Y")
 
     product = review.get("item") or _pretty_layanan(review.get("layanan"))
+    layanan_str = _pretty_layanan(review.get("layanan"))
 
-    desc = (
-        f"{_stars(rating)} ({rating}/5)\n"
-        f"{ulasan_line}\n"
-        f"Product: {product}\n"
-        f"{tgl_str}\n"
-        f"**Rating & ulasan diterima, Terimakasih**"
-    )
     embed = discord.Embed(
-        title=name,
-        description=desc,
+        title="⟡ ULASAN PELANGGAN",
+        description=f"**{star_line}**  ·  {rating}/5\n\n{quote}",
         color=COLOR_REVIEW,
         timestamp=discord.utils.utcnow(),
     )
+    embed.add_field(name="◈ Pelanggan", value=name[:256], inline=True)
+    embed.add_field(name="◈ Produk", value=str(product)[:256], inline=True)
+    embed.add_field(name="◈ Layanan", value=str(layanan_str)[:256], inline=True)
+    embed.add_field(
+        name="\u200b",
+        value="──────────────────────────────\n💛 Terima kasih atas ulasannya, ditunggu next order-nya!",
+        inline=False,
+    )
     if member:
         embed.set_thumbnail(url=member.display_avatar.url)
-    embed.set_footer(text=STORE_NAME)
+    embed.set_footer(text=f"{STORE_NAME} · {tgl_str}")
     return embed
 
 
@@ -721,9 +725,10 @@ class Reviews(commands.Cog):
             lay = _pretty_layanan(t.get("layanan"))
             item = (t.get("item") or "-")
             nominal = t.get("nominal") or 0
+            nominal_str = f"Rp {nominal:,}".replace(",", ".")
             lines.append(
                 f"{_warranty_emoji(t.get('review_status'))} `{when}` · **{lay}**\n"
-                f"   {item} — Rp {nominal:,} · {_warranty_label(t.get('review_status'))}"
+                f"   {item} — {nominal_str} · {_warranty_label(t.get('review_status'))}"
             )
 
         embed = discord.Embed(

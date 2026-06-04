@@ -79,13 +79,23 @@ def build_report_embed(report: dict) -> discord.Embed:
     )
 
     if report["per_layanan"]:
+        max_omzet = max((p["omzet"] for p in report["per_layanan"]), default=0)
         lines = []
         for p in report["per_layanan"]:
             omzet = f"Rp {p['omzet']:,}".replace(",", ".")
-            lines.append(f"• **{_pretty(p['layanan'])}** — {p['count']}x · {omzet}")
+            bar_len = round((p["omzet"] / max_omzet) * 8) if max_omzet else 0
+            bar = "▰" * bar_len + "▱" * (8 - bar_len)
+            lines.append(f"`{bar}` **{_pretty(p['layanan'])}** — {p['count']}x · {omzet}")
         embed.add_field(name="Per Layanan", value="\n".join(lines)[:1024], inline=False)
     else:
         embed.add_field(name="Per Layanan", value="_Tidak ada transaksi._", inline=False)
+
+    if report.get("best_item"):
+        embed.add_field(
+            name="🔥 Produk Terlaris",
+            value=f"**{report['best_item']}** — {report['best_item_qty']}x",
+            inline=False,
+        )
 
     if report["rating_count"]:
         full = int(round(report["rating_avg"]))
