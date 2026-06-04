@@ -100,15 +100,9 @@ def _fmt_rupiah(n) -> str:
 
 
 def _pretty_layanan(layanan: str) -> str:
-    if not layanan:
-        return "-"
-    mapping = {
-        "robux": "Robux Store", "gp": "Robux Gamepass", "ml": "Topup Game",
-        "ff": "Topup Game", "vilog": "Boost via Login", "jualbeli": "Jual Beli",
-        "midman": "Midman Trade",
-    }
-    base = layanan.split(":")[0]
-    return mapping.get(base, layanan.replace(":", " · ").title())
+    # Label terpusat (utils.layanan) agar konsisten dgn review & laporan harian.
+    from utils.layanan import pretty_layanan
+    return pretty_layanan(layanan, default="-")
 
 
 def build_insight_embed(stats: dict, member_name: str, avatar_url: str = None,
@@ -119,7 +113,10 @@ def build_insight_embed(stats: dict, member_name: str, avatar_url: str = None,
     if orders <= 0:
         embed = discord.Embed(
             title="🆕 Pelanggan Baru",
-            description=f"**{member_name}** membuka tiket — belum ada riwayat transaksi.",
+            description=(
+                f"**{member_name}** baru saja membuka tiket.\n"
+                "Belum ada riwayat transaksi — sambut dengan ramah! 🤝"
+            ),
             color=COLOR_INSIGHT,
         )
         if ticket_mention:
@@ -137,13 +134,20 @@ def build_insight_embed(stats: dict, member_name: str, avatar_url: str = None,
     else:
         tag = "🙂 Sudah Pernah Order"
 
+    total_spend = stats.get("total_spend", 0)
+    avg_spend = total_spend // orders if orders else 0
+
     embed = discord.Embed(
         title=f"{tag} — {member_name}",
-        description=f"Order ke-**{orders + 1}** sedang dibuka. Layani dengan baik! 🤝",
+        description=(
+            f"Sedang membuka **order ke-{orders + 1}**. Layani dengan baik! 🤝\n"
+            "──────────────────────────────"
+        ),
         color=COLOR_INSIGHT,
     )
     embed.add_field(name="Total Order", value=f"{orders}x", inline=True)
-    embed.add_field(name="Total Belanja", value=_fmt_rupiah(stats.get("total_spend", 0)), inline=True)
+    embed.add_field(name="Total Belanja", value=_fmt_rupiah(total_spend), inline=True)
+    embed.add_field(name="Rata-rata/Order", value=_fmt_rupiah(avg_spend), inline=True)
 
     if stats.get("rating_count"):
         avg = stats["rating_avg"]
@@ -152,6 +156,10 @@ def build_insight_embed(stats: dict, member_name: str, avatar_url: str = None,
 
     if stats.get("top_layanan"):
         embed.add_field(name="Paling Sering", value=_pretty_layanan(stats["top_layanan"]), inline=True)
+
+    first_at = (stats.get("first_at") or "")[:10]
+    if first_at:
+        embed.add_field(name="Member Sejak", value=f"`{first_at}`", inline=True)
 
     if stats.get("last_item"):
         last_at = (stats.get("last_at") or "")[:10]

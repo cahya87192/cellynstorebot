@@ -69,34 +69,10 @@ def _order_again_button(layanan: str | None) -> discord.ui.Button | None:
     url = f"https://discord.com/channels/{GUILD_ID}/{channel_id}"
     return discord.ui.Button(label=label, style=discord.ButtonStyle.link, url=url)
 
-# Nama layanan ramah-tampilan untuk embed.
-LAYANAN_LABEL = {
-    "robux": "Robux",
-    "vilog": "Vilog (Boost/Premium)",
-    "gp_topup": "Garena/Gameplay Top Up",
-    "jualbeli": "Jual Beli",
-    "midman": "Middleman",
-    "ml": "Mobile Legends",
-    "ff": "Free Fire",
-    "lainnya": "Layanan Lainnya",
-    "cloudphone": "Cloud Phone",
-    "nitro": "Discord Nitro",
-}
-
-
 def _pretty_layanan(layanan: str | None) -> str:
-    if not layanan:
-        return "Order"
-    base = layanan.split(":", 1)[0]
-    label = LAYANAN_LABEL.get(base, base.replace("_", " ").title())
-    # tampilkan sub-grup bila ada (mis. lainnya:editing -> Layanan Lainnya · Editing)
-    if ":" in layanan:
-        sub = layanan.split(":", 1)[1]
-        if sub and sub != "custom":
-            label += f" · {sub.title()}"
-        elif sub == "custom":
-            label += " · Custom"
-    return label
+    # Label terpusat (utils.layanan) agar konsisten dgn insight & laporan harian.
+    from utils.layanan import pretty_layanan
+    return pretty_layanan(layanan, default="Order")
 
 
 def _stars(rating: int) -> str:
