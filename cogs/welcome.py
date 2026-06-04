@@ -8,6 +8,8 @@ from utils.config import ADMIN_ROLE_ID, STORE_NAME
 from utils.db import get_conn
 
 THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
+# Gambar khusus untuk DM sambutan member baru.
+WELCOME_DM_THUMBNAIL = "https://i.imgur.com/4lpmtpL.png"
 DATA_DIR = "data"
 WELCOME_IMAGE_BASE = "welcome"
 BOOST_IMAGE_BASE = "boost"
@@ -376,7 +378,7 @@ class WelcomeCog(commands.Cog):
             ),
             inline=False,
         )
-        embed.set_thumbnail(url=THUMBNAIL)
+        embed.set_thumbnail(url=WELCOME_DM_THUMBNAIL)
         embed.set_footer(text=f"{STORE_NAME} • Selamat berbelanja & semoga betah! 🤍")
 
         # Mode test: kirim preview ephemeral ke admin, jangan ke DM member.
