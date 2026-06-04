@@ -357,7 +357,9 @@ class Midman(commands.Cog):
         closed_at.strftime("%d %b %Y, %H:%M UTC") if closed_at else "-"
         ticket.get("verified_by")
         _midman_item = f"{ticket.get('item_p1', '-')} ↔ {ticket.get('item_p2', '-')}"
-        await ctx.send("Admin telah mengkonfirmasi bahwa trade selesai dan kedua pihak telah menerima item masing-masing. Tiket ditutup dalam 5 detik.")
+        await ctx.send(embed=ticket_ui.ticket_success_embed(
+            "Admin telah mengkonfirmasi trade selesai & kedua pihak menerima item masing-masing."
+        ))
         await asyncio.sleep(5)
         transcript_file = await generate_transcript(ctx.channel, STORE_NAME)
         # Log transaksi (flat text + auto-update garansi setelah rating)
@@ -423,14 +425,9 @@ class Midman(commands.Cog):
         if not ticket:
             await ctx.send("Channel ini bukan tiket aktif.", delete_after=5)
             return
-        embed = discord.Embed(
-            title="❌ TRANSAKSI DIBATALKAN",
-            color=0xFF0000
+        embed = ticket_ui.ticket_cancel_embed(
+            by_mention=ctx.author.mention, reason=alasan
         )
-        embed.add_field(name="Dibatalkan oleh", value=ctx.author.mention, inline=True)
-        embed.add_field(name="Alasan", value=alasan, inline=False)
-        embed.add_field(name="", value="Tiket akan ditutup dalam 5 detik.", inline=False)
-        embed.set_footer(text=STORE_NAME)
         p1 = ticket.get("pihak1")
         p2 = ticket.get("pihak2")
         mentions = " ".join(filter(None, [

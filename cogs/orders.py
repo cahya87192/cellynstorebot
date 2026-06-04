@@ -67,9 +67,10 @@ class OrdersAdmin(commands.Cog):
         durasi_secs = int((closed_at - opened_at_dt).total_seconds())
 
         await ctx.send(
-            f"{member.mention if member else ''}\n"
-            f"Pesanan berhasil diproses. Terima kasih telah berbelanja di {STORE_NAME}! "
-            f"Tiket ditutup dalam 5 detik."
+            content=member.mention if member else None,
+            embed=ticket_ui.ticket_success_embed(
+                f"Pesanan berhasil diproses. Terima kasih telah berbelanja di {STORE_NAME}!"
+            ),
         )
         await asyncio.sleep(5)
 
@@ -158,7 +159,9 @@ class OrdersAdmin(commands.Cog):
         if not ticket:
             return
 
-        await ctx.send(f"❌ Pesanan dibatalkan.\nAlasan: {alasan}\nTiket ditutup dalam 5 detik.")
+        await ctx.send(embed=ticket_ui.ticket_cancel_embed(
+            by_mention=ctx.author.mention, reason=alasan, title="❌ Pesanan Dibatalkan"
+        ))
         await asyncio.sleep(5)
 
         from cogs.lainnya import delete_lainnya_ticket

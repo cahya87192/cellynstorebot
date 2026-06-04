@@ -240,3 +240,51 @@ def success_log_text(
         f"dan ditunggu next ordernya**\n"
         f"{LOG_DIVIDER}"
     )
+
+
+
+# ── Notice penutupan tiket (sukses / batal) ──────────────────────────────────
+# Warna konsisten dipakai semua layanan untuk pesan singkat sebelum channel
+# tiket dihapus, supaya seragam & lebih rapi daripada teks polos.
+COLOR_TICKET_SUCCESS = 0x2ECC71  # hijau
+COLOR_TICKET_CANCEL = 0xED4245   # merah
+
+
+def ticket_success_embed(message: str, *, countdown: int = 5) -> discord.Embed:
+    """Embed kecil 'transaksi selesai' sebelum tiket ditutup otomatis.
+
+    `message` = isi utama (mis. 'Topup berhasil diproses...'). `countdown` =
+    jeda detik sebelum channel dihapus (ditampilkan agar member tidak kaget).
+    """
+    embed = discord.Embed(
+        title="✅ Transaksi Selesai",
+        description=message,
+        color=COLOR_TICKET_SUCCESS,
+    )
+    embed.add_field(
+        name="\u200b",
+        value=f"_Tiket akan ditutup otomatis dalam {countdown} detik._",
+        inline=False,
+    )
+    embed.set_footer(text=f"{STORE_NAME} · Terima kasih sudah berbelanja 💛")
+    return embed
+
+
+def ticket_cancel_embed(*, by_mention: str, reason: str | None = None,
+                        countdown: int = 5,
+                        title: str = "❌ Transaksi Dibatalkan") -> discord.Embed:
+    """Embed kecil pembatalan tiket yang seragam untuk semua layanan."""
+    embed = discord.Embed(title=title, color=COLOR_TICKET_CANCEL)
+    embed.add_field(name="Dibatalkan oleh", value=by_mention, inline=True)
+    embed.add_field(
+        name="Alasan",
+        value=reason or "Tidak ada alasan diberikan.",
+        inline=False,
+    )
+    embed.add_field(
+        name="\u200b",
+        value=f"_Tiket akan ditutup otomatis dalam {countdown} detik._",
+        inline=False,
+    )
+    embed.set_footer(text=STORE_NAME)
+    return embed

@@ -540,9 +540,10 @@ class MLStore(commands.Cog):
         member = ctx.guild.get_member(ticket["user_id"])
         closed_at = datetime.datetime.now(datetime.timezone.utc)
         await ctx.send(
-            f"{member.mention if member else ''}\n"
-            f"Topup berhasil diproses. Terima kasih telah berbelanja di {STORE_NAME}! "
-            f"Tiket ditutup dalam 5 detik."
+            content=member.mention if member else None,
+            embed=ticket_ui.ticket_success_embed(
+                f"Topup berhasil diproses. Terima kasih telah berbelanja di {STORE_NAME}!"
+            ),
         )
         await asyncio.sleep(5)
         transcript_file = await generate_transcript(ctx.channel, STORE_NAME)
@@ -615,10 +616,9 @@ class MLStore(commands.Cog):
         if channel_id not in self.active_tickets:
             await ctx.send("Channel ini bukan tiket ML aktif.", delete_after=5)
             return
-        embed = discord.Embed(title="TOPUP DIBATALKAN", color=0x3498DB)
-        embed.add_field(name="Dibatalkan oleh", value=ctx.author.mention, inline=True)
-        embed.add_field(name="Alasan", value=alasan, inline=False)
-        embed.add_field(name="", value="Tiket akan ditutup dalam 5 detik.", inline=False)
+        embed = ticket_ui.ticket_cancel_embed(
+            by_mention=ctx.author.mention, reason=alasan, title="❌ Topup Dibatalkan"
+        )
         await ctx.send(embed=embed)
         await asyncio.sleep(5)
         delete_ml_ticket(channel_id)
