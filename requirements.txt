@@ -1,0 +1,7 @@
+discord.py==2.7.0
+python-dotenv==1.2.2
+flask
+requests
+aiohttp
+pillow
+rapidfuzz
