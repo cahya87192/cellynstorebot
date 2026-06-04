@@ -583,6 +583,13 @@ class JualBeli(commands.Cog):
             except Exception as e:
                 print(f"[JualBeli] Gagal kirim log: {e}")
 
+        # Refresh leaderboard Top Spender (transaksi baru tercatat)
+        try:
+            from cogs.top_spender import refresh_top_spender
+            await refresh_top_spender(self.bot)
+        except Exception as e:
+            print(f"[TopSpender] refresh error (JualBeli): {e}")
+
         # Transcript
         transcript_ch = guild.get_channel(TRANSCRIPT_CHANNEL_ID)
         if transcript_ch:

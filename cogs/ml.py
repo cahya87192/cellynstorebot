@@ -587,6 +587,14 @@ class MLStore(commands.Cog):
                     set_transaction_log_message(tx_id, log_ch.id, msg.id)
             except Exception as e:
                 print(f"[ML] Gagal kirim log: {e}")
+
+        # Refresh leaderboard Top Spender (transaksi baru tercatat)
+        try:
+            from cogs.top_spender import refresh_top_spender
+            await refresh_top_spender(self.bot)
+        except Exception as e:
+            print(f"[TopSpender] refresh error (ML): {e}")
+
         try:
             royal_role = discord.utils.get(ctx.guild.roles, name="Royal Customer")
             if royal_role and member:

@@ -66,7 +66,7 @@ def _build_embed(status: str) -> discord.Embed:
         )
 
     embed = discord.Embed(
-        title=f"⚠️ Status Stok — Item khusus",
+        title="⚠️ Status Stok — Item khusus",
         description=f"## {status_text}\n\n{desc}",
         color=color,
     )

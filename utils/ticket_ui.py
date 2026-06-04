@@ -189,6 +189,11 @@ def success_log_embed(
     return embed
 
 
+# Garis pemisah tipis di AKHIR pesan log transaksi. Tujuannya supaya beberapa
+# log "transaksi berhasil" yang tercetak berdekatan tetap terlihat terpisah
+# (tidak nempel), tanpa hiasan berlebihan.
+LOG_DIVIDER = "─" * 30
+
 
 def warranty_status_line(rating: int | None) -> str:
     """Baris status garansi untuk pesan log transaksi (flat text).
@@ -197,8 +202,8 @@ def warranty_status_line(rating: int | None) -> str:
     """
     if rating:
         r = max(1, min(5, int(rating)))
-        return f"✅ *Aktif (Sudah DiRating {r} ⭐)*"
-    return "❎ *Belum Aktif (belum DiRating ⭐)*"
+        return f"◈ *Aktif (Sudah DiRating {r} ⭐)*"
+    return "◇ *Belum Aktif (belum DiRating ⭐)*"
 
 
 def success_log_text(
@@ -232,5 +237,6 @@ def success_log_text(
         f"**Harga** : {harga_str}\n"
         f"**Status Garansi** : {warranty_status_line(rating)}\n"
         f"**Jangan lupa feedbacknya di {rating_ref} agar bisa claim garansi "
-        f"dan ditunggu next ordernya**"
+        f"dan ditunggu next ordernya**\n"
+        f"{LOG_DIVIDER}"
     )

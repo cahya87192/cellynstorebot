@@ -474,6 +474,13 @@ class GPStore(commands.Cog):
             except Exception as e:
                 print(f"[GP] Gagal kirim log: {e}")
 
+        # Refresh leaderboard Top Spender (transaksi baru tercatat)
+        try:
+            from cogs.top_spender import refresh_top_spender
+            await refresh_top_spender(self.bot)
+        except Exception as e:
+            print(f"[TopSpender] refresh error (GP): {e}")
+
         # Stock Robux (global)
         try:
             record_robux_outgoing(int(ticket.get("robux", 0) or 0))
