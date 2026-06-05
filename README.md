@@ -95,7 +95,6 @@ Salin `.env.example` ke `.env` dan isi semua variabel:
 | `MIDMAN_CHANNEL_ID` | ID channel midman |
 | `ROBUX_CATALOG_CHANNEL_ID` | ID channel catalog robux |
 | `ML_CATALOG_CHANNEL_ID` | ID channel catalog ML/FF |
-| `SELFROLES_CHANNEL_ID` | ID channel selfroles |
 | `DANA_NUMBER` | Nomor DANA |
 | `BCA_NUMBER` | Nomor BCA |
 | `TESTIMONI_CHANNEL_ID` | ID channel testimoni |

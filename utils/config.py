@@ -14,7 +14,6 @@ ERROR_LOG_CHANNEL_ID = int(os.getenv('ERROR_LOG_CHANNEL_ID'))
 VILOG_CHANNEL_ID = int(os.getenv('VILOG_CHANNEL_ID', 0))
 # Catalog/service channel for Vilog orders
 VILOG_CATALOG_CHANNEL_ID = int(os.getenv('VILOG_CATALOG_CHANNEL_ID', '1493576431718895677'))
-SELFROLES_CHANNEL_ID = int(os.getenv('SELFROLES_CHANNEL_ID'))
 ROBUX_CATALOG_CHANNEL_ID = int(os.getenv('ROBUX_CATALOG_CHANNEL_ID'))
 DANA_NUMBER = os.getenv('DANA_NUMBER', '-')
 BCA_NUMBER = os.getenv('BCA_NUMBER', '-')
