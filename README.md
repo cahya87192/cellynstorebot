@@ -283,36 +283,61 @@ midman/
 ├── requirements.txt
 ├── .env.example
 ├── utils/
-│   ├── config.py         # Semua env variable
-│   ├── db.py             # init_db() + semua tabel SQLite + log_transaction()
-│   ├── counter.py        # Auto-increment nomor tiket
-│   ├── transcript.py     # Generate HTML transcript
-│   ├── fee.py            # Kalkulator fee midman
-│   ├── tickets.py        # CRUD tiket midman trade
-│   ├── robux_db.py       # CRUD tiket robux + bot_state
-│   ├── robux_stock.py    # Stock robux (tersedia + total keluar)
-│   ├── store_hours.py    # Jam operasional (WIB) open/close
-│   ├── autoposter_settings.py  # CRUD autopost tasks
-│   └── gp_db.py          # CRUD GP (gamepass) topup
+│   ├── config.py              # Semua env variable
+│   ├── db.py                  # init_db() + semua tabel SQLite + log_transaction()
+│   ├── env_check.py           # Self-check variabel .env saat startup
+│   ├── counter.py             # Auto-increment nomor tiket
+│   ├── tickets.py             # CRUD tiket midman trade
+│   ├── robux_db.py            # CRUD tiket robux + bot_state
+│   ├── robux_stock.py         # Stock robux (tersedia + total keluar)
+│   ├── gp_db.py               # CRUD GP (gamepass) topup
+│   ├── vilog_db.py            # CRUD tiket Vilog (Robux via login)
+│   ├── fee.py                 # Kalkulator fee midman
+│   ├── transcript.py          # Generate HTML transcript
+│   ├── backup.py              # Backup DB berkala ke channel Discord
+│   ├── store_hours.py         # Jam operasional (WIB) open/close
+│   ├── autoposter_settings.py # CRUD autopost tasks
+│   ├── reviews.py             # Data layer rating & ulasan
+│   ├── subscription.py        # Parse durasi langganan & hitung kedaluwarsa
+│   ├── customer_insight.py    # Insight pelanggan untuk admin saat tiket dibuka
+│   ├── layanan.py             # Label layanan terpusat (kode -> nama tampilan)
+│   ├── service_info.py        # Baca/simpan info layanan (deskripsi, S&K, bayar)
+│   ├── queue.py               # Logika murni antrian tiket (tanpa discord)
+│   ├── ticket_ui.py           # Helper tampilan tiket (nama channel, warna, embed)
+│   └── paginator.py           # Select menu dengan pagination (reusable)
 └── cogs/
-    ├── midman.py         # Midman trade
-    ├── jualbeli.py       # Midman jual beli
-    ├── robux.py          # Robux store
-    ├── vilog.py          # Robux via login (Vilog)
-    ├── store_status.py   # Voice status open/close + refresh catalog
-    ├── ml.py             # Topup ML, FF & WDP
-    ├── lainnya.py        # Cloud Phone & Discord Nitro
-    ├── orders.py         # Shared !done & !cancel
-    ├── welcome.py         # Welcome/leave/boost notif + auto role Customer
-    ├── auto_react.py      # Auto react emoji per channel
-    ├── server_stats.py    # Voice channel stats member count
-    ├── testimoni.py       # Auto-reply channel testimoni
-    ├── qr.py              # QRIS management
-    ├── gp.py              # Topup Robux via Gamepass
-    ├── embed_builder.py   # Custom embed builder
-    ├── afk.py             # AFK system
-    ├── relay.py           # Relay webhook forwarder
-    └── views.py           # Shared Discord UI views
+    ├── midman.py              # Midman trade
+    ├── jualbeli.py            # Midman jual beli
+    ├── robux.py               # Robux store
+    ├── vilog.py               # Robux via login (Vilog)
+    ├── gp.py                  # Topup Robux via Gamepass
+    ├── ml.py                  # Topup ML, FF & WDP
+    ├── lainnya.py             # Cloud Phone & Discord Nitro
+    ├── lainnya_catalog.py     # Data katalog produk "lainnya" (murni data)
+    ├── orders.py              # Shared !done & !cancel
+    ├── modals.py              # Modal form bersama (buka tiket, setup trade)
+    ├── queue.py               # Sistem antrian tiket (papan + posisi)
+    ├── store_status.py        # Voice status open/close + refresh catalog
+    ├── reviews.py             # Sistem rating & ulasan customer
+    ├── warranty.py            # Sistem klaim garansi
+    ├── sub_followup.py        # Auto follow-up perpanjangan langganan (DM)
+    ├── product_search.py      # Pencarian produk lintas-toko via auto-reply
+    ├── admin_stats.py         # Statistik performa admin (kartu publik auto-update)
+    ├── top_spender.py         # Leaderboard top spender bulanan
+    ├── daily_report.py        # Laporan harian otomatis (omzet & rating)
+    ├── server_stats.py        # Voice channel stats member count
+    ├── free_game_notifier.py  # Notif game gratis PC (Epic/Steam/GOG/Ubisoft)
+    ├── mobile_game_notifier.py # Notif game gratis Android/iOS (GamerPower)
+    ├── genshin_notifier.py    # Notif event/banner/redeem code Genshin
+    ├── welcome.py             # Welcome/leave/boost notif + auto role Customer
+    ├── auto_react.py          # Auto react emoji per channel
+    ├── autoposter.py          # Auto-post pesan ke channel via user token
+    ├── embed_builder.py       # Custom embed builder
+    ├── qr.py                  # QRIS management
+    ├── afk.py                 # AFK system
+    ├── relay.py               # Relay webhook forwarder
+    ├── owo_stok.py            # Kelola stok OWO Cash (/owostok)
+    └── views.py               # Shared Discord UI views
 ```
 
 ---
