@@ -14,7 +14,6 @@ Bot Discord untuk operasional toko digital. Menangani transaksi middleman trade,
 - **ML & FF Topup** — topup diamond Mobile Legends, Free Fire, dan Weekly Diamond Pass (WDP)
 - **Cloud Phone & Discord Nitro** — order Redfinger cloud phone dan Discord Nitro via tiket
 - **Welcome** — welcome/leave/boost notif dengan GIF, auto-assign role Customer saat member join
-- **Broadcast** — kirim pengumuman ke channel dengan modal preview, cooldown per admin
 - **Auto React** — auto react emoji ke pesan di channel tertentu atau semua pesan admin
 - **Server Stats** — voice channel nama otomatis update jumlah member
 - **Status Toko (Open/Close)** — voice status otomatis + tombol catalog padam saat toko tutup
@@ -211,7 +210,6 @@ Perubahan produk via web langsung berlaku ke bot tanpa restart.
 | Command | Fungsi |
 |---|---|
 | `/setwelcome` | Atur channel/GIF welcome, boost notif, atau nonaktifkan |
-| `/broadcast` | Kirim pengumuman ke channel (modal preview) |
 | `/setreact` | Set auto react di channel untuk pesan admin |
 | `/setreactall` | Set auto react untuk semua user di channel |
 | `/reactlist` | Lihat daftar channel auto react |
@@ -309,7 +307,6 @@ midman/
     ├── lainnya.py        # Cloud Phone & Discord Nitro
     ├── orders.py         # Shared !done & !cancel
     ├── welcome.py         # Welcome/leave/boost notif + auto role Customer
-    ├── broadcast.py       # Broadcast pengumuman dengan cooldown
     ├── auto_react.py      # Auto react emoji per channel
     ├── server_stats.py    # Voice channel stats member count
     ├── selfroles.py       # Self-assignable roles
@@ -349,7 +346,7 @@ SQLite (`midman.db`) tidak di-push ke GitHub. Di-generate otomatis saat `bash st
 
 **Tabel lainnya:**
 - `auto_react` — channel auto react
-- `bot_state` — state bot (embed message ID catalog, welcome settings, broadcast cooldown, dll)
+- `bot_state` — state bot (embed message ID catalog, welcome settings, dll)
 - `autopost_tasks` — task autopost (channel, message, interval, user_token, loop_counter)
 - `autopost_history` — history posting autopost
 
