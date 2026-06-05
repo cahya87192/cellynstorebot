@@ -1,6 +1,6 @@
 # Midman Bot — Cellyn Store Community
 
-Bot Discord untuk operasional toko digital. Menangani transaksi middleman trade, middleman jual beli, robux store, topup Mobile Legends & Free Fire, Cloud Phone, Discord Nitro, selfroles, welcome, dan admin panel berbasis web.
+Bot Discord untuk operasional toko digital. Menangani transaksi middleman trade, middleman jual beli, robux store, topup Mobile Legends & Free Fire, Cloud Phone, Discord Nitro, welcome, dan admin panel berbasis web.
 
 ---
 
@@ -18,7 +18,6 @@ Bot Discord untuk operasional toko digital. Menangani transaksi middleman trade,
 - **Auto React** — auto react emoji ke pesan di channel tertentu atau semua pesan admin
 - **Server Stats** — voice channel nama otomatis update jumlah member
 - **Status Toko (Open/Close)** — voice status otomatis + tombol catalog padam saat toko tutup
-- **Selfroles** — self-assignable roles via Discord button
 - **AutoPost** — auto-post pesan ke channel Discord via user token, support multiple channel, interval persisten
 - **Admin Panel Web** — kelola produk ML/FF/WDP/Robux/Lainnya dan statistik transaksi via browser
 - **Statistik Transaksi** — dashboard grafik 7 hari dan 30 hari, produk terlaris, jam tersibuk per layanan
@@ -221,7 +220,6 @@ Perubahan produk via web langsung berlaku ke bot tanpa restart.
 ### Lainnya
 | Command | Fungsi |
 |---|---|
-| `!selfroles` | Kirim embed self roles |
 | `!cmd` | Tampilkan prefix guide (auto-hapus 10 detik) |
 | `!ping` | Cek latency |
 
@@ -312,7 +310,6 @@ midman/
     ├── broadcast.py       # Broadcast pengumuman dengan cooldown
     ├── auto_react.py      # Auto react emoji per channel
     ├── server_stats.py    # Voice channel stats member count
-    ├── selfroles.py       # Self-assignable roles
     ├── testimoni.py       # Auto-reply channel testimoni
     ├── qr.py              # QRIS management
     ├── gp.py              # Topup Robux via Gamepass

@@ -475,7 +475,6 @@ class Midman(commands.Cog):
         embed.add_field(
             name="LAINNYA",
             value=(
-                "`!selfroles` — kirim embed self roles\n"
                 "`!relay <on/off/status>` — toggle relay webhook\n"
                 "`!ping` — cek latency"
             ),
