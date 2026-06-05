@@ -18,7 +18,7 @@ ERROR_LOG_CHANNEL_ID = int(os.getenv("ERROR_LOG_CHANNEL_ID", 0))
 BOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 COGS = [
-    "cogs.midman", "cogs.selfroles", "cogs.robux", "cogs.ml",
+    "cogs.midman", "cogs.robux", "cogs.ml",
     "cogs.jualbeli", "cogs.reviews", "cogs.welcome",
     "cogs.broadcast", "cogs.auto_react", "cogs.server_stats", "cogs.lainnya",
     "cogs.orders", "cogs.qr", "cogs.poll", "cogs.embed_builder",
