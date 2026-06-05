@@ -316,7 +316,6 @@ midman/
     ├── testimoni.py       # Auto-reply channel testimoni
     ├── qr.py              # QRIS management
     ├── gp.py              # Topup Robux via Gamepass
-    ├── poll.py            # Poll command
     ├── embed_builder.py   # Custom embed builder
     ├── afk.py             # AFK system
     ├── relay.py           # Relay webhook forwarder
