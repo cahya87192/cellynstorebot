@@ -730,6 +730,16 @@ class Midman(commands.Cog):
             ),
             inline=False
         )
+        embed.add_field(
+            name="ANTRIAN TIKET",
+            value=(
+                "`!antrianboard` — jadikan channel ini Papan Antrian\n"
+                "`!antrianrefresh` — paksa perbarui antrian sekarang\n"
+                "`!antriancards <on/off>` — kartu posisi antrean customer\n"
+                "`!antrianoff` — nonaktifkan papan antrian"
+            ),
+            inline=False
+        )
         embed.set_footer(text=f"{STORE_NAME} • Pesan ini akan hilang dalam 60 detik")
         await ctx.send(embed=embed, delete_after=60)
 
