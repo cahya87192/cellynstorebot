@@ -469,6 +469,18 @@ class Reviews(commands.Cog):
         if review_id is None:
             return  # sudah pernah diproses (tx_id UNIQUE)
 
+        # Garansi manual: bila admin sudah men-set pending-grant untuk member ini
+        # (saat tiket masih kebuka), pasang durasinya ke review ini. Garansi baru
+        # AKTIF setelah member memberi rating.
+        try:
+            grant = rv.pop_pending_warranty(tx["user_id"], tx.get("item"))
+            if grant:
+                rv.set_review_warranty_days(review_id, grant["days"])
+                print(f"[Reviews] garansi manual {grant['days']} hari dipasang "
+                      f"ke tx {tx.get('id')} (user {tx['user_id']}).")
+        except Exception as e:
+            print(f"[Reviews] pasang garansi manual tx {tx.get('id')} error: {e}")
+
         review = rv.get_review(review_id)
 
         user = self.bot.get_user(tx["user_id"])

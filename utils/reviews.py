@@ -66,6 +66,30 @@ def init_reviews_db():
     except Exception as e:
         if "duplicate column" not in str(e).lower():
             print(f"[Reviews] migrasi reminded_at: {e}")
+    # Migrasi: kolom warranty_days (override durasi garansi MANUAL via command).
+    # NULL = pakai logika otomatis (durasi langganan / WARRANTY_DEFAULT_DAYS).
+    try:
+        c.execute("ALTER TABLE reviews ADD COLUMN warranty_days INTEGER")
+    except Exception as e:
+        if "duplicate column" not in str(e).lower():
+            print(f"[Reviews] migrasi warranty_days: {e}")
+    # Tabel "pending grant" garansi manual: di-set admin saat tiket masih kebuka
+    # (sebelum transaksi tercatat), lalu dipasang ke baris review oleh poller saat
+    # transaksi member yang cocok muncul di transaction_log.
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS warranty_pending (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER NOT NULL,
+            item        TEXT,
+            days        INTEGER NOT NULL,
+            note        TEXT,
+            granted_by  INTEGER,
+            created_at  TEXT NOT NULL,
+            consumed_at TEXT
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -456,6 +480,7 @@ def get_warranty_transactions(user_id: int) -> list[dict]:
         f"""
         SELECT r.tx_id AS tx_id, r.layanan AS layanan, r.item AS item,
                r.nominal AS nominal, r.rating AS rating, r.rated_at AS rated_at,
+               r.warranty_days AS warranty_days,
                t.closed_at AS closed_at
         FROM reviews r
         LEFT JOIN transaction_log t ON t.id = r.tx_id
@@ -481,6 +506,135 @@ def has_valid_warranty(user_id: int) -> bool:
     row = c.fetchone()
     conn.close()
     return row is not None
+
+
+# ── Garansi manual / pending-grant (di-set admin via command) ──────────────────────
+# Admin men-"janjikan" durasi garansi untuk transaksi member SEBELUM tiket
+# di-close (saat transaksi belum tercatat). Janji ini disimpan di
+# `warranty_pending`, lalu dipasang ke baris `reviews.warranty_days` oleh poller
+# saat transaksi member yang cocok muncul. Garansi baru AKTIF setelah member
+# memberi rating (status rated/published) — konsisten dgn filosofi "rating=garansi".
+
+def add_pending_warranty(user_id: int, days: int, item: str = None,
+                         note: str = None, granted_by: int = None) -> int:
+    """Catat pending-grant garansi manual untuk transaksi member berikutnya.
+
+    Return id baris pending.
+    """
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        """
+        INSERT INTO warranty_pending (user_id, item, days, note, granted_by, created_at)
+        VALUES (?,?,?,?,?,?)
+        """,
+        (user_id, item, int(days), note, granted_by, _now_iso()),
+    )
+    conn.commit()
+    rowid = c.lastrowid
+    conn.close()
+    return rowid
+
+
+def list_pending_warranty(user_id: int = None, include_consumed: bool = False) -> list[dict]:
+    """Daftar pending-grant (default hanya yang BELUM dipakai).
+
+    Filter per-member bila `user_id` diberikan; urut id menaik (FIFO).
+    """
+    conn = get_conn()
+    c = conn.cursor()
+    where = []
+    params: list = []
+    if user_id is not None:
+        where.append("user_id = ?")
+        params.append(user_id)
+    if not include_consumed:
+        where.append("consumed_at IS NULL")
+    clause = ("WHERE " + " AND ".join(where)) if where else ""
+    c.execute(f"SELECT * FROM warranty_pending {clause} ORDER BY id ASC", params)
+    rows = c.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_pending_warranty(grant_id: int, user_id: int = None) -> bool:
+    """Hapus pending-grant yang BELUM dipakai (pembatalan oleh admin).
+
+    Bila `user_id` diberikan, hanya menghapus bila milik member itu (jaga-jaga).
+    Return True bila ada baris terhapus.
+    """
+    conn = get_conn()
+    c = conn.cursor()
+    if user_id is not None:
+        c.execute(
+            "DELETE FROM warranty_pending WHERE id=? AND user_id=? AND consumed_at IS NULL",
+            (grant_id, user_id),
+        )
+    else:
+        c.execute(
+            "DELETE FROM warranty_pending WHERE id=? AND consumed_at IS NULL",
+            (grant_id,),
+        )
+    changed = c.rowcount
+    conn.commit()
+    conn.close()
+    return changed > 0
+
+
+def _item_matches(grant_item, tx_item) -> bool:
+    """Cocokkan item grant dengan item transaksi (case-insensitive, substring 2 arah).
+
+    grant_item kosong/None dianggap wildcard (cocok untuk transaksi apa pun).
+    """
+    gi = (grant_item or "").strip().lower()
+    if not gi:
+        return True
+    ti = (tx_item or "").strip().lower()
+    if not ti:
+        return False
+    return gi in ti or ti in gi
+
+
+def pop_pending_warranty(user_id: int, item: str = None) -> dict | None:
+    """Ambil & tandai-pakai satu pending-grant yang cocok untuk transaksi member.
+
+    Prioritas: grant ber-item yang cocok (lebih spesifik) dulu, lalu grant
+    wildcard (item kosong). Di antara yang setara, ambil terlama (FIFO).
+    Return baris grant (dict) yang dipakai, atau None bila tak ada yang cocok.
+    """
+    candidates = list_pending_warranty(user_id, include_consumed=False)
+    if not candidates:
+        return None
+    specific = [g for g in candidates
+                if (g.get("item") or "").strip() and _item_matches(g.get("item"), item)]
+    wildcard = [g for g in candidates if not (g.get("item") or "").strip()]
+    chosen = specific or wildcard
+    if not chosen:
+        return None
+    grant = chosen[0]  # FIFO (sudah urut id ASC)
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        "UPDATE warranty_pending SET consumed_at=? WHERE id=? AND consumed_at IS NULL",
+        (_now_iso(), grant["id"]),
+    )
+    changed = c.rowcount
+    conn.commit()
+    conn.close()
+    if changed == 0:
+        return None  # sudah dipakai proses lain (race) -> jangan klaim ganda
+    return grant
+
+
+def set_review_warranty_days(review_id: int, days: int) -> bool:
+    """Pasang override durasi garansi (hari) ke sebuah baris review."""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("UPDATE reviews SET warranty_days=? WHERE id=?", (int(days), review_id))
+    changed = c.rowcount
+    conn.commit()
+    conn.close()
+    return changed > 0
 
 
 # ── Laporan harian (#7) ────────────────────────────────────────────────────────────

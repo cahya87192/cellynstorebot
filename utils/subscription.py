@@ -65,6 +65,28 @@ def is_subscription(name: str) -> bool:
     return parse_duration_days(name) is not None
 
 
+def parse_warranty_duration(text):
+    """Parse input durasi garansi manual (dari command) menjadi jumlah HARI.
+
+    Mendukung:
+    - angka polos -> dianggap hari, mis. "30" -> 30
+    - angka + satuan -> seperti nama produk langganan, mis. "2 minggu" -> 14,
+      "1 bulan" -> 30, "1 tahun" -> 365, "7 hari" -> 7
+
+    Mengembalikan int hari (> 0), atau None bila tidak bisa di-parse / <= 0.
+    """
+    if text is None:
+        return None
+    s = str(text).strip().lower()
+    if not s:
+        return None
+    if re.fullmatch(r"\d+", s):
+        days = int(s)
+        return days if days > 0 else None
+    days = parse_duration_days(s)
+    return days if (days and days > 0) else None
+
+
 def _parse_dt(value):
     """Parse ISO string / datetime jadi datetime aware (UTC). None bila gagal."""
     if value is None:
@@ -81,30 +103,37 @@ def _parse_dt(value):
     return dt
 
 
-def expiry_date(start, name: str, default_days: int = None):
-    """Tanggal kedaluwarsa = start + durasi(nama).
+def expiry_date(start, name: str, default_days: int = None, override_days: int = None):
+    """Tanggal kedaluwarsa = start + durasi.
 
-    `start` boleh ISO string atau datetime. Bila nama tidak punya durasi,
-    pakai `default_days` (bila diberikan) atau None.
+    Prioritas durasi: `override_days` (garansi manual via command) >
+    durasi yang terbaca dari `name` (produk langganan) > `default_days`.
+
+    `start` boleh ISO string atau datetime. Mengembalikan None bila tidak ada
+    durasi yang bisa dipakai atau `start` tak valid.
     """
     start_dt = _parse_dt(start)
     if start_dt is None:
         return None
-    days = parse_duration_days(name)
-    if days is None:
-        days = default_days
+    if override_days is not None:
+        days = override_days
+    else:
+        days = parse_duration_days(name)
+        if days is None:
+            days = default_days
     if days is None:
         return None
     return start_dt + datetime.timedelta(days=days)
 
 
-def days_remaining(start, name: str, now=None, default_days: int = None):
+def days_remaining(start, name: str, now=None, default_days: int = None, override_days: int = None):
     """Sisa hari sampai kedaluwarsa (bisa negatif bila sudah lewat).
 
-    None bila durasi tak diketahui & tak ada default. Sisa waktu positif
-    dibulatkan ke ATAS (sisa 0.1 hari tetap dihitung "1 hari lagi").
+    `override_days` (bila diberikan) memaksa durasi garansi, mengabaikan durasi
+    dari nama & default. None bila durasi tak diketahui & tak ada default. Sisa
+    waktu positif dibulatkan ke ATAS (sisa 0.1 hari tetap dihitung "1 hari lagi").
     """
-    exp = expiry_date(start, name, default_days=default_days)
+    exp = expiry_date(start, name, default_days=default_days, override_days=override_days)
     if exp is None:
         return None
     now_dt = _parse_dt(now) or datetime.datetime.now(datetime.timezone.utc)
