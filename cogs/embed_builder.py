@@ -22,7 +22,7 @@ def build_embed_payload(data: dict) -> dict:
     if data.get("description"): embed["description"] = data["description"]
     if data.get("color"):
         try: embed["color"] = int(str(data["color"]).lstrip("#"), 16)
-        except: pass
+        except (ValueError, TypeError): pass
     if data.get("timestamp"):
         ts = data["timestamp"]
         embed["timestamp"] = ts + ":00" if len(ts) == 16 else ts
