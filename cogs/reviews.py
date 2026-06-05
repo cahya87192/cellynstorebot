@@ -279,7 +279,7 @@ def build_published_embed(review: dict, member: discord.abc.User | None) -> disc
     """
     name = member.display_name if member else f"User {review['user_id']}"
     rating = max(0, min(5, int(review.get("rating") or 0)))
-    star_line = "★" * rating + "☆" * (5 - rating)
+    star_line = _stars(rating)
 
     ulasan = (review.get("review_text") or "").strip()
     quote = f"❝ {ulasan} ❞" if ulasan else "_(tanpa ulasan teks)_"
@@ -599,7 +599,7 @@ class Reviews(commands.Cog):
             cnt = dist.get(s, 0)
             bar_len = round((cnt / total) * 10) if total else 0
             bar = "█" * bar_len + "░" * (10 - bar_len)
-            dist_lines.append(f"`{s}★` {bar} {cnt}")
+            dist_lines.append(f"{s}⭐ {bar} {cnt}")
 
         embed = discord.Embed(
             title=f"📊 Rating — {scope}",

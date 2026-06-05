@@ -160,7 +160,8 @@ class Warranty(commands.Cog):
                 when = (t.get("rated_at") or "")[:10]
                 item = t.get("item") or "-"
                 nominal = t.get("nominal") or 0
-                stars = "⭐" * int(t.get("rating") or 0)
+                r = max(0, min(5, int(t.get("rating") or 0)))
+                stars = "⭐" * r + "☆" * (5 - r)
                 # Sisa masa garansi dihitung dari closed_at + durasi langganan
                 # (atau WARRANTY_DEFAULT_DAYS untuk produk non-langganan).
                 start = t.get("closed_at") or t.get("rated_at")

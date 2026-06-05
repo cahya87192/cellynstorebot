@@ -89,7 +89,7 @@ def build_admin_embed(member: discord.Member, stats: dict) -> discord.Embed:
     rating_avg = stats.get("rating_avg", 0.0)
     rating_count = stats.get("rating_count", 0)
     full = max(0, min(5, int(round(rating_avg))))
-    star_line = "★" * full + "☆" * (5 - full)
+    star_line = "⭐" * full + "☆" * (5 - full)
 
     if rating_count:
         rating_text = f"**{star_line}**  ·  {rating_avg:.2f}/5  ({rating_count} rating)"

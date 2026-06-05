@@ -1055,7 +1055,7 @@ def page_reviews():
 
     def _stars(n):
         n = max(0, min(5, int(round(n or 0))))
-        return "★" * n + "☆" * (5 - n)
+        return "⭐" * n + "☆" * (5 - n)
 
     summary = f"""
     <div class="stat-grid" style="margin-bottom:1.25rem;">
@@ -1077,7 +1077,7 @@ def page_reviews():
         pct = round((cnt / total) * 100) if total else 0
         dist_rows += f"""
         <div style="display:flex;align-items:center;gap:.6rem;margin:.3rem 0;">
-          <span style="width:36px;color:var(--warning);">{s_}★</span>
+          <span style="width:36px;color:var(--warning);">{s_}⭐</span>
           <div style="flex:1;background:var(--surface3);border-radius:6px;height:14px;overflow:hidden;">
             <div style="width:{pct}%;height:100%;background:var(--accent);"></div>
           </div>
@@ -1108,7 +1108,7 @@ def page_reviews():
           <td style="white-space:nowrap;">{medal}</td>
           <td><code>{t['user_id']}</code></td>
           <td>{t['count']}</td>
-          <td style="color:var(--warning);">{t['avg_rating']:.1f}★</td>
+          <td style="color:var(--warning);">{t['avg_rating']:.1f}⭐</td>
         </tr>"""
     if not top_rows:
         top_rows = '<tr><td colspan="4" style="text-align:center;color:var(--muted);">Belum ada data.</td></tr>'
