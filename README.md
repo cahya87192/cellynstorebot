@@ -18,7 +18,6 @@ Bot Discord untuk operasional toko digital. Menangani transaksi middleman trade,
 - **Auto React** — auto react emoji ke pesan di channel tertentu atau semua pesan admin
 - **Server Stats** — voice channel nama otomatis update jumlah member
 - **Status Toko (Open/Close)** — voice status otomatis + tombol catalog padam saat toko tutup
-- **Selfroles** — self-assignable roles via Discord button
 - **AutoPost** — auto-post pesan ke channel Discord via user token, support multiple channel, interval persisten
 - **Admin Panel Web** — kelola produk ML/FF/WDP/Robux/Lainnya dan statistik transaksi via browser
 - **Statistik Transaksi** — dashboard grafik 7 hari dan 30 hari, produk terlaris, jam tersibuk per layanan
