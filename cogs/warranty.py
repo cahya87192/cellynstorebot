@@ -16,18 +16,49 @@ Alur:
 import datetime
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 from utils.config import (
     ADMIN_ROLE_ID, STORE_NAME, TICKET_CATEGORY_ID, WARRANTY_CHANNEL_ID,
+    WARRANTY_DEFAULT_DAYS,
 )
 from utils.counter import next_ticket_number
 from utils import reviews as rv
+from utils import subscription as sub
 from utils import ticket_ui
 
 THUMBNAIL = "https://i.imgur.com/CX8PHWk.png"
 COLOR_WARRANTY = 0x2ECC71
 CLAIM_BUTTON_ID = "warranty_claim_open"
+
+
+def _warranty_remaining(tx: dict):
+    """Sisa hari garansi untuk satu transaksi bergaransi (dict dari
+    rv.get_warranty_transactions).
+
+    Garansi mulai dihitung dari `rated_at` (saat member mengaktifkan garansi
+    dengan memberi rating). Durasi diambil dari: override manual
+    (`warranty_days`, bila di-set admin) > durasi langganan dari nama item >
+    `WARRANTY_DEFAULT_DAYS`. Return int hari (bisa <= 0 bila habis), atau None
+    (tanpa batas / start tak terbaca).
+    """
+    start = tx.get("rated_at") or tx.get("closed_at")
+    return sub.days_remaining(
+        start, tx.get("item"),
+        default_days=WARRANTY_DEFAULT_DAYS,
+        override_days=tx.get("warranty_days"),
+    )
+
+
+def _active_warranty_transactions(user_id: int) -> list:
+    """Transaksi bergaransi yang masa garansinya MASIH aktif (sisa > 0 / tanpa batas)."""
+    active = []
+    for t in rv.get_warranty_transactions(user_id):
+        sisa = _warranty_remaining(t)
+        if sisa is None or sisa > 0:
+            active.append(t)
+    return active
 
 
 def build_panel_embed() -> discord.Embed:
@@ -86,12 +117,20 @@ class Warranty(commands.Cog):
             )
             return
 
-        # Verifikasi kelayakan garansi (rating = garansi).
+        # Verifikasi kelayakan garansi: (1) sudah rating, (2) masa garansi masih aktif.
         if not rv.has_valid_warranty(member.id):
             await interaction.response.send_message(
                 "Maaf, kamu belum memenuhi syarat garansi.\n"
                 "Garansi hanya berlaku untuk transaksi yang **sudah kamu beri rating** "
                 "dalam batas **24 jam** setelah transaksi. 🙏",
+                ephemeral=True,
+            )
+            return
+
+        if not _active_warranty_transactions(member.id):
+            await interaction.response.send_message(
+                "Maaf, masa garansi transaksimu sudah **habis**. 🙏\n"
+                "Tiket klaim hanya bisa dibuka selama garansi masih berlaku.",
                 ephemeral=True,
             )
             return
@@ -149,9 +188,8 @@ class Warranty(commands.Cog):
             return None
 
         # Daftar transaksi yang bergaransi (sudah dirating) + sisa masa garansi.
-        from utils.config import WARRANTY_DEFAULT_DAYS
-        from utils import subscription as sub
-
+        # Garansi mulai dihitung dari rated_at (saat member mengaktifkan dgn rating);
+        # durasi = override manual (bila di-set admin) / durasi langganan / default.
         txs = rv.get_warranty_transactions(member.id)
         active_items = []  # produk yang garansinya masih aktif (untuk template klaim)
         if txs:
@@ -162,17 +200,16 @@ class Warranty(commands.Cog):
                 nominal = t.get("nominal") or 0
                 r = max(0, min(5, int(t.get("rating") or 0)))
                 stars = "⭐" * r + "☆" * (5 - r)
-                # Sisa masa garansi dihitung dari closed_at + durasi langganan
-                # (atau WARRANTY_DEFAULT_DAYS untuk produk non-langganan).
-                start = t.get("closed_at") or t.get("rated_at")
-                sisa = sub.days_remaining(start, item, default_days=WARRANTY_DEFAULT_DAYS)
+                manual = " (manual)" if t.get("warranty_days") is not None else ""
+                sisa = _warranty_remaining(t)
                 if sisa is None:
                     status = "♾️ tanpa batas"
+                    active_items.append(item)
                 elif sisa > 0:
-                    status = f"🟢 garansi {sisa} hari lagi"
+                    status = f"🟢 garansi {sisa} hari lagi{manual}"
                     active_items.append(item)
                 else:
-                    status = "🔴 garansi habis"
+                    status = f"🔴 garansi habis{manual}"
                 lines.append(f"• `{when}` **{item}** — Rp {nominal:,} · {stars}\n  └ {status}")
             tx_text = "\n".join(lines)
             if len(txs) > 10:
@@ -263,6 +300,119 @@ class Warranty(commands.Cog):
             await ctx.channel.delete()
         except Exception as e:
             print(f"[Warranty] close error: {e}")
+
+    # ── Slash command: garansi manual (pending-grant) ─────────────
+    def _is_admin(self, interaction: discord.Interaction) -> bool:
+        roles = getattr(interaction.user, "roles", [])
+        return any(getattr(r, "id", None) == ADMIN_ROLE_ID for r in roles)
+
+    @app_commands.command(
+        name="garansi_set",
+        description="[ADMIN] Set garansi manual untuk pembelian member (aktif setelah member rating).",
+    )
+    @app_commands.describe(
+        member="Member pembeli",
+        durasi="Lama garansi: angka = hari (mis. 30), atau pakai satuan (2 minggu, 1 bulan, 1 tahun)",
+        item="(Opsional) nama item, agar garansi terpasang ke transaksi yang tepat",
+        catatan="(Opsional) catatan internal admin",
+    )
+    async def garansi_set(self, interaction: discord.Interaction, member: discord.Member,
+                          durasi: str, item: str = None, catatan: str = None):
+        if not self._is_admin(interaction):
+            await interaction.response.send_message("Khusus admin.", ephemeral=True)
+            return
+        days = sub.parse_warranty_duration(durasi)
+        if not days or days <= 0:
+            await interaction.response.send_message(
+                "Durasi tidak valid. Contoh: `30`, `2 minggu`, `1 bulan`, `1 tahun`.",
+                ephemeral=True,
+            )
+            return
+        grant_id = rv.add_pending_warranty(
+            member.id, days, item=item, note=catatan, granted_by=interaction.user.id
+        )
+        sasaran = f"item **{item}**" if item else "transaksi berikutnya"
+        await interaction.response.send_message(
+            f"✅ Garansi manual **{days} hari** disiapkan untuk {member.mention} ({sasaran}).\n"
+            "Garansi akan **aktif otomatis** begitu member memberi **rating** pada transaksi tsb. "
+            "Kalau member tidak rating dalam 24 jam, garansi tidak aktif.\n"
+            f"`ID grant: {grant_id}` — batalkan dengan `/garansi_batal`.",
+            ephemeral=True,
+        )
+
+    @app_commands.command(
+        name="garansi_cek",
+        description="[ADMIN] Lihat status & sisa masa garansi seorang member.",
+    )
+    @app_commands.describe(member="Member yang ingin dicek")
+    async def garansi_cek(self, interaction: discord.Interaction, member: discord.Member):
+        if not self._is_admin(interaction):
+            await interaction.response.send_message("Khusus admin.", ephemeral=True)
+            return
+        txs = rv.get_warranty_transactions(member.id)
+        pendings = rv.list_pending_warranty(member.id)
+
+        embed = discord.Embed(
+            title=f"Status Garansi — {member.display_name}",
+            color=COLOR_WARRANTY,
+        )
+        if txs:
+            lines = []
+            for t in txs[:12]:
+                when = (t.get("rated_at") or "")[:10]
+                item = t.get("item") or "-"
+                manual = " (manual)" if t.get("warranty_days") is not None else ""
+                sisa = _warranty_remaining(t)
+                if sisa is None:
+                    st = "♾️ tanpa batas"
+                elif sisa > 0:
+                    st = f"🟢 {sisa} hari lagi{manual}"
+                else:
+                    st = f"🔴 habis{manual}"
+                lines.append(f"• `{when}` {item} — {st}")
+            embed.add_field(
+                name="Transaksi bergaransi (sudah rating)",
+                value="\n".join(lines)[:1024], inline=False,
+            )
+        else:
+            embed.add_field(
+                name="Transaksi bergaransi (sudah rating)",
+                value="_(belum ada — member belum rating transaksi apa pun)_",
+                inline=False,
+            )
+        if pendings:
+            plines = [
+                f"• `ID {g['id']}` — {g['days']} hari"
+                + (f" · item: {g['item']}" if g.get("item") else " · (transaksi berikutnya)")
+                for g in pendings
+            ]
+            embed.add_field(
+                name="Garansi manual menunggu (belum aktif)",
+                value="\n".join(plines)[:1024], inline=False,
+            )
+        embed.set_footer(text=STORE_NAME)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(
+        name="garansi_batal",
+        description="[ADMIN] Batalkan garansi manual yang masih menunggu (pakai ID dari /garansi_cek).",
+    )
+    @app_commands.describe(grant_id="ID grant garansi manual (lihat di /garansi_cek)")
+    async def garansi_batal(self, interaction: discord.Interaction, grant_id: int):
+        if not self._is_admin(interaction):
+            await interaction.response.send_message("Khusus admin.", ephemeral=True)
+            return
+        ok = rv.delete_pending_warranty(grant_id)
+        if ok:
+            await interaction.response.send_message(
+                f"✅ Garansi manual `ID {grant_id}` dibatalkan.", ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                f"Tidak ada garansi manual menunggu dengan `ID {grant_id}` "
+                "(mungkin sudah terpakai atau sudah dibatalkan).",
+                ephemeral=True,
+            )
 
 
 async def setup(bot: commands.Bot):
