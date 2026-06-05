@@ -223,9 +223,7 @@ Perubahan produk via web langsung berlaku ke bot tanpa restart.
 |---|---|
 | `!selfroles` | Kirim embed self roles |
 | `!cmd` | Tampilkan prefix guide (auto-hapus 10 detik) |
-| `!update` | Pull GitHub + restart bot |
 | `!ping` | Cek latency |
-| `!info` | Info bot |
 
 > Semua command prefix kecuali `!open` hanya bisa digunakan oleh role admin.
 
@@ -360,9 +358,9 @@ SQLite (`midman.db`) tidak di-push ke GitHub. Di-generate otomatis saat `bash st
 ## Workflow Development
 
 ```
-HP (dev) → GitHub → Production via !update di Discord
+Dev → GitHub → Deploy ke hosting
 ```
 
-Semua perubahan kode dilakukan di HP, push ke GitHub, lalu `!update` di Discord untuk deploy ke production.
+Perubahan kode di-push ke GitHub, lalu di-deploy ke hosting production (pull/redeploy di server).
 
 **Catatan:** Folder `data/` (GIF welcome/boost) dan `midman.db` tidak di-track Git. Backup secara berkala.

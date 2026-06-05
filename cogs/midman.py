@@ -1,8 +1,4 @@
 import time
-import os
-import sys
-import shutil
-import subprocess
 import discord
 from discord.ext import commands
 import asyncio
@@ -38,51 +34,6 @@ def _set_setting(key: str, value: str):
     conn.commit()
     conn.close()
 
-
-def _count_all_tickets(bot):
-    total = 0
-    cog_attrs = {
-        'Midman': 'active_tickets',
-        'MLStore': 'active_tickets',
-        'RobuxStore': 'active_tickets',
-        'LainnyaStore': 'active_tickets',
-        'JualBeli': 'active_tickets',
-    }
-    for cog_name, attr in cog_attrs.items():
-        cog = bot.cogs.get(cog_name)
-        if cog and hasattr(cog, attr):
-            total += len(getattr(cog, attr))
-    return total
-
-def _restart_admin_panel(bot_dir: str):
-    try:
-        # Kill anything on port 5000 if lsof exists
-        if shutil.which("lsof"):
-            res = subprocess.run(
-                ["lsof", "-ti", ":5000"],
-                capture_output=True,
-                text=True
-            )
-            for pid in res.stdout.split():
-                subprocess.run(["kill", "-9", pid], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        # Kill existing admin.py
-        subprocess.run(["pkill", "-f", f"{bot_dir}/admin.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(["pkill", "-f", "admin.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        # Start admin.py
-        admin_path = os.path.join(bot_dir, "admin.py")
-        with open(os.path.join(bot_dir, "admin.log"), "a") as log:
-            p = subprocess.Popen(
-                [sys.executable, admin_path],
-                stdout=log,
-                stderr=log,
-                start_new_session=True,
-            )
-        time.sleep(0.5)
-        return (p.poll() is None), None
-    except Exception as e:
-        return False, str(e)
 
 class Midman(commands.Cog):
     def __init__(self, bot):
@@ -204,36 +155,6 @@ class Midman(commands.Cog):
         self.bot.add_view(TradeFinishView())
         self.bot.start_time = datetime.datetime.now(datetime.timezone.utc)
         print("Cog Midman siap.")
-        import os
-        if os.path.exists(".update_channel"):
-            with open(".update_channel") as f:
-                data = f.read().strip().split("|")
-            os.remove(".update_channel")
-            ch_id = int(data[0])
-            ts = float(data[1]) if len(data) >= 2 else time.time()
-            new_hash = data[2] if len(data) >= 3 else "unknown"
-            ticket_count = int(data[3]) if len(data) >= 4 else 0
-            elapsed = time.time() - ts
-            if elapsed <= 120:
-                await self.bot.wait_until_ready()
-                await asyncio.sleep(3)
-                ch = self.bot.get_channel(ch_id)
-                if ch:
-                    embed = discord.Embed(
-                        title="✅ Bot Online Kembali",
-                        description="Update berhasil diterapkan. Bot siap melayani.",
-                        color=0x57F287,
-                        timestamp=datetime.datetime.now(datetime.timezone.utc)
-                    )
-                    embed.add_field(name="Versi", value=f"`{new_hash}`", inline=True)
-                    embed.add_field(name="Waktu Restart", value=f"{int(elapsed)} detik", inline=True)
-                    embed.add_field(
-                        name="Tiket Dipulihkan",
-                        value=f"{ticket_count} tiket ✅" if ticket_count else "Tidak ada tiket aktif",
-                        inline=True
-                    )
-                    embed.set_footer(text=STORE_NAME)
-                    await ch.send(embed=embed)
 
     @commands.command(name="open")
     async def open_cmd(self, ctx):
@@ -441,174 +362,6 @@ class Midman(commands.Cog):
             save_tickets(self.active_tickets)
         await ctx.channel.delete()
 
-    @commands.command(name="update")
-    @commands.cooldown(1, 10, commands.BucketType.guild)
-    async def update(self, ctx):
-        if not any(r.id == ADMIN_ROLE_ID for r in ctx.author.roles):
-            return
-        await ctx.message.delete()
-        active_count = len(self.active_tickets)
-        if active_count > 0:
-            confirm_msg = await ctx.send(
-                f"Ada **{active_count} tiket aktif** saat ini. Update sekarang akan interrupt tiket yang sedang berjalan.\n"
-                f"Ketik `!update confirm` untuk tetap update, atau biarkan saja untuk batal."
-            )
-            def check_confirm(m):
-                return m.author == ctx.author and m.channel == ctx.channel and m.content.lower() == '!update confirm'
-            try:
-                import asyncio as _asyncio
-                await ctx.bot.wait_for('message', check=check_confirm, timeout=30)
-                await confirm_msg.delete()
-            except _asyncio.TimeoutError:
-                await confirm_msg.edit(content="Update dibatalkan.")
-                return
-
-        # Backup DB sebelum update
-        try:
-            from utils.backup import do_backup
-            await do_backup(self.bot, BACKUP_CHANNEL_ID)
-        except Exception:
-            pass
-
-        # Simpan commit hash sebelum pull
-        hash_proc = await asyncio.create_subprocess_shell(
-            "git rev-parse HEAD",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        hash_out, _ = await hash_proc.communicate()
-        old_hash = hash_out.decode().strip()
-
-        proc = await asyncio.create_subprocess_shell(
-            "git stash && git pull origin main",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await proc.communicate()
-
-        if proc.returncode == 0:
-            # Ambil changelog
-            log_proc = await asyncio.create_subprocess_shell(
-                f"git log {old_hash}..HEAD --oneline --no-merges",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            log_out, _ = await log_proc.communicate()
-            changelog = log_out.decode().strip()
-
-            # Ambil versi baru
-            new_hash_proc = await asyncio.create_subprocess_shell(
-                "git rev-parse --short HEAD",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            new_hash_out, _ = await new_hash_proc.communicate()
-            new_hash = new_hash_out.decode().strip()
-            old_hash_short = old_hash[:7]
-
-            # Format changelog
-            if changelog:
-                lines = changelog.strip().splitlines()
-                formatted = "\n".join(f"`{line[:7]}` {line[8:]}" for line in lines[:15])
-                commit_count = len(lines)
-            else:
-                formatted = "*Tidak ada commit baru*"
-                commit_count = 0
-
-            # Restart admin panel agar perubahan admin.py ikut aktif
-            admin_restarted, admin_err = await asyncio.to_thread(
-                _restart_admin_panel,
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            )
-
-            # Embed 1 — update berhasil + changelog
-            embed = discord.Embed(
-                title="⬆️ Update Berhasil",
-                color=0x5865F2,
-                timestamp=datetime.datetime.now(datetime.timezone.utc)
-            )
-            embed.add_field(
-                name="Versi",
-                value=f"`{old_hash_short}` → `{new_hash}`",
-                inline=True
-            )
-            embed.add_field(
-                name="Commit Baru",
-                value=str(commit_count),
-                inline=True
-            )
-            embed.add_field(
-                name="Admin Panel",
-                value="✅ Restarted" if admin_restarted else f"⚠️ Gagal: {admin_err or 'unknown'}",
-                inline=True
-            )
-            embed.add_field(
-                name="Tiket Aktif",
-                value=f"{_count_all_tickets(self.bot)} tiket (akan dipulihkan otomatis)",
-                inline=True
-            )
-            embed.add_field(
-                name="Changelog",
-                value=formatted[:1000] if formatted else "*Tidak ada perubahan*",
-                inline=False
-            )
-            embed.add_field(
-                name="DB Backup",
-                value="✅ Tersimpan sebelum update",
-                inline=False
-            )
-            embed.set_footer(text=f"{STORE_NAME} · Bot akan restart dalam 3 detik...")
-            await ctx.send(embed=embed)
-
-            with open(".update_channel", "w") as f:
-                f.write(f"{ctx.channel.id}|{time.time()}|{new_hash}|{_count_all_tickets(self.bot)}")
-            await asyncio.sleep(3)
-            await self.bot.close()
-        else:
-            error_output = (stdout.decode() or stderr.decode())[:1500]
-            embed = discord.Embed(
-                title="❌ Update Gagal",
-                description=f"```\n{error_output}\n```",
-                color=0xED4245,
-                timestamp=datetime.datetime.now(datetime.timezone.utc)
-            )
-            embed.set_footer(text=STORE_NAME)
-            await ctx.send(embed=embed)
-
-    @commands.command(name="info")
-    async def info(self, ctx):
-        await ctx.message.delete()
-        proc = await asyncio.create_subprocess_shell(
-            "git rev-parse --short HEAD",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        out, _ = await proc.communicate()
-        version = out.decode().strip()
-        uptime = datetime.datetime.now(datetime.timezone.utc) - self.bot.start_time
-        hours, remainder = divmod(int(uptime.total_seconds()), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        msg = f"**Versi:** `{version}`\n**Uptime:** {hours} jam {minutes} menit {seconds} detik"
-        await ctx.send(msg)
-
-    @commands.command(name="reboot")
-    @commands.cooldown(1, 10, commands.BucketType.guild)
-    async def reboot(self, ctx):
-        if not any(r.id == ADMIN_ROLE_ID for r in ctx.author.roles):
-            return
-        await ctx.message.delete()
-        try:
-            ok, err = await asyncio.to_thread(
-                _restart_admin_panel,
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            )
-            if ok:
-                await ctx.send("✅ Admin panel direstart.", delete_after=5)
-            else:
-                await ctx.send(f"⚠️ Gagal restart admin panel: {err or 'gagal menjalankan admin.py'}", delete_after=6)
-        except Exception as e:
-            await ctx.send(f"⚠️ Error restart admin panel: {e}", delete_after=6)
-
     @commands.command(name="ping")
     async def ping(self, ctx):
         await ctx.message.delete()
@@ -724,8 +477,6 @@ class Midman(commands.Cog):
             value=(
                 "`!selfroles` — kirim embed self roles\n"
                 "`!relay <on/off/status>` — toggle relay webhook\n"
-                "`!update` — update bot dari GitHub\n"
-                "`!info` — info bot\n"
                 "`!ping` — cek latency"
             ),
             inline=False
