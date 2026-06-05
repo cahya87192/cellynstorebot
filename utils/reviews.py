@@ -393,8 +393,8 @@ def rating_line(layanan: str = None) -> str:
         return ""
     avg = stats["average"]
     n = stats["count"]
-    full = int(round(avg))
-    stars = "⭐" * max(0, min(5, full))
+    full = max(0, min(5, int(round(avg))))
+    stars = "⭐" * full + "☆" * (5 - full)
     return f"{stars} **{avg:.1f}/5** · {n} ulasan"
 
 

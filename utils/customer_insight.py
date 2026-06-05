@@ -151,7 +151,8 @@ def build_insight_embed(stats: dict, member_name: str, avatar_url: str = None,
 
     if stats.get("rating_count"):
         avg = stats["rating_avg"]
-        stars = "⭐" * max(0, min(5, int(round(avg))))
+        _r = max(0, min(5, int(round(avg))))
+        stars = "⭐" * _r + "☆" * (5 - _r)
         embed.add_field(name="Rating Diberikan", value=f"{stars} {avg:.2f} ({stats['rating_count']}x)", inline=True)
 
     if stats.get("top_layanan"):

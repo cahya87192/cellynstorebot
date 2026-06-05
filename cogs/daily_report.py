@@ -78,8 +78,8 @@ def build_report_embed(report: dict) -> discord.Embed:
         )
 
     if report["rating_count"]:
-        full = int(round(report["rating_avg"]))
-        stars = "⭐" * max(0, min(5, full))
+        full = max(0, min(5, int(round(report["rating_avg"]))))
+        stars = "⭐" * full + "☆" * (5 - full)
         embed.add_field(
             name="Rating Hari Ini",
             value=f"{stars} {report['rating_avg']:.2f}/5 · {report['rating_count']} ulasan",
