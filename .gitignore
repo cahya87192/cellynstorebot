@@ -1,10 +1,30 @@
+# Python
 *.pyc
+*.pyo
 __pycache__/
-.env
-tickets.json
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments & local package installs
 venv/
-tickets.json
-midman.db
+.venv/
+.local/
+
+# Package manager caches
+.cache/
+
+# Secrets & local runtime config
+.env
 .update_channel
-__pycache__/
-*.pyc
+
+# Database (generated at runtime by start.sh / init_db)
+midman.db
+*.db-journal
+
+# Logs
+*.log
+
+# Runtime state files
+ticket_counter.json
+tickets.json
