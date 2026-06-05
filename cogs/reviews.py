@@ -273,9 +273,9 @@ def build_expired_embed(review: dict) -> discord.Embed:
 def build_published_embed(review: dict, member: discord.abc.User | None) -> discord.Embed:
     """Embed ulasan yang diposting ke channel rating setelah member memberi rating.
 
-    Tampilan kartu: bintang + kutipan ulasan, lalu data pelanggan/produk/layanan
-    dalam kolom, ditutup garis pemisah & ucapan terima kasih. Foto profil member
-    dipakai sebagai thumbnail.
+    Tampilan kartu (ringkas): bintang + kutipan ulasan, lalu data pelanggan/
+    produk/layanan dalam kolom. Ucapan terima kasih ringkas di footer; foto
+    profil member dipakai sebagai thumbnail.
     """
     name = member.display_name if member else f"User {review['user_id']}"
     rating = max(0, min(5, int(review.get("rating") or 0)))
@@ -305,14 +305,9 @@ def build_published_embed(review: dict, member: discord.abc.User | None) -> disc
     embed.add_field(name="◈ Pelanggan", value=name[:256], inline=True)
     embed.add_field(name="◈ Produk", value=str(product)[:256], inline=True)
     embed.add_field(name="◈ Layanan", value=str(layanan_str)[:256], inline=True)
-    embed.add_field(
-        name="\u200b",
-        value="──────────────────────────────\n💛 Terima kasih atas ulasannya, ditunggu next order-nya!",
-        inline=False,
-    )
     if member:
         embed.set_thumbnail(url=member.display_avatar.url)
-    embed.set_footer(text=f"{STORE_NAME} · {tgl_str}")
+    embed.set_footer(text=f"{STORE_NAME} · 💛 Ditunggu next order-nya! · {tgl_str}")
     return embed
 
 
