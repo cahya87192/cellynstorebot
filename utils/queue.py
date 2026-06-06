@@ -6,12 +6,16 @@ cog supaya:
   - mudah diuji tanpa Discord, dan
   - bersifat READ-ONLY terhadap cog lain (tidak pernah mengubah tiket).
 
-Konvensi tiket per-layanan berbeda-beda, jadi normalisasi dibuat toleran:
-  - Midman  : member di "pihak1" (objek Member), admin di "admin"/"verified_by",
-              "opened_at" berupa objek datetime.
-  - JualBeli: member di "p1_id", "admin_id"/"status" menandai sudah diproses.
-  - Lainnya : member di "user_id", "opened_at" berupa string ISO, dan sinyal
-              proses lewat "admin_id"/"paid"/"fee_paid" bila ada.
+Konvensi tiket per-layanan berbeda-beda untuk member & waktu buka:
+  - Midman  : member di "pihak1" (objek Member), "opened_at" objek datetime.
+  - JualBeli: member di "p1_id".
+  - Lainnya : member di "user_id", "opened_at" berupa string ISO.
+
+Status "diproses" TIDAK lagi ditebak dari isi tiket. Ia ditentukan TUNGGAL
+oleh `handling_map` (hasil command !pay), yaitu dict {channel_id: admin_id}
+yang disuplai oleh cog dari `bot_state`. Ini membuat status seragam &
+predictable untuk semua layanan (sebelumnya heuristik hanya kebaca untuk
+sebagian layanan).
 """
 
 import datetime
@@ -27,9 +31,6 @@ SERVICE_COGS = {
     "Vilog": "vilog",
     "LainnyaStore": "lainnya",
 }
-
-# Status menunggu pada tiket jual-beli (sebelum admin setup).
-_JB_WAITING_STATUS = "menunggu_admin"
 
 
 def _as_datetime(value):
@@ -60,56 +61,52 @@ def _member_id(ticket):
     return None
 
 
-def _admin_id(ticket):
-    """Ambil ID admin penanggung tiket (untuk ditampilkan 'diproses oleh').
+def _coerce_handling_map(handling_map):
+    """Normalkan handling_map ke {int channel_id: admin_id}.
 
-    Toleran lintas-layanan: midman menyimpan objek Member di "admin" /
-    "verified_by", layanan lain memakai "admin_id".
+    Toleran terhadap kunci string (mis. hasil json.loads) supaya pemanggil
+    tidak perlu repot mengkonversi.
     """
-    for key in ("admin", "verified_by"):
-        obj = ticket.get(key)
-        if obj is not None:
-            aid = getattr(obj, "id", None) if not isinstance(obj, int) else obj
-            if aid:
-                return aid
-    return ticket.get("admin_id") or ticket.get("verified_by_id")
+    if not handling_map:
+        return {}
+    out = {}
+    for k, v in handling_map.items():
+        try:
+            out[int(k)] = v
+        except (ValueError, TypeError):
+            continue
+    return out
 
 
-def is_handling(ticket):
-    """True bila tiket sudah ditangani admin / pembayaran terkonfirmasi.
+def normalize_ticket(layanan, channel_id, ticket, handling_map=None):
+    """Bentuk seragam satu tiket untuk keperluan antrian.
 
-    Best-effort lintas-layanan: tidak semua cog menyimpan penanda admin di
-    memori, jadi kita pakai beberapa sinyal yang umum dipakai.
+    `handling_map` ({channel_id: admin_id}) adalah SUMBER KEBENARAN TUNGGAL
+    status "diproses": sebuah tiket dianggap sedang diproses bila & hanya bila
+    channel-nya ada di map (di-set lewat command !pay, dihapus lewat !unpay).
     """
-    if ticket.get("admin") or ticket.get("admin_id") or ticket.get("verified_by"):
-        return True
-    if ticket.get("paid") or ticket.get("fee_paid"):
-        return True
-    status = ticket.get("status")
-    if status and status != _JB_WAITING_STATUS:
-        return True
-    return False
-
-
-def normalize_ticket(layanan, channel_id, ticket):
-    """Bentuk seragam satu tiket untuk keperluan antrian."""
+    hmap = _coerce_handling_map(handling_map)
     return {
         "channel_id": channel_id,
         "layanan": layanan,
         "member_id": _member_id(ticket),
-        "admin_id": _admin_id(ticket),
+        "admin_id": hmap.get(channel_id),
         "ticket_number": ticket.get("ticket_number") or 0,
         "opened_at": _as_datetime(ticket.get("opened_at")),
-        "handling": is_handling(ticket),
+        "handling": channel_id in hmap,
     }
 
 
-def collect_tickets(bot, guild=None):
+def collect_tickets(bot, guild=None, handling_map=None):
     """Kumpulkan tiket aktif dari semua cog layanan -> list dict ternormalisasi.
 
     Bila `guild` diberikan, tiket yang channel-nya sudah tidak ada akan
     dilewati supaya antrian tidak menampilkan sisa tiket "hantu".
+
+    `handling_map` diteruskan ke normalize_ticket untuk menentukan status
+    "diproses" (lihat normalize_ticket).
     """
+    hmap = _coerce_handling_map(handling_map)
     out = []
     for cog_name, layanan in SERVICE_COGS.items():
         cog = bot.cogs.get(cog_name)
@@ -120,7 +117,7 @@ def collect_tickets(bot, guild=None):
                 continue
             if not isinstance(ticket, dict):
                 continue
-            out.append(normalize_ticket(layanan, ch_id, ticket))
+            out.append(normalize_ticket(layanan, ch_id, ticket, hmap))
     return out
 
 

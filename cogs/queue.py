@@ -17,11 +17,15 @@ mengubah .env:
   - queue_board_message_id : id pesan papan (dikelola otomatis)
   - queue_cards_enabled    : "1"/"0" toggle kartu customer
   - queue_card_messages    : JSON {channel_id: message_id} kartu per-tiket
+  - queue_handling_map     : JSON {channel_id: admin_id} — SUMBER KEBENARAN
+        TUNGGAL status "diproses". Diisi lewat !pay, dihapus lewat !unpay,
+        bertahan restart, dan dibersihkan otomatis saat channel tiket dihapus.
 """
 
 import asyncio
 import datetime
 import json
+import time
 
 import discord
 from discord.ext import commands, tasks
@@ -35,9 +39,15 @@ BOARD_CHANNEL_KEY = "queue_board_channel_id"
 BOARD_MESSAGE_KEY = "queue_board_message_id"
 CARDS_ENABLED_KEY = "queue_cards_enabled"
 CARD_MESSAGES_KEY = "queue_card_messages"
+HANDLING_MAP_KEY = "queue_handling_map"
 
 REFRESH_SECONDS = 30
 MAX_BOARD_ROWS = 25  # batas baris di papan agar tetap rapi & dalam limit embed
+
+# Kartu STICKY: jaga kartu posisi tetap di paling bawah channel tiket, tetapi
+# dengan debounce ketat supaya tidak spam / kena rate-limit.
+STICKY_COOLDOWN_SECONDS = 25   # jeda minimal antar re-stick per channel
+STICKY_MIN_MESSAGES = 3        # baru re-stick bila kartu sudah "ketimbun" pesan
 
 COLOR_BOARD = 0x5865F2
 COLOR_WAITING = 0xFFA500   # oranye
@@ -102,10 +112,50 @@ class TicketQueue(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self._card_text_cache = {}  # channel_id -> teks kartu terakhir (kurangi edit)
+        self._sticky_msgcount = {}  # channel_id -> jumlah pesan sejak kartu terakhir
+        self._sticky_last = {}      # channel_id -> monotonic ts re-stick terakhir
+        self._sticky_lock = asyncio.Lock()
         self.refresh_queue.start()
 
     def cog_unload(self):
         self.refresh_queue.cancel()
+
+    # ── State helpers ───────────────────────────────────────────────────────────
+    def _load_handling_map(self):
+        """Map {int channel_id: admin_id} status 'diproses' (dari !pay)."""
+        raw = _get_setting(HANDLING_MAP_KEY)
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        out = {}
+        for k, v in data.items():
+            try:
+                out[int(k)] = v
+            except (ValueError, TypeError):
+                continue
+        return out
+
+    def _save_handling_map(self, handling_map):
+        _set_setting(HANDLING_MAP_KEY, json.dumps({str(k): v for k, v in handling_map.items()}))
+
+    def _collect_ordered(self, guild):
+        """Kumpulkan + urutkan tiket dengan handling_map terkini."""
+        handling_map = self._load_handling_map()
+        tickets = queuelib.collect_tickets(self.bot, guild, handling_map)
+        return queuelib.build_queue(tickets)
+
+    async def _refresh_now(self, guild):
+        """Perbarui papan + kartu seketika (dipakai oleh !pay/!unpay)."""
+        ordered = self._collect_ordered(guild)
+        await self._update_board(guild, ordered)
+        if (_get_setting(CARDS_ENABLED_KEY) or "1") == "1":
+            await self._update_cards(guild, ordered)
+        return ordered
 
     # ── Loop utama ────────────────────────────────────────────────────────────
     @tasks.loop(seconds=REFRESH_SECONDS)
@@ -114,8 +164,8 @@ class TicketQueue(commands.Cog):
             guild = self.bot.get_guild(GUILD_ID)
             if not guild:
                 return
-            tickets = queuelib.collect_tickets(self.bot, guild)
-            ordered = queuelib.build_queue(tickets)
+            self._prune_handling_map(guild)
+            ordered = self._collect_ordered(guild)
             await self._update_board(guild, ordered)
             if (_get_setting(CARDS_ENABLED_KEY) or "1") == "1":
                 await self._update_cards(guild, ordered)
@@ -126,6 +176,16 @@ class TicketQueue(commands.Cog):
     async def before_refresh(self):
         await self.bot.wait_until_ready()
         await asyncio.sleep(10)
+
+    def _prune_handling_map(self, guild):
+        """Bersihkan entri 'diproses' untuk channel tiket yang sudah dihapus."""
+        handling_map = self._load_handling_map()
+        if not handling_map:
+            return
+        alive = {cid: aid for cid, aid in handling_map.items()
+                 if guild.get_channel(cid) is not None}
+        if len(alive) != len(handling_map):
+            self._save_handling_map(alive)
 
     # ── Papan antrian admin ────────────────────────────────────────────────────
     def _board_row(self, t, *, prefix=""):
@@ -316,7 +376,7 @@ class TicketQueue(commands.Cog):
         _set_setting(BOARD_CHANNEL_KEY, ctx.channel.id)
         _set_setting(BOARD_MESSAGE_KEY, "")  # paksa buat pesan baru di sini
         guild = self.bot.get_guild(GUILD_ID)
-        ordered = queuelib.build_queue(queuelib.collect_tickets(self.bot, guild))
+        ordered = self._collect_ordered(guild)
         await self._update_board(guild, ordered)
         await ctx.send(
             "✅ Channel ini diset sebagai **Papan Antrian**. "
@@ -346,7 +406,7 @@ class TicketQueue(commands.Cog):
         except Exception:
             pass
         guild = self.bot.get_guild(GUILD_ID)
-        ordered = queuelib.build_queue(queuelib.collect_tickets(self.bot, guild))
+        ordered = self._collect_ordered(guild)
         await self._update_board(guild, ordered)
         if (_get_setting(CARDS_ENABLED_KEY) or "1") == "1":
             await self._update_cards(guild, ordered)
@@ -372,6 +432,122 @@ class TicketQueue(commands.Cog):
             return
         _set_setting(CARDS_ENABLED_KEY, "1" if mode == "on" else "0")
         await ctx.send(f"✅ Kartu antrean customer di-set **{mode.upper()}**.", delete_after=8)
+
+    # ── !pay / !unpay : sumber kebenaran tunggal status "diproses" ───────────────
+    @commands.command(name="pay")
+    async def pay_cmd(self, ctx):
+        """Tandai tiket INI sedang diproses oleh admin yang menjalankan.
+
+        Disimpan di bot_state (tahan restart). Papan & kartu langsung diperbarui.
+        """
+        if not _is_admin(ctx.author):
+            return
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
+        guild = self.bot.get_guild(GUILD_ID) or ctx.guild
+        ch_id = ctx.channel.id
+        active_ids = {t["channel_id"] for t in queuelib.collect_tickets(self.bot, guild)}
+        if ch_id not in active_ids:
+            await ctx.send(
+                "⚠️ `!pay` hanya untuk dijalankan **di dalam channel tiket aktif**.",
+                delete_after=8,
+            )
+            return
+        handling_map = self._load_handling_map()
+        handling_map[ch_id] = ctx.author.id
+        self._save_handling_map(handling_map)
+        self._card_text_cache.pop(ch_id, None)  # paksa kartu diperbarui
+        await self._refresh_now(guild)
+        await ctx.send(
+            f"○ Tiket ini ditandai **sedang diproses** oleh {ctx.author.mention}.",
+            delete_after=8,
+        )
+
+    @commands.command(name="unpay")
+    async def unpay_cmd(self, ctx):
+        """Batalkan tanda 'sedang diproses' pada tiket ini (undo !pay)."""
+        if not _is_admin(ctx.author):
+            return
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
+        guild = self.bot.get_guild(GUILD_ID) or ctx.guild
+        ch_id = ctx.channel.id
+        handling_map = self._load_handling_map()
+        if ch_id not in handling_map:
+            await ctx.send(
+                "ℹ️ Tiket ini memang belum ditandai 'sedang diproses'.",
+                delete_after=8,
+            )
+            return
+        del handling_map[ch_id]
+        self._save_handling_map(handling_map)
+        self._card_text_cache.pop(ch_id, None)
+        await self._refresh_now(guild)
+        await ctx.send(
+            "🟡 Tanda 'sedang diproses' dibatalkan. Tiket kembali ke antrean menunggu.",
+            delete_after=8,
+        )
+
+    # ── Kartu STICKY ────────────────────────────────────────────────────────────
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        """Jaga kartu posisi tetap di bawah; di-debounce ketat agar tak spam.
+
+        Re-stick hanya bila: channel punya kartu, kartu sudah "ketimbun" minimal
+        STICKY_MIN_MESSAGES pesan, DAN cooldown STICKY_COOLDOWN_SECONDS terlewati.
+        """
+        if message.author.bot or message.guild is None:
+            return
+        if (_get_setting(CARDS_ENABLED_KEY) or "1") != "1":
+            return
+        ch_id = message.channel.id
+        if str(ch_id) not in self._load_card_map():
+            return  # bukan channel tiket yang punya kartu
+
+        self._sticky_msgcount[ch_id] = self._sticky_msgcount.get(ch_id, 0) + 1
+        if self._sticky_msgcount[ch_id] < STICKY_MIN_MESSAGES:
+            return
+        if time.monotonic() - self._sticky_last.get(ch_id, 0.0) < STICKY_COOLDOWN_SECONDS:
+            return
+
+        async with self._sticky_lock:
+            now = time.monotonic()
+            if now - self._sticky_last.get(ch_id, 0.0) < STICKY_COOLDOWN_SECONDS:
+                return
+            self._sticky_last[ch_id] = now
+            self._sticky_msgcount[ch_id] = 0
+            try:
+                await self._restick_card(message.channel)
+            except Exception as e:
+                print(f"[Queue] sticky error ({ch_id}): {e}")
+
+    async def _restick_card(self, channel):
+        """Hapus kartu lama lalu kirim ulang di paling bawah channel."""
+        ordered = self._collect_ordered(channel.guild)
+        t = next((x for x in ordered if x["channel_id"] == channel.id), None)
+        if t is None:
+            return  # tiket sudah tidak aktif
+        card_map = self._load_card_map()
+        key = str(channel.id)
+        old_id = card_map.get(key)
+        text = self._card_text(t)
+        try:
+            msg = await channel.send(embed=self._card_embed(t, text))
+        except Exception as e:
+            print(f"[Queue] sticky send error ({channel.id}): {e}")
+            return
+        card_map[key] = msg.id
+        self._save_card_map(card_map)
+        self._card_text_cache[channel.id] = text
+        if old_id and str(old_id).isdigit() and int(old_id) != msg.id:
+            try:
+                await channel.get_partial_message(int(old_id)).delete()
+            except Exception:
+                pass
 
 
 async def setup(bot):
