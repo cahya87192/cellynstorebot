@@ -60,6 +60,21 @@ def _member_id(ticket):
     return None
 
 
+def _admin_id(ticket):
+    """Ambil ID admin penanggung tiket (untuk ditampilkan 'diproses oleh').
+
+    Toleran lintas-layanan: midman menyimpan objek Member di "admin" /
+    "verified_by", layanan lain memakai "admin_id".
+    """
+    for key in ("admin", "verified_by"):
+        obj = ticket.get(key)
+        if obj is not None:
+            aid = getattr(obj, "id", None) if not isinstance(obj, int) else obj
+            if aid:
+                return aid
+    return ticket.get("admin_id") or ticket.get("verified_by_id")
+
+
 def is_handling(ticket):
     """True bila tiket sudah ditangani admin / pembayaran terkonfirmasi.
 
@@ -82,6 +97,7 @@ def normalize_ticket(layanan, channel_id, ticket):
         "channel_id": channel_id,
         "layanan": layanan,
         "member_id": _member_id(ticket),
+        "admin_id": _admin_id(ticket),
         "ticket_number": ticket.get("ticket_number") or 0,
         "opened_at": _as_datetime(ticket.get("opened_at")),
         "handling": is_handling(ticket),
