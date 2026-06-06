@@ -97,7 +97,9 @@ def _init_db():
 
             warn_message_id INTEGER,
 
-            last_activity   TEXT
+            last_activity   TEXT,
+
+            ticket_number   INTEGER
 
         )
 
@@ -108,6 +110,16 @@ def _init_db():
     try:
 
         c.execute("ALTER TABLE lainnya_tickets ADD COLUMN embed_message_id INTEGER")
+
+        conn.commit()
+
+    except Exception:
+
+        pass
+
+    try:
+
+        c.execute("ALTER TABLE lainnya_tickets ADD COLUMN ticket_number INTEGER")
 
         conn.commit()
 
@@ -235,15 +247,25 @@ def save_lainnya_ticket(ticket: dict):
 
     c = conn.cursor()
 
+    try:
+
+        c.execute("ALTER TABLE lainnya_tickets ADD COLUMN ticket_number INTEGER")
+
+        conn.commit()
+
+    except Exception:
+
+        pass
+
     c.execute('''
 
         INSERT OR REPLACE INTO lainnya_tickets
 
         (channel_id, user_id, item_id, item_name, category, harga, payment_method,
 
-         admin_id, embed_message_id, opened_at, warned, warn_message_id, last_activity)
+         admin_id, embed_message_id, opened_at, warned, warn_message_id, last_activity, ticket_number)
 
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 
     ''', (
 
@@ -258,6 +280,8 @@ def save_lainnya_ticket(ticket: dict):
         ticket.get("opened_at"), ticket.get("warned", 0),
 
         ticket.get("warn_message_id"), ticket.get("last_activity"),
+
+        ticket.get("ticket_number") or 0,
 
     ))
 
@@ -290,6 +314,16 @@ def load_lainnya_tickets():
     conn = get_conn()
 
     c = conn.cursor()
+
+    try:
+
+        c.execute("ALTER TABLE lainnya_tickets ADD COLUMN ticket_number INTEGER")
+
+        conn.commit()
+
+    except Exception:
+
+        pass
 
     c.execute("SELECT * FROM lainnya_tickets")
 

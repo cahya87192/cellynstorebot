@@ -26,12 +26,17 @@ COLOR_BATAL  = 0xE74C3C   # merah — batal
 def save_jb_ticket(ticket: dict):
     conn = get_conn()
     c = conn.cursor()
+    try:
+        c.execute("ALTER TABLE jb_tickets ADD COLUMN ticket_number INTEGER")
+        conn.commit()
+    except Exception:
+        pass
     c.execute('''
         INSERT OR REPLACE INTO jb_tickets (
             channel_id, p1_id, p2_id, deskripsi, harga,
             fee_final, fee_penanggung, admin_id,
-            opened_at, warned, status
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            opened_at, warned, status, ticket_number
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     ''', (
         ticket["channel_id"],
         ticket.get("p1_id"),
@@ -44,6 +49,7 @@ def save_jb_ticket(ticket: dict):
         ticket.get("opened_at"),
         int(ticket.get("warned", 0)),
         ticket.get("status", "menunggu_admin"),
+        ticket.get("ticket_number") or 0,
     ))
     conn.commit()
     conn.close()
@@ -58,6 +64,11 @@ def delete_jb_ticket(channel_id: int):
 def load_jb_tickets() -> dict:
     conn = get_conn()
     c = conn.cursor()
+    try:
+        c.execute("ALTER TABLE jb_tickets ADD COLUMN ticket_number INTEGER")
+        conn.commit()
+    except Exception:
+        pass
     c.execute("SELECT * FROM jb_tickets")
     rows = c.fetchall()
     conn.close()

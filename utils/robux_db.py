@@ -3,11 +3,19 @@ from utils.db import get_conn
 def load_robux_tickets():
     conn = get_conn()
     c = conn.cursor()
+    # Defensif: pastikan kolom ticket_number ada (loader dipanggil di __init__ cog
+    # sebelum save_*), supaya nomor tiket bertahan setelah restart.
+    try:
+        c.execute('ALTER TABLE robux_tickets ADD COLUMN ticket_number INTEGER')
+        conn.commit()
+    except Exception:
+        pass
     c.execute('SELECT * FROM robux_tickets')
     rows = c.fetchall()
     conn.close()
     tickets = {}
     for row in rows:
+        keys = row.keys()
         tickets[row['channel_id']] = {
             'channel_id': row['channel_id'],
             'user_id': row['user_id'],
@@ -22,17 +30,23 @@ def load_robux_tickets():
             'admin_id': row['admin_id'],
             'opened_at': row['opened_at'],
             'warned': bool(row['warned']) if row['warned'] is not None else False,
+            'ticket_number': row['ticket_number'] if 'ticket_number' in keys and row['ticket_number'] is not None else 0,
         }
     return tickets
 
 def save_robux_ticket(ticket):
     conn = get_conn()
     c = conn.cursor()
+    try:
+        c.execute('ALTER TABLE robux_tickets ADD COLUMN ticket_number INTEGER')
+        conn.commit()
+    except Exception:
+        pass
     c.execute('''
         INSERT OR REPLACE INTO robux_tickets
         (channel_id, user_id, item_id, item_name, robux, rate, total,
-         payment_method, payment_embed_msg_id, paid, admin_id, opened_at, warned)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         payment_method, payment_embed_msg_id, paid, admin_id, opened_at, warned, ticket_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         ticket['channel_id'],
         ticket['user_id'],
@@ -47,6 +61,7 @@ def save_robux_ticket(ticket):
         ticket.get('admin_id'),
         ticket['opened_at'],
         1 if ticket.get('warned') else 0,
+        ticket.get('ticket_number') or 0,
     ))
     conn.commit()
     conn.close()
