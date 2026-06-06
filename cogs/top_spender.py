@@ -3,7 +3,7 @@ Cellyn Store - Top Spender Monthly Leaderboard
 - Auto update & edit embed tiap 30 menit
 - Top 20 ditampilkan
 - Role ID 1508950886251106517 diberikan ke top 1-10
-- Reset & announce tiap awal bulan
+- Reset pesan leaderboard tiap awal bulan (tanpa pengumuman pemenang)
 """
 
 import datetime
@@ -122,14 +122,11 @@ class TopSpender(commands.Cog):
         now = datetime.datetime.now(datetime.timezone.utc)
         month_key = f"{now.year}-{now.month:02d}"
 
-        # Cek bulan baru — announce pemenang bulan lalu
+        # Awal bulan: reset pesan leaderboard supaya bulan baru pakai pesan baru.
+        # Tidak ada pengumuman pemenang — Top Spender bukan ajang lomba, jadi
+        # leaderboard cukup diperbarui diam-diam (silent).
         last_reset = _get_setting("topspender_last_reset")
         if last_reset != month_key and now.day == 1:
-            if now.month == 1:
-                prev_year, prev_month = now.year - 1, 12
-            else:
-                prev_year, prev_month = now.year, now.month - 1
-            await self._announce_winner(prev_year, prev_month)
             _set_setting("topspender_last_reset", month_key)
             self._message_id = None
             _set_setting("topspender_message_id", "")
@@ -184,30 +181,6 @@ class TopSpender(commands.Cog):
         except Exception as e:
             print(f"[TopSpender] refresh_now error: {e}")
 
-    # ── Announce pemenang bulan lalu ──────────
-    async def _announce_winner(self, year: int, month: int):
-        channel = self.bot.get_channel(self._channel_id)
-        if not channel:
-            return
-
-        spenders = get_top_spenders(year, month, TOP_SPENDER_TOP_N)
-        month_name = datetime.date(year, month, 1).strftime("%B %Y")
-        if not spenders:
-            return
-
-        mentions = []
-        for s in spenders:
-            m = channel.guild.get_member(s['user_id'])
-            if m:
-                mentions.append(m.mention)
-
-        if mentions:
-            await channel.send(
-                f"🎉 **Top Spender {month_name} telah ditentukan!**\n"
-                f"Berikut para Top Spender kami: {', '.join(mentions)}\n"
-                f"Terima Kasih telah menjadi Pelanggan setia kami!"
-            )
-
     # ── Update role top 1-10 ──────────────────
     async def _update_roles(self, spenders: list[dict], guild: discord.Guild):
         top_role = guild.get_role(TOP_SPENDER_ROLE_ID)
@@ -244,13 +217,22 @@ class TopSpender(commands.Cog):
                      guild: discord.Guild) -> discord.Embed:
         embed = discord.Embed(
             title=f"🏆 Top Spender — {month_name}",
-            description=f"Pelanggan terbaik {STORE_NAME} bulan ini!\n*(diperbarui otomatis tiap ada transaksi)*",
+            description=f"Apresiasi untuk pelanggan setia {STORE_NAME} 💛\n*(diperbarui otomatis tiap ada transaksi)*",
             color=0xF0A500,
             timestamp=datetime.datetime.now(datetime.timezone.utc),
         )
 
         if not spenders:
             embed.add_field(name="\u200b", value="Belum ada data transaksi bulan ini.", inline=False)
+            embed.add_field(
+                name="✨ Benefit Jadi Top Spender",
+                value=(
+                    "👑 Role eksklusif Top Spender (khusus Top 10)\n"
+                    "⚡ Prioritas antrean — pesananmu didahulukan di semua layanan\n"
+                    "🤝 Diutamakan admin saat tiket sedang ramai"
+                ),
+                inline=False,
+            )
             embed.set_footer(text=f"{STORE_NAME} • Reset tiap awal bulan")
             return embed
 
@@ -278,6 +260,15 @@ class TopSpender(commands.Cog):
             )
 
         total_all = sum(s['total'] for s in spenders)
+        embed.add_field(
+            name="✨ Benefit Jadi Top Spender",
+            value=(
+                "👑 Role eksklusif Top Spender (khusus Top 10)\n"
+                "⚡ Prioritas antrean — pesananmu didahulukan di semua layanan\n"
+                "🤝 Diutamakan admin saat tiket sedang ramai"
+            ),
+            inline=False,
+        )
         embed.add_field(
             name="\u200b",
             value=f"────────────────────\n💰 **Total belanja Top {len(spenders)}** — {_rupiah(total_all)}",
@@ -392,7 +383,6 @@ class TopSpender(commands.Cog):
         embed = self._build_embed(spenders, month_name, ch.guild)
         await ch.send(embed=embed)
         if auto:
-            await self._announce_winner(year, month)
             await self._update_roles(spenders, ch.guild)
 
 
