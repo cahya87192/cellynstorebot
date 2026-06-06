@@ -35,6 +35,14 @@ from utils.db import get_conn
 from utils import queue as queuelib
 from utils import ticket_ui
 
+try:
+    # Deteksi prioritas dari DATA transaksi (bukan role). Diimpor defensif supaya
+    # cog antrian tetap jalan walau modul top_spender berubah/absen.
+    from cogs.top_spender import get_top_spenders, TOP_SPENDER_TOP_N
+except Exception:  # pragma: no cover - fallback bila modul tidak tersedia
+    get_top_spenders = None
+    TOP_SPENDER_TOP_N = 10
+
 BOARD_CHANNEL_KEY = "queue_board_channel_id"
 BOARD_MESSAGE_KEY = "queue_board_message_id"
 CARDS_ENABLED_KEY = "queue_cards_enabled"
@@ -143,10 +151,26 @@ class TicketQueue(commands.Cog):
     def _save_handling_map(self, handling_map):
         _set_setting(HANDLING_MAP_KEY, json.dumps({str(k): v for k, v in handling_map.items()}))
 
+    def _get_priority_ids(self):
+        """Set member_id Top Spender bulan berjalan (Top-N), dari DATA transaksi.
+
+        Bukan dari role. Defensif: kembalikan set kosong bila data/akses gagal.
+        """
+        if get_top_spenders is None:
+            return set()
+        try:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            top = get_top_spenders(now.year, now.month, TOP_SPENDER_TOP_N)
+            return {s["user_id"] for s in top if s.get("user_id")}
+        except Exception as e:
+            print(f"[Queue] priority lookup error: {e}")
+            return set()
+
     def _collect_ordered(self, guild):
-        """Kumpulkan + urutkan tiket dengan handling_map terkini."""
+        """Kumpulkan + urutkan tiket dengan handling_map & priority_ids terkini."""
         handling_map = self._load_handling_map()
-        tickets = queuelib.collect_tickets(self.bot, guild, handling_map)
+        priority_ids = self._get_priority_ids()
+        tickets = queuelib.collect_tickets(self.bot, guild, handling_map, priority_ids)
         return queuelib.build_queue(tickets)
 
     async def _refresh_now(self, guild):
@@ -197,7 +221,8 @@ class TicketQueue(commands.Cog):
         when = _fmt_relative(t["opened_at"])
         chan = f"<#{t['channel_id']}>"
         head = f"{prefix} " if prefix else ""
-        base = f"{head}{emoji} `{num}` **{disp}** · {mention}"
+        crown = "👑 " if t.get("is_priority") else ""
+        base = f"{head}{emoji} `{num}` **{disp}** · {crown}{mention}"
         if t["handling"]:
             admin = f"<@{t['admin_id']}>" if t.get("admin_id") else "admin"
             return f"{base} · ditangani oleh {admin} · {chan}"
@@ -232,7 +257,7 @@ class TicketQueue(commands.Cog):
 
         # Seksi: menunggu (terlama di atas), bernomor 1,2,3,...
         lines.append("")
-        lines.append("**🟡 MENUNGGU** _(terlama di atas)_")
+        lines.append("**🟡 MENUNGGU** _(👑 prioritas lalu terlama)_")
         if waiting_list:
             shown = waiting_list[:MAX_BOARD_ROWS]
             for i, t in enumerate(shown, start=1):
