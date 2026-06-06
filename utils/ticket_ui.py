@@ -5,7 +5,7 @@ Dipakai semua cog layanan supaya tampilan seragam.
 
 Konvensi:
 - Nomor tiket GLOBAL (utils.counter.next_ticket_number), ditampilkan 7 digit.
-- Nama channel: "🏷️-{layanan}-{0000044}-{username}".
+- Nama channel: "📍-{layanan}-{0000044}-{username}".
 - Judul embed polos (tanpa emoji), bahasa formal.
 - Embed buka tiket: warna NEON per-layanan.
 - Embed log sukses: selalu NEON HIJAU + reminder rating 24 jam.
@@ -65,8 +65,8 @@ def _sanitize_username(username: str) -> str:
 
 
 def channel_name(layanan: str, number: int, username: str) -> str:
-    """Bangun nama channel: '🏷️-{layanan}-{0000044}-{username}'."""
-    return f"🏷️-{layanan.lower()}-{format_number(number)}-{_sanitize_username(username)}"
+    """Bangun nama channel: '📍-{layanan}-{0000044}-{username}'."""
+    return f"📍-{layanan.lower()}-{format_number(number)}-{_sanitize_username(username)}"
 
 
 def _today_str() -> str:
@@ -192,7 +192,7 @@ def success_log_embed(
 # Garis pemisah tipis di AKHIR pesan log transaksi. Tujuannya supaya beberapa
 # log "transaksi berhasil" yang tercetak berdekatan tetap terlihat terpisah
 # (tidak nempel), tanpa hiasan berlebihan.
-LOG_DIVIDER = "─" * 30
+LOG_DIVIDER = "─" * 50
 
 
 def warranty_status_line(rating: int | None) -> str:
@@ -202,8 +202,8 @@ def warranty_status_line(rating: int | None) -> str:
     """
     if rating:
         r = max(1, min(5, int(rating)))
-        return f"◈ *Aktif (Sudah DiRating {r} ⭐)*"
-    return "◇ *Belum Aktif (belum DiRating ⭐)*"
+        return f"🟢 *Aktif (Sudah DiRating {r} ⭐)*"
+    return "🛑 *Belum Aktif (belum DiRating 💢)*"
 
 
 def success_log_text(
@@ -235,15 +235,15 @@ def success_log_text(
     except (TypeError, ValueError):
         harga_str = f"Rp {harga}"
     return (
-        f"**TERIMA KASIH SUDAH ORDER DI {STORE_NAME.upper()} COMMUNITY**\n"
-        f"**Seller** : {seller}\n"
-        f"**Buyer** : {buyer_line}\n"
-        f"**Product** : {product}\n"
-        f"**Jumlah** : {qty}\n"
-        f"**Harga** : {harga_str}\n"
-        f"**Status Garansi** : {warranty_status_line(rating)}\n"
-        f"**Jangan lupa feedbacknya di {rating_ref} agar bisa claim garansi "
-        f"dan ditunggu next ordernya**\n"
+        f"**🔔 𝗣𝗘𝗠𝗕𝗘𝗟𝗜𝗔𝗡 𝗕𝗘𝗥𝗛𝗔𝗦𝗜𝗟 𝗗𝗜𝗦𝗘𝗟𝗘𝗦𝗔𝗜𝗞𝗔𝗡 🔔**\n"
+        f"**𝗔𝗗𝗠𝗜𝗡** : {seller}\n"
+        f"**𝗕𝗨𝗬𝗘𝗥** : {buyer_line}\n"
+        f"**𝗜𝗧𝗘𝗠** : {product}\n"
+        f"**𝗝𝗨𝗠𝗟𝗔𝗛** : {qty}\n"
+        f"**𝗛𝗔𝗥𝗚𝗔** : {harga_str}\n"
+        f"**𝗚𝗔𝗥𝗔𝗡𝗦𝗜** : {warranty_status_line(rating)}\n"
+        f"**𝗝𝗔𝗡𝗚𝗔𝗡 𝗟𝗨𝗣𝗔 𝗥𝗔𝗧𝗜𝗡𝗚 𝗗𝗜 {rating_ref} 𝗔𝗚𝗔𝗥 𝗚𝗔𝗥𝗔𝗡𝗦𝗜 𝗔𝗞𝗧𝗜𝗙**\n"
+        f"**𝗞𝗔𝗠𝗜 𝗧𝗨𝗡𝗚𝗚𝗨 𝗥𝗘𝗣𝗘𝗔𝗧 𝗢𝗥𝗗𝗘𝗥𝗡𝗬𝗔, 𝗧𝗘𝗥𝗜𝗠𝗔 𝗞𝗔𝗦𝗜𝗛!**\n"
         f"{LOG_DIVIDER}"
     )
 
