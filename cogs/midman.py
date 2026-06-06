@@ -415,6 +415,7 @@ class Midman(commands.Cog):
             value=(
                 "`!gpcatalog` — kirim embed catalog GP Topup\n"
                 "`!gprate <angka>` — set rate GP\n"
+                "`!gplink <link>` — kirim/atur link gamepass\n"
                 "`!gpdone` — konfirmasi gamepass sudah dibeli\n"
                 "`!gpbatal [alasan]` — batalkan tiket GP"
             ),
@@ -475,8 +476,7 @@ class Midman(commands.Cog):
         embed.add_field(
             name="LAINNYA",
             value=(
-                "`!relay <on/off/status>` — toggle relay webhook\n"
-                "`!ping` — cek latency"
+                "`!relay <on/off/status>` — toggle relay webhook"
             ),
             inline=False
         )
@@ -486,7 +486,42 @@ class Midman(commands.Cog):
                 "`!antrianboard` — jadikan channel ini Papan Antrian\n"
                 "`!antrianrefresh` — paksa perbarui antrian sekarang\n"
                 "`!antriancards <on/off>` — kartu posisi antrean customer\n"
-                "`!antrianoff` — nonaktifkan papan antrian"
+                "`!antrianoff` — nonaktifkan papan antrian\n"
+                "`!pay` — tandai tiket ini sedang diproses (di channel tiket)\n"
+                "`!unpay` — batalkan tanda 'sedang diproses' (undo !pay)"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="GARANSI",
+            value=(
+                "`!garansi` — pasang panel klaim garansi\n"
+                "`!garansiclose` — tutup tiket klaim garansi"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="LAPORAN & STATISTIK",
+            value=(
+                "`!laporan [YYYY-MM-DD]` — kirim laporan harian (default: kemarin)"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="UTILITAS",
+            value=(
+                "`!cmd` — tampilkan panduan prefix ini\n"
+                "`!afk [alasan]` — set status AFK\n"
+                "`!ping` — cek latency bot"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="INFO GAME GRATIS",
+            value=(
+                "`!freegames` (`!fg`) — cek game gratis PC (Epic/Steam/GOG/Ubisoft)\n"
+                "`!mobilegames` (`!mg`) — cek game gratis Android & iOS\n"
+                "`!genshin` (`!gi`) — info Genshin: `events`, `banners`, `codes`"
             ),
             inline=False
         )
