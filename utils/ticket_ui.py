@@ -35,7 +35,7 @@ DEFAULT_NEON = 0x1F51FF
 
 # Label layanan ramah-tampilan (judul embed).
 LAYANAN_DISPLAY = {
-    "lainnya": "LAYANAN LAINNYA",
+    "lainnya": "LAINNYA",
     "robux": "ROBUX",
     "ml": "MOBILE LEGENDS",
     "ff": "FREE FIRE",
