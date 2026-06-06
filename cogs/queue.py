@@ -43,6 +43,17 @@ COLOR_BOARD = 0x5865F2
 COLOR_WAITING = 0xFFA500   # oranye
 COLOR_HANDLING = 0x39FF14  # neon hijau
 
+# Emoji per-layanan untuk papan & kartu (selaras dengan slug utils.ticket_ui).
+LAYANAN_EMOJI = {
+    "midman": "🤝",
+    "jualbeli": "🛒",
+    "robux": "🪙",
+    "vilog": "🔑",
+    "gp": "🎟️",
+    "ml": "🎮",
+    "lainnya": "☁️",
+}
+
 
 def _get_setting(key):
     conn = get_conn()
@@ -61,20 +72,26 @@ def _set_setting(key, value):
     conn.close()
 
 
-def _fmt_age(opened_at, now):
-    """Lama tiket terbuka -> string ringkas, mis. '2j 5m', '12m', '8s'."""
+def _layanan_emoji(layanan) -> str:
+    return LAYANAN_EMOJI.get((layanan or "").lower(), "🎫")
+
+
+def _layanan_label(layanan) -> str:
+    return ticket_ui.LAYANAN_DISPLAY.get(layanan, str(layanan or "").upper()).title()
+
+
+def _fmt_ticket_no(number) -> str:
+    """Nomor tiket -> '#0000044'. Safety-net: 0/None -> '—' (bukan '0000000')."""
+    if not number:
+        return "—"
+    return f"#{ticket_ui.format_number(number)}"
+
+
+def _fmt_relative(opened_at) -> str:
+    """Waktu buka -> timestamp relatif Discord (mis. '2 jam lalu'). '-' bila kosong."""
     if not opened_at:
         return "-"
-    secs = int((now - opened_at).total_seconds())
-    if secs < 0:
-        secs = 0
-    jam = secs // 3600
-    menit = (secs % 3600) // 60
-    if jam > 0:
-        return f"{jam}j {menit}m"
-    if menit > 0:
-        return f"{menit}m"
-    return f"{secs}s"
+    return f"<t:{int(opened_at.timestamp())}:R>"
 
 
 def _is_admin(member) -> bool:
@@ -111,6 +128,21 @@ class TicketQueue(commands.Cog):
         await asyncio.sleep(10)
 
     # ── Papan antrian admin ────────────────────────────────────────────────────
+    def _board_row(self, t, *, prefix=""):
+        """Satu baris papan. `prefix` mis. '1.' untuk barisan menunggu."""
+        emoji = _layanan_emoji(t["layanan"])
+        num = _fmt_ticket_no(t["ticket_number"])
+        disp = _layanan_label(t["layanan"])
+        mention = f"<@{t['member_id']}>" if t["member_id"] else "-"
+        when = _fmt_relative(t["opened_at"])
+        chan = f"<#{t['channel_id']}>"
+        head = f"{prefix} " if prefix else ""
+        base = f"{head}{emoji} `{num}` **{disp}** · {mention}"
+        if t["handling"]:
+            admin = f"<@{t['admin_id']}>" if t.get("admin_id") else "admin"
+            return f"{base} · ditangani oleh {admin} · {chan}"
+        return f"{base} · {when} · {chan}"
+
     def _board_embed(self, ordered):
         now = datetime.datetime.now(datetime.timezone.utc)
         waiting, handling = queuelib.queue_counts(ordered)
@@ -124,18 +156,31 @@ class TicketQueue(commands.Cog):
             embed.set_footer(text=f"{STORE_NAME} • diperbarui otomatis")
             return embed
 
-        lines = [f"🟡 Menunggu: **{waiting}**  •  🟢 Diproses: **{handling}**", ""]
-        for t in ordered[:MAX_BOARD_ROWS]:
-            emoji = "🟢" if t["handling"] else "🟡"
-            num = ticket_ui.format_number(t["ticket_number"])
-            disp = ticket_ui.LAYANAN_DISPLAY.get(t["layanan"], t["layanan"].upper())
-            mention = f"<@{t['member_id']}>" if t["member_id"] else "-"
-            age = _fmt_age(t["opened_at"], now)
-            chan = f"<#{t['channel_id']}>"
-            lines.append(f"{emoji} `#{num}` **{disp}** · {mention} · {age} · {chan}")
+        processing = [t for t in ordered if t["handling"]]
+        waiting_list = [t for t in ordered if not t["handling"]]
 
-        if len(ordered) > MAX_BOARD_ROWS:
-            lines.append(f"\n… dan {len(ordered) - MAX_BOARD_ROWS} tiket lagi.")
+        lines = [f"🟡 Menunggu: **{waiting}**   •   ○ Diproses: **{handling}**"]
+
+        # Seksi: sedang diproses
+        lines.append("")
+        lines.append("**○ SEDANG DIPROSES**")
+        if processing:
+            for t in processing[:MAX_BOARD_ROWS]:
+                lines.append(self._board_row(t))
+        else:
+            lines.append("_Tidak ada tiket yang sedang diproses._")
+
+        # Seksi: menunggu (terlama di atas), bernomor 1,2,3,...
+        lines.append("")
+        lines.append("**🟡 MENUNGGU** _(terlama di atas)_")
+        if waiting_list:
+            shown = waiting_list[:MAX_BOARD_ROWS]
+            for i, t in enumerate(shown, start=1):
+                lines.append(self._board_row(t, prefix=f"`{i}.`"))
+            if len(waiting_list) > MAX_BOARD_ROWS:
+                lines.append(f"… dan {len(waiting_list) - MAX_BOARD_ROWS} tiket menunggu lagi.")
+        else:
+            lines.append("_Tidak ada tiket yang menunggu._")
 
         embed.description = "\n".join(lines)[:4000]
         embed.set_footer(text=f"{STORE_NAME} • diperbarui otomatis tiap {REFRESH_SECONDS} detik")
@@ -181,18 +226,23 @@ class TicketQueue(commands.Cog):
         _set_setting(CARD_MESSAGES_KEY, json.dumps(card_map))
 
     def _card_text(self, t):
+        """Teks status untuk customer. Dipakai juga sebagai cache key (kurangi edit)."""
         if t["handling"]:
-            return "🟢 Sedang diproses admin. Mohon tunggu sebentar ya 🙏"
+            admin = f"<@{t['admin_id']}>" if t.get("admin_id") else "admin"
+            return f"○ Sedang diproses oleh {admin}. Mohon tunggu sebentar ya 🙏"
         if t["position"] == 1:
-            return ("🟡 Kamu berada di antrean **terdepan**. "
+            return ("🟡 **Posisi Antrean: 1** — kamu berada di antrean terdepan. "
                     "Admin akan segera memproses pesananmu 🙏")
-        return (f"🟡 Posisi antrean kamu: **ke-{t['position']}** "
-                f"({t['ahead']} tiket di depanmu). Mohon ditunggu ya 🙏")
+        ahead = t.get("ahead") or 0
+        return (f"🟡 **Posisi Antrean: {t['position']}** "
+                f"({ahead} tiket di depanmu). Mohon ditunggu ya 🙏")
 
     def _card_embed(self, t, text):
-        num = ticket_ui.format_number(t["ticket_number"])
+        num = _fmt_ticket_no(t["ticket_number"])
+        disp = _layanan_label(t["layanan"])
+        emoji = _layanan_emoji(t["layanan"])
         embed = discord.Embed(
-            title=f"🎫 Antrean Tiket · #{num}",
+            title=f"{emoji} Tiket {num} · {disp}",
             description=text,
             color=COLOR_HANDLING if t["handling"] else COLOR_WAITING,
         )
