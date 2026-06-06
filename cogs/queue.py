@@ -232,7 +232,7 @@ class TicketQueue(commands.Cog):
         now = datetime.datetime.now(datetime.timezone.utc)
         waiting, handling = queuelib.queue_counts(ordered)
         embed = discord.Embed(
-            title="📋 Papan Antrian Tiket",
+            title="🛗 DAFTAR ANTRIAN TIKET",
             color=COLOR_BOARD,
             timestamp=now,
         )
@@ -244,11 +244,11 @@ class TicketQueue(commands.Cog):
         processing = [t for t in ordered if t["handling"]]
         waiting_list = [t for t in ordered if not t["handling"]]
 
-        lines = [f"🟡 Menunggu: **{waiting}**   •   ○ Diproses: **{handling}**"]
+        lines = [f"⛔ Menunggu: **{waiting}**   •   ♻️ Diproses: **{handling}**"]
 
         # Seksi: sedang diproses
         lines.append("")
-        lines.append("**○ SEDANG DIPROSES**")
+        lines.append("**🟢 SEDANG DIPROSES**")
         if processing:
             for t in processing[:MAX_BOARD_ROWS]:
                 lines.append(self._board_row(t))
@@ -257,7 +257,7 @@ class TicketQueue(commands.Cog):
 
         # Seksi: menunggu (terlama di atas), bernomor 1,2,3,...
         lines.append("")
-        lines.append("**🟡 MENUNGGU** _(👑 prioritas lalu terlama)_")
+        lines.append("**⛔ MENUNGGU**")
         if waiting_list:
             shown = waiting_list[:MAX_BOARD_ROWS]
             for i, t in enumerate(shown, start=1):
@@ -314,13 +314,13 @@ class TicketQueue(commands.Cog):
         """Teks status untuk customer. Dipakai juga sebagai cache key (kurangi edit)."""
         if t["handling"]:
             admin = f"<@{t['admin_id']}>" if t.get("admin_id") else "admin"
-            return f"○ Sedang diproses oleh {admin}. Mohon tunggu sebentar ya 🙏"
+            return f"🟢 Sedang diproses oleh {admin}. Mohon tunggu sebentar ya"
         if t["position"] == 1:
             return ("🟡 **Posisi Antrean: 1** — kamu berada di antrean terdepan. "
-                    "Admin akan segera memproses pesananmu 🙏")
+                    "Admin akan segera memproses pesananmu")
         ahead = t.get("ahead") or 0
-        return (f"🟡 **Posisi Antrean: {t['position']}** "
-                f"({ahead} tiket di depanmu). Mohon ditunggu ya 🙏")
+        return (f"🔄 **Posisi Antrean: {t['position']}** "
+                f"({ahead} tiket di depanmu). Mohon ditunggu ya!")
 
     def _card_embed(self, t, text):
         num = _fmt_ticket_no(t["ticket_number"])
@@ -486,7 +486,7 @@ class TicketQueue(commands.Cog):
         self._card_text_cache.pop(ch_id, None)  # paksa kartu diperbarui
         await self._refresh_now(guild)
         await ctx.send(
-            f"○ Tiket ini ditandai **sedang diproses** oleh {ctx.author.mention}.",
+            f"🚨 Tiket ini ditandai **sedang diproses** oleh {ctx.author.mention}.",
             delete_after=8,
         )
 
