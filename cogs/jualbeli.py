@@ -578,6 +578,7 @@ class JualBeli(commands.Cog):
 
         log_ch = guild.get_channel(LOG_CHANNEL_ID)
         if log_ch:
+            from cogs.top_spender import top_spender_badge
             text = ticket_ui.success_log_text(
                 seller=p1.mention if p1 else f"<@{ticket.get('p1_id')}>",
                 buyer=p2.mention if p2 else f"<@{ticket.get('p2_id')}>",
@@ -586,6 +587,7 @@ class JualBeli(commands.Cog):
                 harga=ticket.get("harga", 0) or 0,
                 rating=None,
                 rating_channel_id=TESTIMONI_CHANNEL_ID,
+                buyer_badge=top_spender_badge(p2.id if p2 else ticket.get("p2_id")),
             )
             try:
                 msg = await log_ch.send(text)

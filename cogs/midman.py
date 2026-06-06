@@ -304,6 +304,8 @@ class Midman(commands.Cog):
             pass
         log_ch = ctx.guild.get_channel(LOG_CHANNEL_ID)
         if log_ch:
+            from cogs.top_spender import top_spender_badge
+            _buyer_id = p2.id if p2 else ticket.get("pihak2_id")
             text = ticket_ui.success_log_text(
                 seller=p1.mention if p1 else "-",
                 buyer=p2.mention if p2 else "-",
@@ -312,6 +314,7 @@ class Midman(commands.Cog):
                 harga=ticket.get("fee_final", 0) or 0,
                 rating=None,
                 rating_channel_id=TESTIMONI_CHANNEL_ID,
+                buyer_badge=top_spender_badge(_buyer_id),
             )
             try:
                 msg = await log_ch.send(text)

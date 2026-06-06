@@ -585,6 +585,7 @@ class MLStore(commands.Cog):
         except Exception as e:
             print(f"[LOG] Gagal log transaksi ml: {e}")
         if log_ch:
+            from cogs.top_spender import top_spender_badge
             text = ticket_ui.success_log_text(
                 seller=ctx.author.mention,
                 buyer=member.mention if member else f"<@{ticket['user_id']}>",
@@ -593,6 +594,7 @@ class MLStore(commands.Cog):
                 harga=ticket.get("harga", 0) or 0,
                 rating=None,
                 rating_channel_id=TESTIMONI_CHANNEL_ID,
+                buyer_badge=top_spender_badge(ticket.get("user_id")),
             )
             try:
                 msg = await log_ch.send(text)

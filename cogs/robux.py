@@ -846,6 +846,7 @@ class RobuxStore(commands.Cog):
 
         log_ch = ctx.guild.get_channel(LOG_CHANNEL_ID)
         if log_ch:
+            from cogs.top_spender import top_spender_badge
             text = ticket_ui.success_log_text(
                 seller=ctx.author.mention,
                 buyer=member.mention if member else f"<@{ticket['user_id']}>",
@@ -854,6 +855,7 @@ class RobuxStore(commands.Cog):
                 harga=ticket.get("total", 0) or 0,
                 rating=None,
                 rating_channel_id=TESTIMONI_CHANNEL_ID,
+                buyer_badge=top_spender_badge(ticket.get("user_id")),
             )
             try:
                 msg = await log_ch.send(text)
