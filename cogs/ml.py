@@ -114,6 +114,11 @@ def load_ml_tickets():
         conn.commit()
     except Exception:
         pass
+    try:
+        c.execute("ALTER TABLE ml_tickets ADD COLUMN ticket_number INTEGER")
+        conn.commit()
+    except Exception:
+        pass
     c.execute("SELECT * FROM ml_tickets")
     rows = c.fetchall()
     conn.close()
@@ -131,6 +136,7 @@ def load_ml_tickets():
             "game": row["game"] if row["game"] else "ML",
             "warned": bool(row["warned"]) if row["warned"] is not None else False,
             "item_label": (row["item_label"] if "item_label" in row.keys() and row["item_label"] else f"{row['dm']} Diamond"),
+            "ticket_number": (row["ticket_number"] if "ticket_number" in row.keys() and row["ticket_number"] is not None else 0),
         }
     return tickets
 
@@ -143,15 +149,21 @@ def save_ml_ticket(ticket):
         conn.commit()
     except Exception:
         pass
+    try:
+        c.execute("ALTER TABLE ml_tickets ADD COLUMN ticket_number INTEGER")
+        conn.commit()
+    except Exception:
+        pass
     c.execute("""
         INSERT OR REPLACE INTO ml_tickets
-        (channel_id, user_id, id_ml, server_id, dm, harga, opened_at, game, warned, item_label)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (channel_id, user_id, id_ml, server_id, dm, harga, opened_at, game, warned, item_label, ticket_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         ticket["channel_id"], ticket["user_id"], ticket["id_ml"], ticket["server_id"],
         ticket["dm"], ticket["harga"], ticket["opened_at"], ticket.get("game", "ML"),
         1 if ticket.get("warned") else 0,
         ticket.get("item_label", f"{ticket['dm']} Diamond"),
+        ticket.get("ticket_number") or 0,
     ))
     conn.commit()
     conn.close()

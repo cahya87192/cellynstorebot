@@ -44,7 +44,8 @@ def ensure_gp_table():
             opened_at        TEXT,
             warned           INTEGER DEFAULT 0,
             warn_message_id  INTEGER,
-            last_activity    TEXT
+            last_activity    TEXT,
+            ticket_number    INTEGER
         )
     """)
     for col, defval in [
@@ -52,6 +53,7 @@ def ensure_gp_table():
         ("warn_message_id", "INTEGER"),
         ("last_activity",   "TEXT"),
         ("gp_link",         "TEXT"),
+        ("ticket_number",   "INTEGER"),
     ]:
         try:
             conn.execute(f"ALTER TABLE gp_tickets ADD COLUMN {col} {defval}")
