@@ -69,7 +69,7 @@ LAYANAN_EMOJI = {
     "vilog": "🔑",
     "gp": "🎟️",
     "ml": "🎮",
-    "lainnya": "☁️",
+    "lainnya": "🔄",
 }
 
 
