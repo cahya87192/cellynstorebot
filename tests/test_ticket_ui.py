@@ -89,3 +89,20 @@ def test_success_log_text_belum_dan_sudah_rating():
     assert "Belum Aktif" not in sudah
     assert sudah.rstrip().endswith(tu.LOG_DIVIDER)
 
+
+def test_success_log_text_buyer_badge():
+    common = dict(
+        seller="<@1>", buyer="<@2>",
+        product="100 Robux", qty=1, harga=15000, rating_channel_id=999,
+    )
+    # Tanpa badge -> baris buyer apa adanya, tanpa spasi gantung.
+    tanpa = tu.success_log_text(rating=None, **common)
+    assert "**Buyer** : <@2>\n" in tanpa
+    # Dengan badge (mis. emoji custom server) -> ditempel setelah nama buyer.
+    badge = "<a:GreenCrown:1480340921705959493>"
+    dengan = tu.success_log_text(rating=None, buyer_badge=badge, **common)
+    assert f"**Buyer** : <@2> {badge}" in dengan
+    # Badge kosong harus identik dengan tanpa-badge.
+    assert tu.success_log_text(rating=None, buyer_badge="", **common) == tanpa
+
+

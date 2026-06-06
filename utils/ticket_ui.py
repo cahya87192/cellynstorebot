@@ -215,14 +215,20 @@ def success_log_text(
     harga=0,
     rating: int | None = None,
     rating_channel_id: int = 0,
+    buyer_badge: str = "",
 ) -> str:
     """Pesan log 'transaksi berhasil' dalam bentuk TEKS FLAT.
 
     Status garansi otomatis menyesuaikan: 'belum aktif' bila belum dirating,
     'aktif' bila sudah. `seller`/`buyer` boleh mention (mis. '<@123>') atau teks.
     Dipakai juga untuk merender ulang pesan setelah member memberi rating.
+
+    `buyer_badge` (opsional): emoji/teks yang ditempel setelah nama buyer, mis.
+    badge Top Spender. Boleh emoji custom server ("<a:nama:id>") karena baris ini
+    dirender sebagai message content biasa (emoji custom tampil normal di situ).
     """
     rating_ref = f"<#{rating_channel_id}>" if rating_channel_id else "channel rating"
+    buyer_line = f"{buyer} {buyer_badge}".rstrip() if buyer_badge else buyer
     try:
         # Format ribuan gaya Indonesia: 11000 -> 11.000
         harga_str = f"Rp {int(harga):,}".replace(",", ".")
@@ -231,7 +237,7 @@ def success_log_text(
     return (
         f"**TERIMA KASIH SUDAH ORDER DI {STORE_NAME.upper()} COMMUNITY**\n"
         f"**Seller** : {seller}\n"
-        f"**Buyer** : {buyer}\n"
+        f"**Buyer** : {buyer_line}\n"
         f"**Product** : {product}\n"
         f"**Jumlah** : {qty}\n"
         f"**Harga** : {harga_str}\n"

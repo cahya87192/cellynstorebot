@@ -547,6 +547,7 @@ class Reviews(commands.Cog):
 
             seller = f"<@{tx['admin_id']}>" if tx.get("admin_id") else "Admin"
             buyer = f"<@{tx['user_id']}>" if tx.get("user_id") else "-"
+            from cogs.top_spender import top_spender_badge
             new_text = ticket_ui.success_log_text(
                 seller=seller,
                 buyer=buyer,
@@ -555,6 +556,7 @@ class Reviews(commands.Cog):
                 harga=tx.get("nominal") or 0,
                 rating=review["rating"],
                 rating_channel_id=TESTIMONI_CHANNEL_ID,
+                buyer_badge=top_spender_badge(tx.get("user_id")),
             )
             await msg.edit(content=new_text)
         except Exception as e:

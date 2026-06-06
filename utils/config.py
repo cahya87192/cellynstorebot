@@ -53,3 +53,8 @@ SUB_FOLLOWUP_LEAD_DAYS = int(os.getenv('SUB_FOLLOWUP_LEAD_DAYS', 3))
 # Channel ADMIN untuk insight pelanggan saat tiket dibuka (0 = pakai LOG_CHANNEL_ID).
 # Data belanja member sengaja dikirim ke channel admin, bukan ke channel tiket.
 CUSTOMER_INSIGHT_CHANNEL_ID = int(os.getenv('CUSTOMER_INSIGHT_CHANNEL_ID', 0))
+
+# Badge yang ditempel di samping nama buyer pada log transaksi bila pembeli
+# termasuk Top Spender bulan berjalan. Boleh emoji unicode atau emoji custom
+# server (format "<:nama:id>" / "<a:nama:id>"). Kosongkan untuk menonaktifkan.
+TOP_SPENDER_BADGE = os.getenv('TOP_SPENDER_BADGE', '<a:GreenCrown:1480340921705959493>')

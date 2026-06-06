@@ -10,7 +10,7 @@ import datetime
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
-from utils.config import ADMIN_ROLE_ID, STORE_NAME
+from utils.config import ADMIN_ROLE_ID, STORE_NAME, TOP_SPENDER_BADGE
 from utils.db import get_conn
 
 TOP_SPENDER_ROLE_ID = 1508950886251106517
@@ -396,6 +396,32 @@ async def refresh_top_spender(bot):
     cog = bot.get_cog("TopSpender")
     if cog is not None:
         await cog.refresh_now()
+
+
+def is_top_spender(user_id: int, when: datetime.datetime = None) -> bool:
+    """True bila user_id termasuk Top-N spender bulan berjalan (berbasis DATA).
+
+    Deteksi dari transaksi (bukan role), konsisten dengan prioritas antrian.
+    Aman dipanggil dari mana saja; return False bila terjadi error/akses gagal.
+    """
+    if not user_id:
+        return False
+    try:
+        now = when or datetime.datetime.now(datetime.timezone.utc)
+        top = get_top_spenders(now.year, now.month, TOP_SPENDER_TOP_N)
+        return any(s["user_id"] == user_id for s in top)
+    except Exception as e:
+        print(f"[TopSpender] is_top_spender error: {e}")
+        return False
+
+
+def top_spender_badge(user_id: int, when: datetime.datetime = None) -> str:
+    """Kembalikan badge Top Spender (config.TOP_SPENDER_BADGE) bila user_id Top-N,
+    selain itu string kosong. Dipakai untuk menempel badge di log transaksi.
+    """
+    if not TOP_SPENDER_BADGE:
+        return ""
+    return TOP_SPENDER_BADGE if is_top_spender(user_id, when) else ""
 
 
 async def setup(bot: commands.Bot):
