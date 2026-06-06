@@ -21,11 +21,11 @@ def test_format_number_7_digit():
 
 
 def test_channel_name_format():
-    assert tu.channel_name("robux", 42, "Budi") == "🏷️-robux-0000042-budi"
+    assert tu.channel_name("robux", 42, "Budi") == "📍-robux-0000042-budi"
     # sanitize: spasi/karakter aneh dibuang, lowercase
-    assert tu.channel_name("lainnya", 7, "Citra Budi!") == "🏷️-lainnya-0000007-citrabudi"
+    assert tu.channel_name("lainnya", 7, "Citra Budi!") == "📍-lainnya-0000007-citrabudi"
     # username kosong -> fallback 'user'
-    assert tu.channel_name("ml", 1, "!!!") == "🏷️-ml-0000001-user"
+    assert tu.channel_name("ml", 1, "!!!") == "📍-ml-0000001-user"
 
 
 def test_neon_colors_per_layanan():
@@ -71,11 +71,11 @@ def test_success_log_text_belum_dan_sudah_rating():
     )
     # Belum rating
     belum = tu.success_log_text(rating=None, **common)
-    assert "TERIMA KASIH SUDAH ORDER" in belum
-    assert "**Seller** : <@1>" in belum
-    assert "**Buyer** : <@2>" in belum
-    assert "**Product** : Apple Music 1 Bulan All Device" in belum
-    assert "**Jumlah** : 1" in belum
+    assert "𝗣𝗘𝗠𝗕𝗘𝗟𝗜𝗔𝗡 𝗕𝗘𝗥𝗛𝗔𝗦𝗜𝗟" in belum
+    assert "𝗔𝗗𝗠𝗜𝗡** : <@1>" in belum
+    assert "𝗕𝗨𝗬𝗘𝗥** : <@2>" in belum
+    assert "𝗜𝗧𝗘𝗠** : Apple Music 1 Bulan All Device" in belum
+    assert "𝗝𝗨𝗠𝗟𝗔𝗛** : 1" in belum
     assert "Rp 11.000" in belum
     assert "Belum Aktif" in belum
     assert "<#999>" in belum  # mention channel rating
@@ -85,7 +85,7 @@ def test_success_log_text_belum_dan_sudah_rating():
 
     # Sudah rating -> teks otomatis berubah
     sudah = tu.success_log_text(rating=5, **common)
-    assert "◈" in sudah and "Aktif (Sudah DiRating 5" in sudah
+    assert "Aktif (Sudah DiRating 5" in sudah
     assert "Belum Aktif" not in sudah
     assert sudah.rstrip().endswith(tu.LOG_DIVIDER)
 
@@ -97,11 +97,11 @@ def test_success_log_text_buyer_badge():
     )
     # Tanpa badge -> baris buyer apa adanya, tanpa spasi gantung.
     tanpa = tu.success_log_text(rating=None, **common)
-    assert "**Buyer** : <@2>\n" in tanpa
+    assert "𝗕𝗨𝗬𝗘𝗥** : <@2>\n" in tanpa
     # Dengan badge (mis. emoji custom server) -> ditempel setelah nama buyer.
     badge = "<a:GreenCrown:1480340921705959493>"
     dengan = tu.success_log_text(rating=None, buyer_badge=badge, **common)
-    assert f"**Buyer** : <@2> {badge}" in dengan
+    assert f"𝗕𝗨𝗬𝗘𝗥** : <@2> {badge}" in dengan
     # Badge kosong harus identik dengan tanpa-badge.
     assert tu.success_log_text(rating=None, buyer_badge="", **common) == tanpa
 

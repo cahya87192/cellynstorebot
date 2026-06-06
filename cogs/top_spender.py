@@ -237,13 +237,17 @@ class TopSpender(commands.Cog):
             return embed
 
         top_lines, rest_lines = [], []
+        # Badge mahkota untuk baris Top-N. Pakai emoji server (TOP_SPENDER_BADGE)
+        # bila di-set; jatuh ke 👑 unicode bila kosong. Custom emoji render normal
+        # di VALUE field embed (beda dgn name/title yang tidak me-render).
+        crown = TOP_SPENDER_BADGE or "👑"
         for i, s in enumerate(spenders, 1):
             member = guild.get_member(s['user_id'])
             name   = member.display_name if member else f"User {s['user_id']}"
             rupiah = _rupiah(s['total'])
             if i <= TOP_SPENDER_TOP_N:
                 rank = MEDAL.get(i, f"`#{i:02d}`")
-                top_lines.append(f"{rank} **{name}** 👑 — {rupiah}")
+                top_lines.append(f"{rank} **{name}** {crown} — {rupiah}")
             else:
                 rest_lines.append(f"`#{i:02d}` {name} — {rupiah}")
 
