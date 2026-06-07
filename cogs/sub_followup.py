@@ -11,13 +11,18 @@ Alur:
 - Ambil transaksi yang belum di-follow-up (fetch_followup_candidates).
 - Saring yang langganannya tinggal <= SUB_FOLLOWUP_LEAD_DAYS hari
   (utils.subscription.needs_followup) — logika murni & teruji.
-- DM member (fallback channel testimoni), lalu tandai mark_followup_sent.
+- DM member, lalu tandai mark_followup_sent.
+
+Catatan privasi: pengingat ini bersifat PERSONAL, jadi HANYA dikirim via DM ke
+member yang bersangkutan. Bila DM gagal (member menutup DM), kegagalan cukup
+dicatat di log admin — TIDAK ada fallback ke channel publik mana pun (mis.
+channel testimoni), supaya promo perpanjangan tidak bocor ke channel ulasan.
 """
 
 import discord
 from discord.ext import commands, tasks
 
-from utils.config import STORE_NAME, GUILD_ID, SUB_FOLLOWUP_LEAD_DAYS, TESTIMONI_CHANNEL_ID
+from utils.config import STORE_NAME, GUILD_ID, SUB_FOLLOWUP_LEAD_DAYS
 from utils.db import fetch_followup_candidates, mark_followup_sent
 from utils import subscription as sub
 
@@ -102,22 +107,17 @@ class SubFollowup(commands.Cog):
                 user = await self.bot.fetch_user(user_id)
             except Exception:
                 user = None
-        if user is not None:
-            try:
-                await user.send(embed=embed, view=view)
-                return
-            except discord.Forbidden:
-                pass
-            except Exception as e:
-                print(f"[SubFollowup] DM error {user_id}: {e}")
-        # Fallback: mention di channel testimoni (best-effort).
-        if TESTIMONI_CHANNEL_ID:
-            channel = self.bot.get_channel(TESTIMONI_CHANNEL_ID)
-            if channel is not None:
-                try:
-                    await channel.send(content=f"<@{user_id}>", embed=embed, view=view)
-                except Exception as e:
-                    print(f"[SubFollowup] channel fallback error: {e}")
+        if user is None:
+            print(f"[SubFollowup] DM dilewati: user {user_id} tidak ditemukan.")
+            return
+        # Pengingat bersifat personal: HANYA via DM. Bila gagal, cukup catat di
+        # log admin — tidak diteruskan ke channel publik apa pun.
+        try:
+            await user.send(embed=embed, view=view)
+        except discord.Forbidden:
+            print(f"[SubFollowup] DM ke {user_id} ditolak (DM tertutup); tidak ada fallback channel.")
+        except Exception as e:
+            print(f"[SubFollowup] DM error {user_id}: {e}")
 
 
 async def setup(bot: commands.Bot):
