@@ -62,10 +62,12 @@ class MidmanTradeModal(discord.ui.Modal, title="Buka Tiket Midman Trade"):
             "opened_at": datetime.datetime.now(datetime.timezone.utc),
         }
         await interaction.response.send_message(f"Tiket dibuat: {channel.mention}", ephemeral=True)
+        from cogs.top_spender import is_top_spender
         embed = ticket_ui.open_ticket_embed(
             "midman", ticket_num, interaction.user,
             item=f"{self.item_p1.value} ↔ {self.item_p2.value}",
             payment="QRIS",
+            is_priority=is_top_spender(interaction.user.id),
             extra_fields=[
                 ("Pihak 1", f"{interaction.user.mention} (item: {self.item_p1.value})", False),
                 ("Pihak 2", f"- (item: {self.item_p2.value})", False),

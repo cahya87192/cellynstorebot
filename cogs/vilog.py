@@ -355,11 +355,13 @@ class Vilog(commands.Cog):
         codes_preview = "\n".join(f"||`{c}`||" for c in backup_codes[:10])
         if len(backup_codes) > 10:
             codes_preview += f"\n(+{len(backup_codes) - 10} kode lagi)"
+        from cogs.top_spender import is_top_spender
         info_embed = ticket_ui.open_ticket_embed(
             "vilog", ticket_number, interaction.user,
             item=f"{robux} Robux via Login (Vilog)",
             total=_format_rp(total),
             payment="QRIS",
+            is_priority=is_top_spender(interaction.user.id),
             extra_fields=[
                 ("Robux", f"{robux} Robux", True),
                 ("Rate", f"{_format_rp(rate)}/Robux", True),

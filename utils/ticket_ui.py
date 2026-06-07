@@ -97,20 +97,28 @@ def open_ticket_embed(
     extra_fields: list[tuple[str, str, bool]] = None,
     description: str = None,
     terms: str = None,
+    is_priority: bool = False,
 ) -> discord.Embed:
     """Embed standar saat tiket dibuka (judul polos, formal, warna neon layanan).
 
     extra_fields: list (name, value, inline) untuk field spesifik layanan.
+    is_priority: bila True (member Top Spender), sisipkan sapaan prioritas 👑.
     """
     display = LAYANAN_DISPLAY.get((layanan or "").lower(), (layanan or "ORDER").upper())
     num = format_number(number)
 
+    desc = (
+        f"Terima kasih telah membuka tiket di {STORE_NAME}.\n"
+        "Admin kami akan segera memproses pesanan Anda."
+    )
+    if is_priority:
+        desc = (
+            "👑 **Halo Top Spender!** Pesananmu kami **prioritaskan** di antrean.\n"
+            + desc
+        )
     embed = discord.Embed(
         title=f"TIKET {display} · #{num}",
-        description=(
-            f"Terima kasih telah membuka tiket di {STORE_NAME}.\n"
-            "Admin kami akan segera memproses pesanan Anda."
-        ),
+        description=desc,
         color=neon_color(layanan),
     )
     embed.add_field(name="Member", value=member.mention, inline=True)

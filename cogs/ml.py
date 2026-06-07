@@ -245,11 +245,13 @@ class GameFormModal(discord.ui.Modal):
         _extra.append(("Status", "Menunggu proses", False))
         _extra.append(("Perintah Admin", "**!mlselesai** — konfirmasi topup selesai\n**!mlbatal [alasan]** — batalkan tiket", False))
         _extra.append(("Peringatan", "Tiket yang tidak aktif selama 2 jam akan otomatis ditutup.", False))
+        from cogs.top_spender import is_top_spender
         embed = ticket_ui.open_ticket_embed(
             game_slug, ticket_number, user,
             item=product["label"],
             total=f"Rp {product['harga']:,}",
             payment="QRIS",
+            is_priority=is_top_spender(user.id),
             extra_fields=_extra,
         )
         if admin_role:
