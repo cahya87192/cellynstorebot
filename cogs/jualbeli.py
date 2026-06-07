@@ -1,8 +1,7 @@
-import time
 import discord
 import datetime
 import asyncio
-from discord.ext import commands, tasks
+from discord.ext import commands
 from utils.config import (
     ADMIN_ROLE_ID, STORE_NAME, TICKET_CATEGORY_ID,
     LOG_CHANNEL_ID, TRANSCRIPT_CHANNEL_ID
@@ -90,9 +89,7 @@ def embed_menunggu_admin(store_name, p1_mention, deskripsi, harga):
         f"Admin    : -\n\n"
         f"Item     : {deskripsi}\n"
         f"Harga    : {format_nominal(harga)}\n\n"
-        f"Status   : Menunggu admin bergabung\n"
-        f"{_sep()}\n"
-        f"Tiket tidak aktif 2 jam akan otomatis ditutup."
+        f"Status   : Menunggu admin bergabung"
     ), inline=False)
     e.set_footer(text=store_name)
     return e
@@ -317,7 +314,6 @@ class JBTradeModal(discord.ui.Modal, title="Midman Jual Beli"):
                 ("Pembeli", "-", True),
                 ("Admin", "-", True),
                 ("Status", "Menunggu admin bergabung", False),
-                ("Peringatan", "Tiket yang tidak aktif selama 2 jam akan otomatis ditutup.", False),
             ])
         view = JBAdminSetupView()
         if admin_role:
@@ -435,11 +431,7 @@ class JualBeli(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.active_tickets: dict = load_jb_tickets()
-        self.auto_close_loop.start()
         print(f"Cog JualBeli siap. ({len(self.active_tickets)} tiket dimuat)")
-
-    def cog_unload(self):
-        self.auto_close_loop.cancel()
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -449,74 +441,6 @@ class JualBeli(commands.Cog):
             self.active_tickets[message.channel.id]["last_activity"] = datetime.datetime.now(
                 datetime.timezone.utc).isoformat()
             save_jb_ticket(self.active_tickets[message.channel.id])
-
-    # ─── AUTO CLOSE ──────────────────────────────────────────────────────────
-
-    @tasks.loop(minutes=10)
-    async def auto_close_loop(self):
-        now = datetime.datetime.now(datetime.timezone.utc)
-        to_close = []
-        for ch_id, ticket in list(self.active_tickets.items()):
-            last = ticket.get("last_activity") or ticket.get("opened_at")
-            if not last:
-                continue
-            try:
-                last_dt = datetime.datetime.fromisoformat(last)
-                if last_dt.tzinfo is None:
-                    last_dt = last_dt.replace(tzinfo=datetime.timezone.utc)
-            except Exception:
-                continue
-            diff = (now - last_dt).total_seconds() / 60
-            channel = self.bot.get_channel(ch_id)
-            if not channel:
-                delete_jb_ticket(ch_id)
-                to_close.append(ch_id)
-                continue
-            if diff >= 120:
-                to_close.append(ch_id)
-                await self._force_close(channel, ticket, "Tiket otomatis ditutup karena tidak aktif selama 2 jam.")
-            elif diff >= 60 and not ticket.get("warned"):
-                ticket["warned"] = 1
-                save_jb_ticket(ticket)
-                # Hapus pesan peringatan lama kalau ada
-                old_warn_id = ticket.get("warn_message_id")
-                if old_warn_id:
-                    try:
-                        old_msg = await channel.fetch_message(old_warn_id)
-                        await old_msg.delete()
-                    except Exception:
-                        pass
-                warn = discord.Embed(title="PERINGATAN TIKET", color=0xFFA500)
-                warn.add_field(name="\u200b", value=(
-                    "Tiket ini tidak ada aktivitas selama **1 jam**.\n\n"
-                    "Jika tidak ada aktivitas dalam 1 jam ke depan, tiket akan **otomatis ditutup** (<t:" + str(int(time.time()) + 3600) + ":R>)."
-                ), inline=False)
-                warn.set_footer(text=STORE_NAME)
-                guild = channel.guild
-                p1 = guild.get_member(ticket["p1_id"])
-                p2 = guild.get_member(ticket["p2_id"]) if ticket.get("p2_id") else None
-                mentions = " ".join(filter(None, [p1.mention if p1 else None, p2.mention if p2 else None]))
-                warn_msg = await channel.send(content=mentions or None, embed=warn)
-                ticket["warn_message_id"] = warn_msg.id
-                save_jb_ticket(ticket)
-        for ch_id in to_close:
-            self.active_tickets.pop(ch_id, None)
-
-    @auto_close_loop.before_loop
-    async def before_loop(self):
-        await self.bot.wait_until_ready()
-
-    async def _force_close(self, channel, ticket, alasan: str):
-        delete_jb_ticket(ticket["channel_id"])
-        try:
-            e = discord.Embed(title="Tiket Ditutup Otomatis", color=COLOR_BATAL)
-            e.add_field(name="Alasan", value=alasan, inline=False)
-            e.set_footer(text=STORE_NAME)
-            await channel.send(embed=e)
-            await asyncio.sleep(3)
-            await channel.delete()
-        except Exception as ex:
-            print(f"[WARNING] JualBeli auto-close: {ex}")
 
     # ─── COMMANDS ────────────────────────────────────────────────────────────
 

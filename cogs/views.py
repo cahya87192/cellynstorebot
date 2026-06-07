@@ -16,9 +16,7 @@ def build_embed_awal(store_name, p1_mention, item_p1, item_p2):
             f"Pihak 1 : {p1_mention}  (item : {item_p1})\n"
             f"Pihak 2 : -      (item : {item_p2})\n"
             f"Admin   : -\n\n"
-            f"Status  : Menunggu konfirmasi admin\n"
-            f"──────────────────────────────\n"
-            f"Tiket yang tidak aktif selama 2 jam akan otomatis ditutup dan transaksi dianggap batal."
+            f"Status  : Menunggu konfirmasi admin"
         ),
         inline=False
     )

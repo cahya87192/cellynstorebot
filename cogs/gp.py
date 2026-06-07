@@ -3,11 +3,10 @@ cogs/gp.py — Topup Robux via Gamepass
 Flow: input nominal → preview harga → konfirmasi → tiket → bayar → gamepass link → selesai
 """
 import math
-import time
 import asyncio
 import datetime
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 from utils.config import (
     ADMIN_ROLE_ID, LOG_CHANNEL_ID, STORE_NAME,
     TICKET_CATEGORY_ID, GUILD_ID, TRANSCRIPT_CHANNEL_ID
@@ -285,7 +284,6 @@ class ConfirmView(discord.ui.View):
                 ("Robux Diterima", f"{self.robux} Robux (after tax)", True),
                 ("Harga Gamepass", f"**{self.gp_price} Robux**\n*(buat gamepass dengan harga ini setelah bayar)*", True),
                 ("Langkah Selanjutnya", "1. Bayar tagihan ke admin via QRIS\n2. Kirim bukti pembayaran di tiket ini\n3. Setelah admin konfirmasi, buat gamepass dengan harga {} Robux\n4. Kirim link gamepass di sini\n5. Tunggu Robux masuk 3-7 hari".format(self.gp_price), False),
-                ("Peringatan", "Tiket tidak aktif 2 jam akan otomatis ditutup.", False),
                 ("Catatan", "Jangan hapus gamepass sebelum Robux masuk.", False),
             ],
         )
@@ -309,63 +307,6 @@ class GPStore(commands.Cog):
         self.bot = bot
         self.catalog_message_id = None
         self.active_tickets = load_gp_tickets()
-        self.auto_close_task.start()
-
-    def cog_unload(self):
-        self.auto_close_task.cancel()
-
-    @tasks.loop(minutes=10)
-    async def auto_close_task(self):
-        now = datetime.datetime.now(datetime.timezone.utc)
-        for ch_id, ticket in list(self.active_tickets.items()):
-            if ticket.get("paid"):
-                continue
-            last = ticket.get("last_activity") or ticket.get("opened_at")
-            if not last:
-                continue
-            last_dt = datetime.datetime.fromisoformat(last)
-            if last_dt.tzinfo is None:
-                last_dt = last_dt.replace(tzinfo=datetime.timezone.utc)
-            elapsed = (now - last_dt).total_seconds()
-            guild = self.bot.get_guild(GUILD_ID)
-            if not guild:
-                continue
-            channel = guild.get_channel(ch_id)
-            if elapsed >= 7200:
-                delete_gp_ticket(ch_id)
-                self.active_tickets.pop(ch_id, None)
-                if channel:
-                    try:
-                        await channel.send(
-                            "Tiket ini otomatis ditutup karena tidak ada aktivitas selama 2 jam. "
-                            "Channel akan dihapus dalam 10 detik."
-                        )
-                        await asyncio.sleep(10)
-                        await channel.delete()
-                    except Exception:
-                        pass
-            elif elapsed >= 3600 and not ticket.get("warned"):
-                if channel:
-                    try:
-                        warn_embed = discord.Embed(title="PERINGATAN TIKET", color=0xFFA500)
-                        warn_embed.add_field(name="\u200b", value=(
-                            "Tiket tidak ada aktivitas selama **1 jam**.\n\n"
-                            "Segera selesaikan pembayaran atau hubungi admin.\n\n"
-                            "Tiket akan otomatis ditutup dalam **1 jam lagi** (<t:"
-                            + str(int(time.time()) + 3600) + ":R>)."
-                        ), inline=False)
-                        _user = guild.get_member(ticket["user_id"])
-                        _mn = _user.mention if _user else ""
-                        warn_msg = await channel.send(content=_mn, embed=warn_embed)
-                        ticket["warn_message_id"] = warn_msg.id
-                    except Exception:
-                        pass
-                ticket["warned"] = True
-                save_gp_ticket(ticket)
-
-    @auto_close_task.before_loop
-    async def before_auto_close(self):
-        await self.bot.wait_until_ready()
 
     async def refresh_catalog(self):
         guild = self.bot.get_guild(GUILD_ID)

@@ -1,8 +1,7 @@
-import time
 import asyncio
 import discord
 import datetime
-from discord.ext import commands, tasks
+from discord.ext import commands
 from utils.config import ADMIN_ROLE_ID, ROBUX_CATALOG_CHANNEL_ID, LOG_CHANNEL_ID, STORE_NAME, TICKET_CATEGORY_ID, GUILD_ID
 from utils.db import get_conn
 from utils.robux_db import load_robux_tickets, save_robux_ticket, delete_robux_ticket
@@ -298,7 +297,6 @@ async def _create_robux_ticket(interaction: discord.Interaction, cart: list, rat
             ("Total Robux", f"{total_robux} Robux", True),
             ("Rate", f"Rp {rate:,}/Robux", True),
             ("Catatan", "Setelah pembayaran dikonfirmasi, admin dan member masuk game untuk proses gift item.", False),
-            ("Peringatan", "Tiket yang tidak aktif selama 2 jam akan otomatis ditutup dan transaksi dianggap batal.", False),
         ],
     )
 
@@ -500,7 +498,6 @@ class CustomOrderModal(discord.ui.Modal, title="Custom Order Robux"):
                 ("Username Roblox", self.username.value.strip(), True),
                 ("Jumlah Robux", f"{robux} Robux", True),
                 ("Rate", f"Rp {rate:,}/Robux", True),
-                ("Peringatan", "Tiket yang tidak aktif selama 2 jam akan otomatis ditutup.", False),
             ],
         )
 
@@ -571,70 +568,6 @@ class RobuxStore(commands.Cog):
         self.catalog_message_id = None
         self.carts = {}  # user_id -> list of items
         self.active_tickets = load_robux_tickets()
-        self.auto_close_task.start()
-
-    def cog_unload(self):
-        self.auto_close_task.cancel()
-
-    @tasks.loop(minutes=10)
-    async def auto_close_task(self):
-        now = datetime.datetime.now(datetime.timezone.utc)
-        for ch_id, ticket in list(self.active_tickets.items()):
-            if ticket.get("paid"):
-                continue
-            last = ticket.get("last_activity") or ticket.get("opened_at")
-            if not last:
-                continue
-            last_dt = datetime.datetime.fromisoformat(last)
-            if last_dt.tzinfo is None:
-                last_dt = last_dt.replace(tzinfo=datetime.timezone.utc)
-            elapsed = (now - last_dt).total_seconds()
-            guild = self.bot.get_guild(GUILD_ID)
-            if not guild:
-                continue
-            channel = guild.get_channel(ch_id)
-            if elapsed >= 7200:
-                delete_robux_ticket(ch_id)
-                self.active_tickets.pop(ch_id, None)
-                if channel:
-                    try:
-                        await channel.send(
-                            "Tiket ini otomatis ditutup karena tidak ada aktivitas selama 2 jam. "
-                            "Transaksi dianggap batal. Channel akan dihapus dalam 10 detik."
-                        )
-                        await asyncio.sleep(10)
-                        await channel.delete()
-                    except Exception:
-                        pass
-            elif elapsed >= 3600 and not ticket.get("warned"):
-                if channel:
-                    try:
-                        old_warn_id = ticket.get("warn_message_id")
-                        if old_warn_id:
-                            try:
-                                old_msg = await channel.fetch_message(old_warn_id)
-                                await old_msg.delete()
-                            except Exception:
-                                pass
-                        warn_embed = discord.Embed(title="PERINGATAN TIKET", color=0xFFA500)
-                        warn_embed.add_field(name="\u200b", value=(
-                            "Tiket tidak ada aktivitas selama **1 jam**.\n\n"
-                            "Segera selesaikan pembayaran atau hubungi admin.\n\n"
-                            "Tiket akan otomatis ditutup dalam **1 jam lagi** (<t:" + str(int(time.time()) + 3600) + ":R>)."
-                        ), inline=False)
-                        warn_embed.set_footer(text=STORE_NAME)
-                        _user = guild.get_member(ticket["user_id"])
-                        _mn = _user.mention if _user else ""
-                        warn_msg = await channel.send(content=_mn, embed=warn_embed)
-                        ticket["warn_message_id"] = warn_msg.id
-                    except Exception:
-                        pass
-                ticket["warned"] = True
-                save_robux_ticket(ticket)
-
-    @auto_close_task.before_loop
-    async def before_auto_close(self):
-        await self.bot.wait_until_ready()
 
     async def reload_products(self):
         global PRODUCTS
