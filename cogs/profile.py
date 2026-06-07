@@ -1,0 +1,273 @@
+"""Kartu Profil Member (gambar PNG) — /profil.
+
+Render kartu estetik (gradien + avatar bulat + progress bar XP + tier + badge)
+pakai Pillow. Logika data & XP murni ada di utils/profile.py (teruji terpisah).
+
+Command:
+  - /profil            : lihat kartu profil sendiri
+  - /profil member:@x  : (admin) lihat kartu profil member lain
+"""
+
+import io
+import datetime
+
+import aiohttp
+import discord
+from discord import app_commands
+from discord.ext import commands
+
+from PIL import Image, ImageDraw, ImageFont
+
+from utils.config import ADMIN_ROLE_ID, STORE_NAME
+from utils import profile as profilelib
+
+try:
+    from cogs.top_spender import get_top_spenders, TOP_SPENDER_TOP_N
+except Exception:  # pragma: no cover
+    get_top_spenders = None
+    TOP_SPENDER_TOP_N = 10
+
+# Ukuran kartu.
+W, H = 900, 360
+
+# Palet per tier (warna gradien latar).
+TIER_THEME = {
+    "Bronze":  ((58, 38, 24), (120, 78, 40), (214, 154, 92)),
+    "Silver":  ((40, 46, 58), (96, 110, 130), (200, 214, 232)),
+    "Gold":    ((58, 47, 18), (140, 108, 30), (240, 200, 90)),
+    "Diamond": ((24, 48, 58), (38, 110, 132), (130, 224, 240)),
+}
+
+
+def _rupiah(n) -> str:
+    try:
+        return "Rp " + f"{int(n):,}".replace(",", ".")
+    except (TypeError, ValueError):
+        return "Rp 0"
+
+
+def _font(size, bold=False):
+    """Coba beberapa font sistem; fallback ke default Pillow bila tak ada."""
+    candidates = [
+        f"/usr/share/fonts/truetype/dejavu/DejaVuSans{'-Bold' if bold else ''}.ttf",
+        f"/usr/share/fonts/truetype/liberation/LiberationSans-{'Bold' if bold else 'Regular'}.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans%s.ttf" % ("Bold" if bold else ""),
+    ]
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path, size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
+
+
+def _lerp(a, b, t):
+    return int(a + (b - a) * t)
+
+
+def _gradient(c1, c2):
+    """Buat latar gradien diagonal halus W×H."""
+    base = Image.new("RGB", (W, H), c1)
+    top = Image.new("RGB", (W, H), c2)
+    mask = Image.new("L", (W, H))
+    md = mask.load()
+    for y in range(H):
+        for x in range(0, W, 4):  # langkah 4px biar cepat
+            t = (x / W * 0.6 + y / H * 0.4)
+            v = int(max(0, min(255, t * 255)))
+            for dx in range(4):
+                if x + dx < W:
+                    md[x + dx, y] = v
+    base.paste(top, (0, 0), mask)
+    return base
+
+
+def _circle_avatar(img: Image.Image, size: int) -> Image.Image:
+    img = img.convert("RGBA").resize((size, size))
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, size, size), fill=255)
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    out.paste(img, (0, 0), mask)
+    return out
+
+
+def _rounded(draw, xy, radius, fill):
+    draw.rounded_rectangle(xy, radius=radius, fill=fill)
+
+
+def render_profile_card(name: str, avatar_bytes, data: dict, *,
+                        rank=None, badges=None) -> io.BytesIO:
+    """Render kartu profil -> PNG BytesIO. Murni Pillow (dipanggil di executor)."""
+    tier = data.get("tier", "Bronze")
+    dark, mid, accent = TIER_THEME.get(tier, TIER_THEME["Bronze"])
+
+    card = _gradient(dark, mid).convert("RGBA")
+    # Panel kaca semi-transparan biar teks kebaca & nggak kaku.
+    panel = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    pd = ImageDraw.Draw(panel)
+    _rounded(pd, (24, 24, W - 24, H - 24), 28, (0, 0, 0, 90))
+    card = Image.alpha_composite(card, panel)
+    d = ImageDraw.Draw(card)
+
+    # Avatar bulat + ring aksen.
+    av_size = 150
+    ax, ay = 60, 70
+    d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=accent + (255,))
+    if avatar_bytes:
+        try:
+            av = Image.open(io.BytesIO(avatar_bytes))
+            card.paste(_circle_avatar(av, av_size), (ax, ay), _circle_avatar(av, av_size))
+        except Exception:
+            d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+    else:
+        d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+
+    # Nama + tier.
+    tx = ax + av_size + 40
+    d.text((tx, 60), name[:22], font=_font(46, bold=True), fill=(255, 255, 255))
+    d.text((tx, 116), f"{tier.upper()} · Level {data['level']}",
+           font=_font(26, bold=True), fill=accent + (255,))
+
+    # Member sejak.
+    since = "-"
+    if data.get("first_order"):
+        try:
+            since = datetime.datetime.fromisoformat(str(data["first_order"])).strftime("%b %Y")
+        except Exception:
+            since = "-"
+    rank_txt = f"  ·  Peringkat #{rank} bulan ini" if rank else ""
+    d.text((tx, 152), f"Member sejak {since}{rank_txt}",
+           font=_font(20), fill=(220, 220, 230))
+
+    # Progress bar XP.
+    bx, by, bw, bh = tx, 196, W - tx - 60, 26
+    _rounded(d, (bx, by, bx + bw, by + bh), bh // 2, (255, 255, 255, 55))
+    into = data.get("xp_into_level", 0)
+    need = max(1, data.get("xp_for_next", 1))
+    frac = max(0.0, min(1.0, into / need))
+    fillw = int(bw * frac)
+    if fillw > bh:
+        _rounded(d, (bx, by, bx + fillw, by + bh), bh // 2, accent + (255,))
+    d.text((bx, by + bh + 8),
+           f"XP {into}/{need}  ·  {data.get('xp_remaining', 0)} XP lagi ke "
+           f"{data.get('next_tier') or 'MAX'}",
+           font=_font(18), fill=(225, 225, 235))
+
+    # Statistik (3 kolom bawah).
+    stats = [
+        ("BELANJA BULAN INI", _rupiah(data.get("spent_month", 0))),
+        ("TOTAL ORDER", f"{data.get('total_orders', 0)}x"),
+        ("ULASAN", f"{data.get('total_reviews', 0)}"),
+    ]
+    sy = 286
+    col_w = (W - 60 - 60) // 3
+    for i, (label, val) in enumerate(stats):
+        cx = 60 + i * col_w
+        d.text((cx, sy), label, font=_font(16, bold=True), fill=(200, 200, 215))
+        d.text((cx, sy + 22), val, font=_font(28, bold=True), fill=(255, 255, 255))
+
+    # Badge (pojok kanan bawah) — teks ringkas.
+    if badges:
+        btxt = "  ".join(badges)
+        d.text((W - 60, H - 52), btxt, font=_font(18, bold=True),
+               fill=accent + (255,), anchor="rs")
+
+    buf = io.BytesIO()
+    card.convert("RGB").save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+
+
+def _is_admin(member) -> bool:
+    return any(r.id == ADMIN_ROLE_ID for r in getattr(member, "roles", []))
+
+
+def _compute_badges(data: dict, rank, is_priority: bool) -> list:
+    badges = []
+    if is_priority or rank:
+        badges.append("👑 Top Spender")
+    if (data.get("total_orders") or 0) >= 10:
+        badges.append("🔁 Repeat Buyer")
+    if (data.get("total_reviews") or 0) >= 3:
+        badges.append("🌟 Reviewer")
+    return badges
+
+
+class MemberProfile(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+
+    async def _fetch_avatar(self, member) -> bytes | None:
+        try:
+            url = member.display_avatar.replace(size=256).url
+        except Exception:
+            return None
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.get(url) as r:
+                    if r.status == 200:
+                        return await r.read()
+        except Exception:
+            return None
+        return None
+
+    def _rank_of(self, user_id: int):
+        """Peringkat Top Spender bulan ini (1-based) atau None."""
+        if get_top_spenders is None:
+            return None, False
+        try:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            top = get_top_spenders(now.year, now.month, TOP_SPENDER_TOP_N)
+            for i, s in enumerate(top, 1):
+                if s.get("user_id") == user_id:
+                    return i, True
+        except Exception:
+            pass
+        return None, False
+
+    @app_commands.command(name="profil",
+                          description="Lihat kartu profil member (statistik, level, badge)")
+    @app_commands.describe(member="(Admin) lihat profil member lain")
+    async def profil(self, interaction: discord.Interaction, member: discord.Member = None):
+        target = member or interaction.user
+        # Hanya admin yang boleh melihat profil member lain.
+        if member is not None and member.id != interaction.user.id and not _is_admin(interaction.user):
+            await interaction.response.send_message(
+                "❌ Kamu hanya bisa melihat profilmu sendiri.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        data = profilelib.get_member_profile(target.id)
+        rank, is_priority = self._rank_of(target.id)
+        badges = _compute_badges(data, rank, is_priority)
+        avatar = await self._fetch_avatar(target)
+        name = target.display_name
+
+        try:
+            buf = await self.bot.loop.run_in_executor(
+                None, lambda: render_profile_card(name, avatar, data, rank=rank, badges=badges)
+            )
+            file = discord.File(buf, filename="profil.png")
+            await interaction.followup.send(file=file)
+        except Exception as e:
+            print(f"[Profile] render error: {e}")
+            # Fallback embed bila rendering gambar gagal.
+            embed = discord.Embed(
+                title=f"Profil {name}",
+                description=(f"**{data['tier']} · Level {data['level']}**\n"
+                            f"XP {data['xp_into_level']}/{data['xp_for_next']}"),
+                color=0x5865F2,
+            )
+            embed.add_field(name="Belanja bln ini", value=_rupiah(data["spent_month"]), inline=True)
+            embed.add_field(name="Total order", value=f"{data['total_orders']}x", inline=True)
+            embed.add_field(name="Ulasan", value=str(data["total_reviews"]), inline=True)
+            if badges:
+                embed.add_field(name="Badge", value=" · ".join(badges), inline=False)
+            embed.set_footer(text=STORE_NAME)
+            await interaction.followup.send(embed=embed)
+
+
+async def setup(bot: commands.Bot):
+    await bot.add_cog(MemberProfile(bot))
+    print("Cog MemberProfile siap.")
