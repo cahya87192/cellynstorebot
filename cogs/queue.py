@@ -43,6 +43,13 @@ except Exception:  # pragma: no cover - fallback bila modul tidak tersedia
     get_top_spenders = None
     TOP_SPENDER_TOP_N = 10
 
+try:
+    # Badge mahkota prioritas (emoji server). Fallback ke 👑 unicode bila absen.
+    from utils.config import TOP_SPENDER_BADGE as _PRIORITY_BADGE
+except Exception:  # pragma: no cover
+    _PRIORITY_BADGE = ""
+PRIORITY_BADGE = _PRIORITY_BADGE or "👑"
+
 BOARD_CHANNEL_KEY = "queue_board_channel_id"
 BOARD_MESSAGE_KEY = "queue_board_message_id"
 CARDS_ENABLED_KEY = "queue_cards_enabled"
@@ -61,15 +68,18 @@ COLOR_BOARD = 0x5865F2
 COLOR_WAITING = 0xFFA500   # oranye
 COLOR_HANDLING = 0x39FF14  # neon hijau
 
-# Emoji per-layanan untuk papan & kartu (selaras dengan slug utils.ticket_ui).
+# Emoji per-layanan untuk papan & kartu. Per keputusan owner, semua layanan
+# memakai satu emoji server yang sama. Ganti SERVICE_EMOJI bila ingin set lain;
+# bila dikosongkan, _layanan_emoji() jatuh ke "🎫" unicode.
+SERVICE_EMOJI = "<:symbolcheck:1480599052109217892>"
 LAYANAN_EMOJI = {
-    "midman": "🤝",
-    "jualbeli": "🛒",
-    "robux": "🪙",
-    "vilog": "🔑",
-    "gp": "🎟️",
-    "ml": "🎮",
-    "lainnya": "🔄",
+    "midman": SERVICE_EMOJI,
+    "jualbeli": SERVICE_EMOJI,
+    "robux": SERVICE_EMOJI,
+    "vilog": SERVICE_EMOJI,
+    "gp": SERVICE_EMOJI,
+    "ml": SERVICE_EMOJI,
+    "lainnya": SERVICE_EMOJI,
 }
 
 
@@ -91,7 +101,7 @@ def _set_setting(key, value):
 
 
 def _layanan_emoji(layanan) -> str:
-    return LAYANAN_EMOJI.get((layanan or "").lower(), "🎫")
+    return LAYANAN_EMOJI.get((layanan or "").lower(), SERVICE_EMOJI or "🎫")
 
 
 def _layanan_label(layanan) -> str:
@@ -221,7 +231,7 @@ class TicketQueue(commands.Cog):
         when = _fmt_relative(t["opened_at"])
         chan = f"<#{t['channel_id']}>"
         head = f"{prefix} " if prefix else ""
-        crown = "👑 " if t.get("is_priority") else ""
+        crown = f"{PRIORITY_BADGE} " if t.get("is_priority") else ""
         base = f"{head}{emoji} `{num}` **{disp}** · {crown}{mention}"
         if t["handling"]:
             admin = f"<@{t['admin_id']}>" if t.get("admin_id") else "admin"
