@@ -257,40 +257,31 @@ COLOR_TICKET_CANCEL = 0xED4245   # merah
 
 
 def ticket_success_embed(message: str, *, countdown: int = 5) -> discord.Embed:
-    """Embed kecil 'transaksi selesai' sebelum tiket ditutup otomatis.
+    """Notice 'transaksi selesai' sebelum tiket ditutup — flat, bold, padat.
 
-    `message` = isi utama (mis. 'Topup berhasil diproses...'). `countdown` =
-    jeda detik sebelum channel dihapus (ditampilkan agar member tidak kaget).
+    `message` = isi utama. `countdown` = jeda detik sebelum channel dihapus.
+    Sengaja tanpa judul/field/footer terpisah agar ringkas (tidak boros enter).
     """
-    embed = discord.Embed(
-        title="✅ Transaksi Selesai",
-        description=message,
+    return discord.Embed(
+        description=(
+            f"**✅ TRANSAKSI SELESAI**\n"
+            f"**{message}**\n"
+            f"**Ditutup dalam {countdown}s.**"
+        ),
         color=COLOR_TICKET_SUCCESS,
     )
-    embed.add_field(
-        name="\u200b",
-        value=f"_Tiket akan ditutup otomatis dalam {countdown} detik._",
-        inline=False,
-    )
-    embed.set_footer(text=f"{STORE_NAME} · Terima kasih sudah berbelanja 💛")
-    return embed
 
 
 def ticket_cancel_embed(*, by_mention: str, reason: str | None = None,
                         countdown: int = 5,
-                        title: str = "❌ Transaksi Dibatalkan") -> discord.Embed:
-    """Embed kecil pembatalan tiket yang seragam untuk semua layanan."""
-    embed = discord.Embed(title=title, color=COLOR_TICKET_CANCEL)
-    embed.add_field(name="Dibatalkan oleh", value=by_mention, inline=True)
-    embed.add_field(
-        name="Alasan",
-        value=reason or "Tidak ada alasan diberikan.",
-        inline=False,
+                        title: str = "❌ TRANSAKSI DIBATALKAN") -> discord.Embed:
+    """Notice pembatalan tiket — flat, bold, padat (seragam semua layanan)."""
+    r = reason or "Tidak ada alasan."
+    return discord.Embed(
+        description=(
+            f"**{title}**\n"
+            f"**Oleh {by_mention} · {r}**\n"
+            f"**Ditutup dalam {countdown}s.**"
+        ),
+        color=COLOR_TICKET_CANCEL,
     )
-    embed.add_field(
-        name="\u200b",
-        value=f"_Tiket akan ditutup otomatis dalam {countdown} detik._",
-        inline=False,
-    )
-    embed.set_footer(text=STORE_NAME)
-    return embed
