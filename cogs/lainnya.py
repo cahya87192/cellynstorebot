@@ -1280,7 +1280,7 @@ class LainnyaStore(commands.Cog):
 
     def cog_unload(self):
 
-        pass  # auto_close_loop sudah dinonaktifkan
+        pass  # cog_unload: tidak ada task untuk dibatalkan
 
 
 

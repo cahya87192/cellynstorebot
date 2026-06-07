@@ -389,16 +389,6 @@ class MLStore(commands.Cog):
         self.active_tickets = load_ml_tickets()
         self.catalog_message_id = None
 
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        if message.author.bot:
-            return
-        if message.channel.id in self.active_tickets:
-            self.active_tickets[message.channel.id]["last_activity"] = (
-                datetime.datetime.now(datetime.timezone.utc).isoformat()
-            )
-            save_ml_ticket(self.active_tickets[message.channel.id])
-
     @commands.command(name="mlcatalog")
     async def mlcatalog(self, ctx):
         if not any(r.id == ADMIN_ROLE_ID for r in ctx.author.roles):
