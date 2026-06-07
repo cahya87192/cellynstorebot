@@ -65,9 +65,18 @@ def _rupiah(n) -> str:
         return "Rp 0"
 
 
+# Font yang DIBUNDEL bersama repo (selalu ada di host mana pun, termasuk Termux/
+# Android yang tak punya font sistem). Inilah perbaikan utama "teks jadi kotak".
+BUNDLED_FONT = os.path.join(DATA_DIR, "_card_font.ttf")
+
+
 def _font(size, bold=False, font_file=None):
-    """Font untuk kartu. Prioritas: font kustom upload admin (data/<font_file>),
-    lalu font sistem, lalu default Pillow."""
+    """Font untuk kartu. Prioritas:
+      1) font kustom upload admin (data/<font_file>),
+      2) font bawaan repo (data/_card_font.ttf) — selalu tersedia,
+      3) font sistem umum (Debian/Termux),
+      4) default Pillow (last resort).
+    """
     if font_file:
         custom = os.path.join(DATA_DIR, font_file)
         if os.path.exists(custom):
@@ -76,9 +85,14 @@ def _font(size, bold=False, font_file=None):
             except Exception:
                 pass
     candidates = [
+        BUNDLED_FONT,
         f"/usr/share/fonts/truetype/dejavu/DejaVuSans{'-Bold' if bold else ''}.ttf",
         f"/usr/share/fonts/truetype/liberation/LiberationSans-{'Bold' if bold else 'Regular'}.ttf",
         "/usr/share/fonts/truetype/freefont/FreeSans%s.ttf" % ("Bold" if bold else ""),
+        "/usr/share/fonts/google-noto-vf/NotoSans[wght].ttf",
+        # Termux / Android umum:
+        "/system/fonts/Roboto-Regular.ttf",
+        "/system/fonts/DroidSans.ttf",
     ]
     for path in candidates:
         try:
@@ -243,15 +257,17 @@ def render_profile_card(name: str, avatar_bytes, data: dict, *,
         col_w = (W - sx - 60) // 3
         label_sz = max(10, int(e["size"]) - 12)
         for i, (label, val) in enumerate(stats):
-            cx = sx + i * col_w
-            d.text((cx, sy), label, font=fnt(label_sz, True), fill=(200, 200, 215))
+            # Center label & nilai di tengah masing-masing kolom (anchor "ma").
+            cx = sx + i * col_w + col_w // 2
+            d.text((cx, sy), label, font=fnt(label_sz, True),
+                   fill=(200, 200, 215), anchor="ma")
             d.text((cx, sy + label_sz + 6), val, font=fnt(e["size"], e.get("bold", True)),
-                   fill=rgb("stats", (255, 255, 255)))
+                   fill=rgb("stats", (255, 255, 255)), anchor="ma")
 
-    # Badge.
+    # Badge (teks polos dipisah bullet, tanpa emoji warna).
     if el["badges"].get("show", True) and badges:
         e = el["badges"]
-        d.text((e["x"], e["y"]), "  ".join(badges),
+        d.text((e["x"], e["y"]), "  •  ".join(badges),
                font=fnt(e["size"], e.get("bold", True)), fill=rgb("badges", accent))
 
     buf = io.BytesIO()
@@ -266,13 +282,15 @@ def _is_admin(member) -> bool:
 
 
 def _compute_badges(data: dict, rank, is_priority: bool) -> list:
+    # Catatan: Pillow tidak bisa render emoji berwarna (jadi kotak-kotak), jadi
+    # badge pakai teks polos + bullet sederhana yang didukung font biasa.
     badges = []
     if is_priority or rank:
-        badges.append("👑 Top Spender")
+        badges.append("Top Spender")
     if (data.get("total_orders") or 0) >= 10:
-        badges.append("🔁 Repeat Buyer")
+        badges.append("Repeat Buyer")
     if (data.get("total_reviews") or 0) >= 3:
-        badges.append("🌟 Reviewer")
+        badges.append("Reviewer")
     return badges
 
 
