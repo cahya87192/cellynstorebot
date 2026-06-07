@@ -80,6 +80,16 @@ COLOR_BOARD = 0x5865F2
 COLOR_WAITING = 0xFFA500   # oranye
 COLOR_HANDLING = 0x39FF14  # neon hijau
 
+# Thumbnail papan antrian publik.
+PUBLIC_BOARD_THUMBNAIL = "https://i.imgur.com/32I6YIx.png"
+# Penjelasan fungsi papan (ditampilkan di bagian bawah embed publik).
+PUBLIC_BOARD_INFO = (
+    "Papan ini menampilkan antrean tiket secara **real-time** agar kamu tahu "
+    "posisi & estimasi giliranmu. Admin memproses tiket **berurutan dari yang "
+    "paling lama menunggu** (pesanan Top Spender diprioritaskan). Mohon "
+    "ditunggu dengan sabar ya — setiap tiket pasti dilayani. 🙏"
+)
+
 # Emoji per-layanan untuk papan & kartu. Per keputusan owner, semua layanan
 # memakai satu emoji server yang sama. Ganti SERVICE_EMOJI bila ingin set lain;
 # bila dikosongkan, _layanan_emoji() jatuh ke "🎫" unicode.
@@ -334,9 +344,12 @@ class TicketQueue(commands.Cog):
             color=COLOR_BOARD,
             timestamp=now,
         )
+        if PUBLIC_BOARD_THUMBNAIL:
+            embed.set_thumbnail(url=PUBLIC_BOARD_THUMBNAIL)
         if not ordered:
             embed.description = ("Tidak ada antrean saat ini. Toko siap melayani — "
                                  "silakan buka tiket! 🎉")
+            embed.add_field(name="ℹ️ Tentang Papan Ini", value=PUBLIC_BOARD_INFO, inline=False)
             embed.set_footer(text=f"{STORE_NAME} • diperbarui otomatis")
             return embed
 
@@ -348,7 +361,8 @@ class TicketQueue(commands.Cog):
         lines.append("**🟢 SEDANG DIPROSES**")
         if processing:
             for t in processing[:MAX_BOARD_ROWS]:
-                lines.append(f"{_layanan_emoji(t['layanan'])} {_layanan_label(t['layanan'])}")
+                admin = f" — ditangani <@{t['admin_id']}>" if t.get("admin_id") else ""
+                lines.append(f"{_layanan_emoji(t['layanan'])} {_layanan_label(t['layanan'])}{admin}")
         else:
             lines.append("_Belum ada yang diproses._")
 
@@ -366,6 +380,7 @@ class TicketQueue(commands.Cog):
         lines.append("")
         lines.append(f"{PRIORITY_BADGE} = pesanan diprioritaskan (Top Spender)")
         embed.description = "\n".join(lines)[:4000]
+        embed.add_field(name="ℹ️ Tentang Papan Ini", value=PUBLIC_BOARD_INFO, inline=False)
         embed.set_footer(text=f"{STORE_NAME} • antrean diperbarui otomatis")
         return embed
 
