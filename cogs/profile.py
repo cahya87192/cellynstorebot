@@ -9,6 +9,7 @@ Command:
 """
 
 import io
+import os
 import datetime
 
 import aiohttp
@@ -20,6 +21,23 @@ from PIL import Image, ImageDraw, ImageFont
 
 from utils.config import ADMIN_ROLE_ID, STORE_NAME
 from utils import profile as profilelib
+
+# Background kustom per tier (di-upload admin via /setprofilbg). Disimpan di
+# data/profilebg_<tier>.<ext>, mirip gambar welcome/boost.
+DATA_DIR = "data"
+PROFILE_BG_BASE = "profilebg"
+ALLOWED_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+VALID_TIERS = ["Bronze", "Silver", "Gold", "Diamond"]
+
+
+def _bg_path_for(tier: str):
+    """Path background kustom untuk tier (atau None bila belum di-set)."""
+    base = f"{PROFILE_BG_BASE}_{(tier or '').lower()}"
+    for ext in ALLOWED_IMAGE_EXTS:
+        path = os.path.join(DATA_DIR, base + ext)
+        if os.path.exists(path):
+            return path
+    return None
 
 try:
     from cogs.top_spender import get_top_spenders, TOP_SPENDER_TOP_N
@@ -96,16 +114,36 @@ def _rounded(draw, xy, radius, fill):
 
 
 def render_profile_card(name: str, avatar_bytes, data: dict, *,
-                        rank=None, badges=None) -> io.BytesIO:
-    """Render kartu profil -> PNG BytesIO. Murni Pillow (dipanggil di executor)."""
+                        rank=None, badges=None, bg_path=None) -> io.BytesIO:
+    """Render kartu profil -> PNG BytesIO. Murni Pillow (dipanggil di executor).
+
+    `bg_path`: path gambar background kustom (per tier). Bila ada, dipakai
+    sebagai latar (cover-fit 900×360); bila tidak, pakai gradien tema tier.
+    """
     tier = data.get("tier", "Bronze")
     dark, mid, accent = TIER_THEME.get(tier, TIER_THEME["Bronze"])
 
-    card = _gradient(dark, mid).convert("RGBA")
+    bg = None
+    if bg_path:
+        try:
+            src = Image.open(bg_path).convert("RGBA")
+            # Cover-fit ke W×H (resize proporsional lalu crop tengah).
+            sw, sh = src.size
+            scale = max(W / sw, H / sh)
+            nw, nh = int(sw * scale), int(sh * scale)
+            src = src.resize((nw, nh))
+            left, top = (nw - W) // 2, (nh - H) // 2
+            bg = src.crop((left, top, left + W, top + H))
+        except Exception:
+            bg = None
+    if bg is None:
+        bg = _gradient(dark, mid).convert("RGBA")
+    card = bg
+
     # Panel kaca semi-transparan biar teks kebaca & nggak kaku.
     panel = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     pd = ImageDraw.Draw(panel)
-    _rounded(pd, (24, 24, W - 24, H - 24), 28, (0, 0, 0, 90))
+    _rounded(pd, (24, 24, W - 24, H - 24), 28, (0, 0, 0, 120))
     card = Image.alpha_composite(card, panel)
     d = ImageDraw.Draw(card)
 
@@ -243,10 +281,12 @@ class MemberProfile(commands.Cog):
         badges = _compute_badges(data, rank, is_priority)
         avatar = await self._fetch_avatar(target)
         name = target.display_name
+        bg_path = _bg_path_for(data.get("tier"))
 
         try:
             buf = await self.bot.loop.run_in_executor(
-                None, lambda: render_profile_card(name, avatar, data, rank=rank, badges=badges)
+                None, lambda: render_profile_card(name, avatar, data, rank=rank,
+                                                   badges=badges, bg_path=bg_path)
             )
             file = discord.File(buf, filename="profil.png")
             await interaction.followup.send(file=file)
@@ -266,6 +306,83 @@ class MemberProfile(commands.Cog):
                 embed.add_field(name="Badge", value=" · ".join(badges), inline=False)
             embed.set_footer(text=STORE_NAME)
             await interaction.followup.send(embed=embed)
+
+
+    async def _save_bg(self, attachment: discord.Attachment, tier: str):
+        """Download & simpan background tier -> data/profilebg_<tier>.<ext>."""
+        ext = os.path.splitext(attachment.filename)[1].lower()
+        if ext not in ALLOWED_IMAGE_EXTS:
+            return None
+        base = f"{PROFILE_BG_BASE}_{tier.lower()}"
+        try:
+            os.makedirs(DATA_DIR, exist_ok=True)
+            for old_ext in ALLOWED_IMAGE_EXTS:
+                old = os.path.join(DATA_DIR, base + old_ext)
+                if os.path.exists(old):
+                    try:
+                        os.remove(old)
+                    except Exception:
+                        pass
+            path = os.path.join(DATA_DIR, base + ext)
+            async with aiohttp.ClientSession() as s:
+                async with s.get(attachment.url) as r:
+                    if r.status == 200:
+                        with open(path, "wb") as f:
+                            f.write(await r.read())
+                        return path
+        except Exception as e:
+            print(f"[Profile] bg save error: {e}")
+        return None
+
+    @app_commands.command(
+        name="setprofilbg",
+        description="[ADMIN] Set background kartu profil per tier (upload PNG/JPG)")
+    @app_commands.describe(
+        tier="Tier yang diatur backgroundnya",
+        image="Gambar background (PNG/JPG/WEBP). Kosongkan + reset:True untuk hapus.",
+        reset="Hapus background kustom tier ini (kembali ke gradien default).")
+    @app_commands.choices(tier=[
+        app_commands.Choice(name=t, value=t) for t in VALID_TIERS
+    ])
+    async def setprofilbg(self, interaction: discord.Interaction,
+                          tier: app_commands.Choice[str],
+                          image: discord.Attachment = None,
+                          reset: bool = False):
+        if not _is_admin(interaction.user):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        tname = tier.value
+
+        if reset:
+            removed = False
+            base = f"{PROFILE_BG_BASE}_{tname.lower()}"
+            for ext in ALLOWED_IMAGE_EXTS:
+                pth = os.path.join(DATA_DIR, base + ext)
+                if os.path.exists(pth):
+                    try:
+                        os.remove(pth)
+                        removed = True
+                    except Exception:
+                        pass
+            msg = (f"🗑️ Background tier **{tname}** dihapus (kembali ke gradien default)."
+                   if removed else f"ℹ️ Tier **{tname}** memang belum punya background kustom.")
+            await interaction.followup.send(msg, ephemeral=True)
+            return
+
+        if image is None:
+            await interaction.followup.send(
+                "❌ Sertakan gambar (`image:`) atau gunakan `reset:True` untuk menghapus.",
+                ephemeral=True)
+            return
+        path = await self._save_bg(image, tname)
+        if path:
+            await interaction.followup.send(
+                f"✅ Background tier **{tname}** diset. Coba `/profil` untuk melihat.",
+                ephemeral=True)
+        else:
+            await interaction.followup.send(
+                "❌ Gagal menyimpan. Pastikan format PNG/JPG/WEBP.", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
