@@ -64,6 +64,71 @@ def _parse_color(text):
         return COLOR_DEFAULT
 
 
+class StickyModal(discord.ui.Modal, title="Pasang Sticky Message"):
+    """Form sticky: teks multiline + opsi embed (judul/isi/warna).
+
+    Minimal isi salah satu dari: teks ATAU (judul/isi embed). Bila judul/isi
+    embed diisi, sticky dikirim sebagai embed; selain itu sebagai teks biasa.
+    """
+
+    message = discord.ui.TextInput(
+        label="Teks sticky (body)",
+        style=discord.TextStyle.paragraph,
+        required=False,
+        max_length=2000,
+        placeholder="Teks bebas (multiline). Kosongkan bila hanya pakai embed.",
+    )
+    embed_title = discord.ui.TextInput(
+        label="Judul embed (opsional)",
+        required=False,
+        max_length=256,
+    )
+    embed_description = discord.ui.TextInput(
+        label="Isi embed (opsional)",
+        style=discord.TextStyle.paragraph,
+        required=False,
+        max_length=4000,
+    )
+    embed_color = discord.ui.TextInput(
+        label="Warna embed hex (opsional)",
+        required=False,
+        max_length=7,
+        placeholder="#5865F2",
+    )
+
+    def __init__(self, cog: "Sticky"):
+        super().__init__()
+        self.cog = cog
+
+    async def on_submit(self, interaction: discord.Interaction):
+        content = str(self.message.value).strip() or None
+        title = str(self.embed_title.value).strip() or None
+        desc = str(self.embed_description.value).strip() or None
+
+        embed_dict = None
+        if title or desc:
+            e = discord.Embed(
+                title=title,
+                description=desc,
+                color=_parse_color(str(self.embed_color.value).strip()),
+            )
+            e.set_footer(text=STORE_NAME)
+            embed_dict = e.to_dict()
+
+        if not stickylib.has_payload(content, embed_dict):
+            await interaction.response.send_message(
+                "❌ Isi minimal salah satu: teks sticky ATAU judul/isi embed.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        ok, msg = await self.cog.apply_sticky(
+            interaction.channel, content=content, embed_dict=embed_dict
+        )
+        await interaction.followup.send(msg, ephemeral=True)
+
+
 class Sticky(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -168,23 +233,37 @@ class Sticky(commands.Cog):
                 pass
 
     # ── Slash commands ───────────────────────────────────────────────────────────
+    async def apply_sticky(self, channel, *, content, embed_dict):
+        """Pasang/replace sticky di channel; kembalikan (ok: bool, msg: str).
+
+        Dipakai oleh modal submit. Menghapus sticky lama bila ada.
+        """
+        sticky_map = self._load_map()
+        ch_id = channel.id
+        old = sticky_map.get(ch_id)
+        if old and old.get("message_id"):
+            try:
+                await channel.get_partial_message(int(old["message_id"])).delete()
+            except Exception:
+                pass
+
+        entry = {"message_id": None, "content": content, "embed": embed_dict}
+        new_id = await self._send_sticky(channel, entry)
+        if new_id is None:
+            return False, "❌ Gagal mengirim sticky (cek izin bot di channel ini)."
+        entry["message_id"] = new_id
+        sticky_map[ch_id] = entry
+        self._save_map(sticky_map)
+        self._msgcount[ch_id] = 0
+        self._last[ch_id] = time.monotonic()
+        return True, "✅ Sticky message dipasang di channel ini."
+
     @app_commands.command(name="stick_msg",
-                          description="[ADMIN] Pasang sticky message di channel ini (teks dan/atau embed)")
-    @app_commands.describe(
-        message="Teks sticky (biarkan kosong bila hanya pakai embed)",
-        embed_title="Judul embed (opsional)",
-        embed_description="Isi embed (opsional)",
-        embed_color="Warna embed hex, mis. #5865F2 (opsional)",
-    )
-    async def stick_msg(self, interaction: discord.Interaction,
-                        message: str = None,
-                        embed_title: str = None,
-                        embed_description: str = None,
-                        embed_color: str = None):
+                          description="[ADMIN] Pasang sticky message di channel ini (lewat form)")
+    async def stick_msg(self, interaction: discord.Interaction):
         if not _is_admin(interaction.user):
             await interaction.response.send_message("❌ Admin only!", ephemeral=True)
             return
-
         # Anti-bentrok dengan kartu antrean tiket.
         if self._channel_has_ticket_card(interaction.channel_id):
             await interaction.response.send_message(
@@ -193,47 +272,7 @@ class Sticky(commands.Cog):
                 ephemeral=True,
             )
             return
-
-        embed_dict = None
-        if embed_title or embed_description:
-            e = discord.Embed(
-                title=embed_title or None,
-                description=embed_description or None,
-                color=_parse_color(embed_color),
-            )
-            e.set_footer(text=STORE_NAME)
-            embed_dict = e.to_dict()
-
-        if not stickylib.has_payload(message, embed_dict):
-            await interaction.response.send_message(
-                "❌ Isi minimal salah satu: `message` atau `embed_title`/`embed_description`.",
-                ephemeral=True,
-            )
-            return
-
-        await interaction.response.defer(ephemeral=True)
-
-        sticky_map = self._load_map()
-        ch_id = interaction.channel_id
-        # Hapus sticky lama bila ada (ganti dengan yang baru).
-        old = sticky_map.get(ch_id)
-        if old and old.get("message_id"):
-            try:
-                await interaction.channel.get_partial_message(int(old["message_id"])).delete()
-            except Exception:
-                pass
-
-        entry = {"message_id": None, "content": message, "embed": embed_dict}
-        new_id = await self._send_sticky(interaction.channel, entry)
-        if new_id is None:
-            await interaction.followup.send("❌ Gagal mengirim sticky (cek izin bot di channel ini).", ephemeral=True)
-            return
-        entry["message_id"] = new_id
-        sticky_map[ch_id] = entry
-        self._save_map(sticky_map)
-        self._msgcount[ch_id] = 0
-        self._last[ch_id] = time.monotonic()
-        await interaction.followup.send("✅ Sticky message dipasang di channel ini.", ephemeral=True)
+        await interaction.response.send_modal(StickyModal(self))
 
     @app_commands.command(name="undo_msg",
                           description="[ADMIN] Hapus sticky message dari channel ini")
