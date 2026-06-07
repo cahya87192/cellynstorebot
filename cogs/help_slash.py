@@ -27,6 +27,7 @@ MEMBER_COMMANDS = [
 ADMIN_COMMANDS = [
     ("/stick_msg", "Pasang sticky message di channel ini (form)"),
     ("/undo_msg", "Hapus sticky message dari channel ini"),
+    ("/setprofilbg", "Set background kartu profil per tier"),
     ("/addspending", "Tambah manual spending untuk member"),
     ("/subspend", "Kurangi spending manual member"),
     ("/refreshspender", "Force update leaderboard top spender"),
