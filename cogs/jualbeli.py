@@ -433,15 +433,6 @@ class JualBeli(commands.Cog):
         self.active_tickets: dict = load_jb_tickets()
         print(f"Cog JualBeli siap. ({len(self.active_tickets)} tiket dimuat)")
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if message.author.bot:
-            return
-        if message.channel.id in self.active_tickets:
-            self.active_tickets[message.channel.id]["last_activity"] = datetime.datetime.now(
-                datetime.timezone.utc).isoformat()
-            save_jb_ticket(self.active_tickets[message.channel.id])
-
     # ─── COMMANDS ────────────────────────────────────────────────────────────
 
     @commands.command(name="jbselesai")
