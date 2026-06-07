@@ -40,7 +40,7 @@ try:
     from utils.config import TOP_SPENDER_BADGE as _PRIORITY_BADGE
 except Exception:  # pragma: no cover
     _PRIORITY_BADGE = ""
-PRIORITY_BADGE = _PRIORITY_BADGE or "👑"
+PRIORITY_BADGE = _PRIORITY_BADGE or ""
 from utils.db import get_conn
 from utils import queue as queuelib
 from utils import ticket_ui
@@ -52,13 +52,6 @@ try:
 except Exception:  # pragma: no cover - fallback bila modul tidak tersedia
     get_top_spenders = None
     TOP_SPENDER_TOP_N = 10
-
-try:
-    # Badge mahkota prioritas (emoji server). Fallback ke 👑 unicode bila absen.
-    from utils.config import TOP_SPENDER_BADGE as _PRIORITY_BADGE
-except Exception:  # pragma: no cover
-    _PRIORITY_BADGE = ""
-PRIORITY_BADGE = _PRIORITY_BADGE or "👑"
 
 BOARD_CHANNEL_KEY = "queue_board_channel_id"
 BOARD_MESSAGE_KEY = "queue_board_message_id"
@@ -82,12 +75,15 @@ COLOR_HANDLING = 0x39FF14  # neon hijau
 
 # Thumbnail papan antrian publik.
 PUBLIC_BOARD_THUMBNAIL = "https://i.imgur.com/32I6YIx.png"
-# Penjelasan fungsi papan (ditampilkan di bagian bawah embed publik).
+# Emoji server untuk tiket yang SEDANG DILAYANI admin (seksi "diproses").
+HANDLED_EMOJI = "<:emoji:1480573101753503896>"
+# Penjelasan fungsi papan (ditampilkan di bagian bawah embed publik). Sengaja
+# tanpa emoji dekoratif.
 PUBLIC_BOARD_INFO = (
     "Papan ini menampilkan antrean tiket secara **real-time** agar kamu tahu "
     "posisi & estimasi giliranmu. Admin memproses tiket **berurutan dari yang "
     "paling lama menunggu** (pesanan Top Spender diprioritaskan). Mohon "
-    "ditunggu dengan sabar ya — setiap tiket pasti dilayani. 🙏"
+    "ditunggu dengan sabar ya — setiap tiket pasti dilayani."
 )
 
 # Emoji per-layanan untuk papan & kartu. Per keputusan owner, semua layanan
@@ -336,7 +332,7 @@ class TicketQueue(commands.Cog):
     # ── Papan PUBLIK (ringkas & anonim, untuk member) ───────────────────────────
     def _public_board_embed(self, ordered):
         """Versi ringkas papan untuk channel member: tanpa nama/mention & tanpa
-        link channel. Hanya jumlah, urutan layanan, dan tanda prioritas 👑."""
+        link channel. Hanya jumlah, urutan layanan, dan tanda prioritas Top Spender."""
         now = datetime.datetime.now(datetime.timezone.utc)
         waiting, handling = queuelib.queue_counts(ordered)
         embed = discord.Embed(
@@ -362,7 +358,7 @@ class TicketQueue(commands.Cog):
         if processing:
             for t in processing[:MAX_BOARD_ROWS]:
                 admin = f" — ditangani <@{t['admin_id']}>" if t.get("admin_id") else ""
-                lines.append(f"{_layanan_emoji(t['layanan'])} {_layanan_label(t['layanan'])}{admin}")
+                lines.append(f"{HANDLED_EMOJI} {_layanan_label(t['layanan'])}{admin}")
         else:
             lines.append("_Belum ada yang diproses._")
 
@@ -378,7 +374,8 @@ class TicketQueue(commands.Cog):
             lines.append("_Tidak ada yang menunggu._")
 
         lines.append("")
-        lines.append(f"{PRIORITY_BADGE} = pesanan diprioritaskan (Top Spender)")
+        if PRIORITY_BADGE:
+            lines.append(f"{PRIORITY_BADGE} = pesanan diprioritaskan (Top Spender)")
         embed.description = "\n".join(lines)[:4000]
         embed.add_field(name="ℹ️ Tentang Papan Ini", value=PUBLIC_BOARD_INFO, inline=False)
         embed.set_footer(text=f"{STORE_NAME} • antrean diperbarui otomatis")
