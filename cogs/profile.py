@@ -21,6 +21,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from utils.config import ADMIN_ROLE_ID, STORE_NAME
 from utils import profile as profilelib
+from utils import profile_theme as themelib
 
 # Background kustom per tier (di-upload admin via /setprofilbg). Disimpan di
 # data/profilebg_<tier>.<ext>, mirip gambar welcome/boost.
@@ -64,8 +65,16 @@ def _rupiah(n) -> str:
         return "Rp 0"
 
 
-def _font(size, bold=False):
-    """Coba beberapa font sistem; fallback ke default Pillow bila tak ada."""
+def _font(size, bold=False, font_file=None):
+    """Font untuk kartu. Prioritas: font kustom upload admin (data/<font_file>),
+    lalu font sistem, lalu default Pillow."""
+    if font_file:
+        custom = os.path.join(DATA_DIR, font_file)
+        if os.path.exists(custom):
+            try:
+                return ImageFont.truetype(custom, size)
+            except Exception:
+                pass
     candidates = [
         f"/usr/share/fonts/truetype/dejavu/DejaVuSans{'-Bold' if bold else ''}.ttf",
         f"/usr/share/fonts/truetype/liberation/LiberationSans-{'Bold' if bold else 'Regular'}.ttf",
@@ -114,20 +123,26 @@ def _rounded(draw, xy, radius, fill):
 
 
 def render_profile_card(name: str, avatar_bytes, data: dict, *,
-                        rank=None, badges=None, bg_path=None) -> io.BytesIO:
+                        rank=None, badges=None, bg_path=None, theme=None) -> io.BytesIO:
     """Render kartu profil -> PNG BytesIO. Murni Pillow (dipanggil di executor).
 
-    `bg_path`: path gambar background kustom (per tier). Bila ada, dipakai
-    sebagai latar (cover-fit 900×360); bila tidak, pakai gradien tema tier.
+    `bg_path`: background kustom per tier (cover-fit 900×360); bila None pakai
+    gradien tema tier. `theme`: dict tema (utils.profile_theme) untuk posisi,
+    warna, ukuran font, visibilitas, opacity panel, & font kustom.
     """
     tier = data.get("tier", "Bronze")
     dark, mid, accent = TIER_THEME.get(tier, TIER_THEME["Bronze"])
+    theme = themelib.merge_theme(theme)
+    el = theme["elements"]
+    font_file = theme.get("font_file")
+
+    def fnt(size, bold=False):
+        return _font(size, bold=bold, font_file=font_file)
 
     bg = None
     if bg_path:
         try:
             src = Image.open(bg_path).convert("RGBA")
-            # Cover-fit ke W×H (resize proporsional lalu crop tengah).
             sw, sh = src.size
             scale = max(W / sw, H / sh)
             nw, nh = int(sw * scale), int(sh * scale)
@@ -140,75 +155,104 @@ def render_profile_card(name: str, avatar_bytes, data: dict, *,
         bg = _gradient(dark, mid).convert("RGBA")
     card = bg
 
-    # Panel kaca semi-transparan biar teks kebaca & nggak kaku.
+    # Panel kaca semi-transparan (opacity bisa diatur tema).
     panel = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     pd = ImageDraw.Draw(panel)
-    _rounded(pd, (24, 24, W - 24, H - 24), 28, (0, 0, 0, 120))
+    _rounded(pd, (24, 24, W - 24, H - 24), 28, (0, 0, 0, int(theme["panel_opacity"])))
     card = Image.alpha_composite(card, panel)
     d = ImageDraw.Draw(card)
 
+    def rgb(key, fallback):
+        try:
+            return themelib.hex_to_rgb(el[key]["color"])
+        except Exception:
+            return fallback
+
     # Avatar bulat + ring aksen.
-    av_size = 150
-    ax, ay = 60, 70
-    d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=accent + (255,))
-    if avatar_bytes:
-        try:
-            av = Image.open(io.BytesIO(avatar_bytes))
-            card.paste(_circle_avatar(av, av_size), (ax, ay), _circle_avatar(av, av_size))
-        except Exception:
+    av = el["avatar"]
+    if av.get("show", True):
+        av_size = int(av["size"])
+        ax, ay = int(av["x"]), int(av["y"])
+        d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=accent + (255,))
+        if avatar_bytes:
+            try:
+                im = Image.open(io.BytesIO(avatar_bytes))
+                circ = _circle_avatar(im, av_size)
+                card.paste(circ, (ax, ay), circ)
+            except Exception:
+                d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+        else:
             d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
-    else:
-        d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
 
-    # Nama + tier.
-    tx = ax + av_size + 40
-    d.text((tx, 60), name[:22], font=_font(46, bold=True), fill=(255, 255, 255))
-    d.text((tx, 116), f"{tier.upper()} · Level {data['level']}",
-           font=_font(26, bold=True), fill=accent + (255,))
+    # Nama.
+    if el["name"].get("show", True):
+        e = el["name"]
+        d.text((e["x"], e["y"]), name[:22], font=fnt(e["size"], e.get("bold", True)),
+               fill=rgb("name", (255, 255, 255)))
 
-    # Member sejak.
-    since = "-"
-    if data.get("first_order"):
-        try:
-            since = datetime.datetime.fromisoformat(str(data["first_order"])).strftime("%b %Y")
-        except Exception:
-            since = "-"
-    rank_txt = f"  ·  Peringkat #{rank} bulan ini" if rank else ""
-    d.text((tx, 152), f"Member sejak {since}{rank_txt}",
-           font=_font(20), fill=(220, 220, 230))
+    # Tier & level.
+    if el["tier"].get("show", True):
+        e = el["tier"]
+        d.text((e["x"], e["y"]), f"{tier.upper()} · Level {data['level']}",
+               font=fnt(e["size"], e.get("bold", True)), fill=rgb("tier", accent))
+
+    # Member sejak (+ peringkat).
+    if el["since"].get("show", True):
+        e = el["since"]
+        since = "-"
+        if data.get("first_order"):
+            try:
+                since = datetime.datetime.fromisoformat(str(data["first_order"])).strftime("%b %Y")
+            except Exception:
+                since = "-"
+        rank_txt = f"  ·  Peringkat #{rank} bulan ini" if rank else ""
+        d.text((e["x"], e["y"]), f"Member sejak {since}{rank_txt}",
+               font=fnt(e["size"], e.get("bold", False)), fill=rgb("since", (220, 220, 230)))
 
     # Progress bar XP.
-    bx, by, bw, bh = tx, 196, W - tx - 60, 26
-    _rounded(d, (bx, by, bx + bw, by + bh), bh // 2, (255, 255, 255, 55))
-    into = data.get("xp_into_level", 0)
-    need = max(1, data.get("xp_for_next", 1))
-    frac = max(0.0, min(1.0, into / need))
-    fillw = int(bw * frac)
-    if fillw > bh:
-        _rounded(d, (bx, by, bx + fillw, by + bh), bh // 2, accent + (255,))
-    d.text((bx, by + bh + 8),
-           f"XP {into}/{need}  ·  {data.get('xp_remaining', 0)} XP lagi ke "
-           f"{data.get('next_tier') or 'MAX'}",
-           font=_font(18), fill=(225, 225, 235))
+    if el["xpbar"].get("show", True):
+        e = el["xpbar"]
+        bx, by, bw, bh = int(e["x"]), int(e["y"]), int(e["w"]), int(e["h"])
+        _rounded(d, (bx, by, bx + bw, by + bh), bh // 2, (255, 255, 255, 55))
+        into = data.get("xp_into_level", 0)
+        need = max(1, data.get("xp_for_next", 1))
+        frac = max(0.0, min(1.0, into / need))
+        fillw = int(bw * frac)
+        if fillw > bh:
+            _rounded(d, (bx, by, bx + fillw, by + bh), bh // 2, rgb("xpbar", accent) + (255,))
 
-    # Statistik (3 kolom bawah).
-    stats = [
-        ("BELANJA BULAN INI", _rupiah(data.get("spent_month", 0))),
-        ("TOTAL ORDER", f"{data.get('total_orders', 0)}x"),
-        ("ULASAN", f"{data.get('total_reviews', 0)}"),
-    ]
-    sy = 286
-    col_w = (W - 60 - 60) // 3
-    for i, (label, val) in enumerate(stats):
-        cx = 60 + i * col_w
-        d.text((cx, sy), label, font=_font(16, bold=True), fill=(200, 200, 215))
-        d.text((cx, sy + 22), val, font=_font(28, bold=True), fill=(255, 255, 255))
+    # Teks XP.
+    if el["xptext"].get("show", True):
+        e = el["xptext"]
+        into = data.get("xp_into_level", 0)
+        need = max(1, data.get("xp_for_next", 1))
+        d.text((e["x"], e["y"]),
+               f"XP {into}/{need}  ·  {data.get('xp_remaining', 0)} XP lagi ke "
+               f"{data.get('next_tier') or 'MAX'}",
+               font=fnt(e["size"], e.get("bold", False)), fill=rgb("xptext", (225, 225, 235)))
 
-    # Badge (pojok kanan bawah) — teks ringkas.
-    if badges:
-        btxt = "  ".join(badges)
-        d.text((W - 60, H - 52), btxt, font=_font(18, bold=True),
-               fill=accent + (255,), anchor="rs")
+    # Statistik (3 kolom).
+    if el["stats"].get("show", True):
+        e = el["stats"]
+        stats = [
+            ("BELANJA BULAN INI", _rupiah(data.get("spent_month", 0))),
+            ("TOTAL ORDER", f"{data.get('total_orders', 0)}x"),
+            ("ULASAN", f"{data.get('total_reviews', 0)}"),
+        ]
+        sx, sy = int(e["x"]), int(e["y"])
+        col_w = (W - sx - 60) // 3
+        label_sz = max(10, int(e["size"]) - 12)
+        for i, (label, val) in enumerate(stats):
+            cx = sx + i * col_w
+            d.text((cx, sy), label, font=fnt(label_sz, True), fill=(200, 200, 215))
+            d.text((cx, sy + label_sz + 6), val, font=fnt(e["size"], e.get("bold", True)),
+                   fill=rgb("stats", (255, 255, 255)))
+
+    # Badge.
+    if el["badges"].get("show", True) and badges:
+        e = el["badges"]
+        d.text((e["x"], e["y"]), "  ".join(badges),
+               font=fnt(e["size"], e.get("bold", True)), fill=rgb("badges", accent))
 
     buf = io.BytesIO()
     card.convert("RGB").save(buf, format="PNG")
@@ -282,11 +326,12 @@ class MemberProfile(commands.Cog):
         avatar = await self._fetch_avatar(target)
         name = target.display_name
         bg_path = _bg_path_for(data.get("tier"))
+        theme = themelib.load_theme()
 
         try:
             buf = await self.bot.loop.run_in_executor(
                 None, lambda: render_profile_card(name, avatar, data, rank=rank,
-                                                   badges=badges, bg_path=bg_path)
+                                                   badges=badges, bg_path=bg_path, theme=theme)
             )
             file = discord.File(buf, filename="profil.png")
             await interaction.followup.send(file=file)
