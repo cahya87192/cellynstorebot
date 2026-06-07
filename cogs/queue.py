@@ -31,6 +31,16 @@ import discord
 from discord.ext import commands, tasks
 
 from utils.config import GUILD_ID, ADMIN_ROLE_ID, STORE_NAME
+
+try:
+    from utils.config import PUBLIC_QUEUE_CHANNEL_ID as _PUBLIC_DEFAULT
+except Exception:  # pragma: no cover
+    _PUBLIC_DEFAULT = 0
+try:
+    from utils.config import TOP_SPENDER_BADGE as _PRIORITY_BADGE
+except Exception:  # pragma: no cover
+    _PRIORITY_BADGE = ""
+PRIORITY_BADGE = _PRIORITY_BADGE or "👑"
 from utils.db import get_conn
 from utils import queue as queuelib
 from utils import ticket_ui
@@ -48,6 +58,8 @@ BOARD_MESSAGE_KEY = "queue_board_message_id"
 CARDS_ENABLED_KEY = "queue_cards_enabled"
 CARD_MESSAGES_KEY = "queue_card_messages"
 HANDLING_MAP_KEY = "queue_handling_map"
+PUBLIC_CHANNEL_KEY = "queue_public_channel_id"
+PUBLIC_MESSAGE_KEY = "queue_public_message_id"
 
 REFRESH_SECONDS = 30
 MAX_BOARD_ROWS = 25  # batas baris di papan agar tetap rapi & dalam limit embed
@@ -123,6 +135,9 @@ class TicketQueue(commands.Cog):
         self._sticky_msgcount = {}  # channel_id -> jumlah pesan sejak kartu terakhir
         self._sticky_last = {}      # channel_id -> monotonic ts re-stick terakhir
         self._sticky_lock = asyncio.Lock()
+        # Seed channel papan publik dari config bila belum pernah diset (sekali).
+        if _PUBLIC_DEFAULT and not _get_setting(PUBLIC_CHANNEL_KEY):
+            _set_setting(PUBLIC_CHANNEL_KEY, _PUBLIC_DEFAULT)
         self.refresh_queue.start()
 
     def cog_unload(self):
@@ -177,6 +192,7 @@ class TicketQueue(commands.Cog):
         """Perbarui papan + kartu seketika (dipakai oleh !pay/!unpay)."""
         ordered = self._collect_ordered(guild)
         await self._update_board(guild, ordered)
+        await self._update_public_board(guild, ordered)
         if (_get_setting(CARDS_ENABLED_KEY) or "1") == "1":
             await self._update_cards(guild, ordered)
         return ordered
@@ -191,6 +207,7 @@ class TicketQueue(commands.Cog):
             self._prune_handling_map(guild)
             ordered = self._collect_ordered(guild)
             await self._update_board(guild, ordered)
+            await self._update_public_board(guild, ordered)
             if (_get_setting(CARDS_ENABLED_KEY) or "1") == "1":
                 await self._update_cards(guild, ordered)
         except Exception as e:
@@ -295,6 +312,76 @@ class TicketQueue(commands.Cog):
             _set_setting(BOARD_MESSAGE_KEY, msg.id)
         except Exception as e:
             print(f"[Queue] board send error: {e}")
+
+    # ── Papan PUBLIK (ringkas & anonim, untuk member) ───────────────────────────
+    def _public_board_embed(self, ordered):
+        """Versi ringkas papan untuk channel member: tanpa nama/mention & tanpa
+        link channel. Hanya jumlah, urutan layanan, dan tanda prioritas 👑."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        waiting, handling = queuelib.queue_counts(ordered)
+        embed = discord.Embed(
+            title="🛗 Antrian Toko — Live",
+            color=COLOR_BOARD,
+            timestamp=now,
+        )
+        if not ordered:
+            embed.description = ("Tidak ada antrean saat ini. Toko siap melayani — "
+                                 "silakan buka tiket! 🎉")
+            embed.set_footer(text=f"{STORE_NAME} • diperbarui otomatis")
+            return embed
+
+        processing = [t for t in ordered if t["handling"]]
+        waiting_list = [t for t in ordered if not t["handling"]]
+
+        lines = [f"🟢 Sedang diproses: **{handling}**   •   ⛔ Menunggu: **{waiting}**", ""]
+
+        lines.append("**🟢 SEDANG DIPROSES**")
+        if processing:
+            for t in processing[:MAX_BOARD_ROWS]:
+                lines.append(f"{_layanan_emoji(t['layanan'])} {_layanan_label(t['layanan'])}")
+        else:
+            lines.append("_Belum ada yang diproses._")
+
+        lines.append("")
+        lines.append("**⛔ ANTREAN MENUNGGU** _(terlama di atas)_")
+        if waiting_list:
+            for i, t in enumerate(waiting_list[:MAX_BOARD_ROWS], start=1):
+                crown = f" {PRIORITY_BADGE}" if t.get("is_priority") else ""
+                lines.append(f"`{i}.` {_layanan_emoji(t['layanan'])} {_layanan_label(t['layanan'])}{crown}")
+            if len(waiting_list) > MAX_BOARD_ROWS:
+                lines.append(f"… dan {len(waiting_list) - MAX_BOARD_ROWS} lagi.")
+        else:
+            lines.append("_Tidak ada yang menunggu._")
+
+        lines.append("")
+        lines.append(f"{PRIORITY_BADGE} = pesanan diprioritaskan (Top Spender)")
+        embed.description = "\n".join(lines)[:4000]
+        embed.set_footer(text=f"{STORE_NAME} • antrean diperbarui otomatis")
+        return embed
+
+    async def _update_public_board(self, guild, ordered):
+        ch_raw = _get_setting(PUBLIC_CHANNEL_KEY)
+        if not ch_raw or not str(ch_raw).isdigit():
+            return
+        channel = guild.get_channel(int(ch_raw))
+        if not channel:
+            return
+        embed = self._public_board_embed(ordered)
+        msg_id_raw = _get_setting(PUBLIC_MESSAGE_KEY)
+        if msg_id_raw and str(msg_id_raw).isdigit():
+            try:
+                await channel.get_partial_message(int(msg_id_raw)).edit(embed=embed)
+                return
+            except discord.NotFound:
+                pass
+            except discord.HTTPException as e:
+                print(f"[Queue] public board edit error: {e}")
+                return
+        try:
+            msg = await channel.send(embed=embed)
+            _set_setting(PUBLIC_MESSAGE_KEY, msg.id)
+        except Exception as e:
+            print(f"[Queue] public board send error: {e}")
 
     # ── Kartu posisi customer ───────────────────────────────────────────────────
     def _load_card_map(self):
@@ -421,6 +508,38 @@ class TicketQueue(commands.Cog):
         _set_setting(BOARD_CHANNEL_KEY, "")
         await ctx.send("🛑 Papan antrian dinonaktifkan.", delete_after=8)
 
+    @commands.command(name="antrianpublik")
+    async def antrianpublik(self, ctx):
+        """Set channel ini sebagai Papan Antrian PUBLIK (ringkas & anonim untuk member)."""
+        if not _is_admin(ctx.author):
+            return
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
+        _set_setting(PUBLIC_CHANNEL_KEY, ctx.channel.id)
+        _set_setting(PUBLIC_MESSAGE_KEY, "")  # paksa buat pesan baru di sini
+        guild = self.bot.get_guild(GUILD_ID)
+        ordered = self._collect_ordered(guild)
+        await self._update_public_board(guild, ordered)
+        await ctx.send(
+            "✅ Channel ini diset sebagai **Papan Antrian Publik** "
+            "(versi ringkas tanpa nama/link, aman untuk member).",
+            delete_after=8,
+        )
+
+    @commands.command(name="antrianpublikoff")
+    async def antrianpublikoff(self, ctx):
+        """Nonaktifkan papan antrian publik."""
+        if not _is_admin(ctx.author):
+            return
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
+        _set_setting(PUBLIC_CHANNEL_KEY, "")
+        await ctx.send("🛑 Papan antrian publik dinonaktifkan.", delete_after=8)
+
     @commands.command(name="antrianrefresh")
     async def antrianrefresh(self, ctx):
         """Paksa perbarui papan & kartu antrian sekarang."""
@@ -433,6 +552,7 @@ class TicketQueue(commands.Cog):
         guild = self.bot.get_guild(GUILD_ID)
         ordered = self._collect_ordered(guild)
         await self._update_board(guild, ordered)
+        await self._update_public_board(guild, ordered)
         if (_get_setting(CARDS_ENABLED_KEY) or "1") == "1":
             await self._update_cards(guild, ordered)
         await ctx.send("🔄 Antrian diperbarui.", delete_after=5)
