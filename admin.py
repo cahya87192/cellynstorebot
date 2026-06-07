@@ -23,11 +23,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash
 from admin_embed import embed_bp
+from admin_insights import insights_bp
 from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET", "cellyn-admin-secret-2024")
 app.register_blueprint(embed_bp)
+app.register_blueprint(insights_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
 
@@ -82,6 +84,17 @@ BASE = r"""<!DOCTYPE html>
   --shadow-sm:0 1px 2px rgba(15,23,42,.04);
   --shadow:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
   --sidebar-w:248px;
+}
+html[data-theme="dark"]{
+  --bg:#0b1120;--surface:#111827;--surface2:#0f1a2e;--surface3:#1e293b;
+  --border:#243042;--border2:#334155;--input-bg:#0f1a2e;
+  --accent:#3b82f6;--accent2:#2563eb;--accent-soft:#16243d;
+  --text:#e8eef6;--text2:#cbd5e1;--muted:#8aa0b8;--muted2:#a9b8cc;
+  --danger:#f87171;--danger-soft:#2a1416;
+  --success:#4ade80;--success-soft:#0f231a;
+  --warning:#fbbf24;--warning-soft:#241c0c;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --shadow:0 1px 3px rgba(0,0,0,.35),0 1px 2px rgba(0,0,0,.3);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{
@@ -282,6 +295,16 @@ NAVPLACEHOLDER
   </div>
 </div>
 
+<!-- Command Palette -->
+<div class="modal-overlay" id="cmdPalette" style="align-items:flex-start;padding-top:12vh;">
+  <div class="modal" style="max-width:520px;padding:0;overflow:hidden;">
+    <input id="cmdInput" type="text" placeholder="Ketik untuk cari menu... (Esc untuk tutup)"
+      style="border:none;border-bottom:1px solid var(--border);border-radius:0;padding:1rem 1.2rem;font-size:.95rem;"
+      oninput="filterPalette()" onkeydown="paletteKey(event)">
+    <ul id="cmdList" style="list-style:none;max-height:340px;overflow-y:auto;"></ul>
+  </div>
+</div>
+
 <script>
 function toggleSidebar(){
   document.querySelector('.sidebar').classList.toggle('open');
@@ -301,6 +324,59 @@ document.addEventListener('keydown',e=>{
 });
 document.querySelectorAll('.modal-overlay').forEach(m=>{
   m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('active');});
+});
+
+/* THEME */
+(function(){
+  var t = localStorage.getItem('cellyn-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+function toggleTheme(){
+  var cur = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme', cur);
+  localStorage.setItem('cellyn-theme', cur);
+}
+
+/* COMMAND PALETTE */
+var CMD_ITEMS=[
+  {t:'Dashboard',u:'/'},{t:'Mobile Legends',u:'/ml'},{t:'Free Fire',u:'/ff'},
+  {t:'Robux Store',u:'/robux'},{t:'GP Topup',u:'/gp'},{t:'Lainnya',u:'/lainnya'},
+  {t:'QRIS',u:'/qr'},{t:'Statistik',u:'/stats'},{t:'Transaksi',u:'/transactions'},
+  {t:'Tiket Aktif',u:'/tickets'},{t:'Performa Admin',u:'/admins'},
+  {t:'Rating & Ulasan',u:'/reviews'},{t:'Info Layanan',u:'/service-info'},
+  {t:'Embed Builder',u:'/embeds'},{t:'AutoPost',u:'/autopost'}
+];
+var _palIdx=0;
+function openPalette(){
+  document.getElementById('cmdPalette').classList.add('active');
+  var i=document.getElementById('cmdInput');i.value='';renderPalette(CMD_ITEMS);
+  setTimeout(function(){i.focus();},30);
+}
+function closePalette(){document.getElementById('cmdPalette').classList.remove('active');}
+function renderPalette(items){
+  _palIdx=0;
+  var html=items.map(function(it,n){
+    return '<li onclick="location.href=\''+it.u+'\'" data-u="'+it.u+'" '+
+      'style="padding:.7rem 1.2rem;cursor:pointer;font-size:.88rem;'+(n===0?'background:var(--surface3);':'')+'" '+
+      'onmouseover="this.style.background=\'var(--surface3)\'" onmouseout="this.style.background=\'\'">'+it.t+
+      '<span style="float:right;color:var(--muted);font-size:.75rem;">'+it.u+'</span></li>';
+  }).join('');
+  document.getElementById('cmdList').innerHTML = html || '<li class="empty">Tidak ada hasil</li>';
+}
+function filterPalette(){
+  var q=document.getElementById('cmdInput').value.toLowerCase();
+  renderPalette(CMD_ITEMS.filter(function(it){return it.t.toLowerCase().indexOf(q)>=0;}));
+}
+function paletteKey(e){
+  var lis=document.querySelectorAll('#cmdList li[data-u]');
+  if(e.key==='Enter'&&lis[_palIdx]){location.href=lis[_palIdx].getAttribute('data-u');}
+  else if(e.key==='ArrowDown'){_palIdx=Math.min(_palIdx+1,lis.length-1);_hl(lis);e.preventDefault();}
+  else if(e.key==='ArrowUp'){_palIdx=Math.max(_palIdx-1,0);_hl(lis);e.preventDefault();}
+}
+function _hl(lis){lis.forEach(function(l,n){l.style.background=n===_palIdx?'var(--surface3)':'';});}
+document.addEventListener('keydown',function(e){
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette();}
+  if(e.key==='Escape'){closePalette();}
 });
 </script>
 </body>
@@ -339,12 +415,23 @@ def render_page(content, **ctx):
     {_a("Lainnya", "/lainnya", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>', "page_lainnya")}
     {_a("QRIS", "/qr", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3"/></svg>', "page_qr")}
     {_a("Statistik", "/stats", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', "page_stats")}
+    {_a("Transaksi", "/transactions", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M3 12h18M3 18h12"/></svg>', "insights_bp.page_transactions")}
+    {_a("Tiket Aktif", "/tickets", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/></svg>', "insights_bp.page_tickets")}
+    {_a("Performa Admin", "/admins", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>', "insights_bp.page_admins")}
     {_a("Rating &amp; Ulasan", "/reviews", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', "page_reviews")}
     {_a("Info Layanan", "/service-info", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', "page_service_info")}
     {_a("Embed Builder", "/embeds", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>', "page_embeds")}
     {_a("AutoPost", "/autopost", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>', "page_autopost")}
   </nav>
   <div class="sidebar-footer">
+    <div style="display:flex;gap:.4rem;margin-bottom:.5rem;">
+      <button onclick="openPalette()" class="nav-item" style="flex:1;justify-content:center;border:1px solid var(--border);background:var(--surface2);" title="Cari (Ctrl+K)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg><span style="font-size:.78rem;">Cari</span>
+      </button>
+      <button onclick="toggleTheme()" class="nav-item" style="justify-content:center;border:1px solid var(--border);background:var(--surface2);" title="Ganti tema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
     <a href="/logout" class="nav-logout">{ico_out}<span>Logout</span></a>
   </div>
 </aside>'''
@@ -438,6 +525,33 @@ def index():
         tx_today = omzet_today = rating_n = 0; rating_avg = 0.0
     omzet_str = ("Rp " + f"{omzet_today:,}".replace(",", ".")) if omzet_today else "Rp 0"
     rating_str = f"{rating_avg:.1f}/5" if rating_n else "-"
+
+    # Chart omzet 14 hari terakhir + jumlah tiket aktif (live).
+    from datetime import date as _date, timedelta as _td
+    conn2 = get_conn()
+    try:
+        _drows = conn2.execute(
+            "SELECT date(closed_at) AS tgl, COALESCE(SUM(nominal),0) AS omzet "
+            "FROM transaction_log WHERE closed_at >= date('now','-13 days') "
+            "GROUP BY date(closed_at)"
+        ).fetchall()
+    except Exception:
+        _drows = []
+    _omap = {r["tgl"]: (r["omzet"] or 0) for r in _drows}
+    _today_d = _date.today()
+    _days14 = [(_today_d - _td(days=i)).isoformat() for i in range(13, -1, -1)]
+    chart_labels = [d[-5:] for d in _days14]
+    chart_omzet = [int(_omap.get(d, 0)) for d in _days14]
+    # Hitung tiket aktif lintas-tabel (best-effort).
+    active_tickets = 0
+    for _t in ("tickets", "gp_tickets", "robux_tickets", "vilog_tickets",
+               "ml_tickets", "jb_tickets", "lainnya_tickets"):
+        try:
+            active_tickets += conn2.execute(f"SELECT COUNT(*) FROM {_t}").fetchone()[0]
+        except Exception:
+            pass
+    conn2.close()
+
     def _stat(cls, icon, label, value, sub):
         return f'''<div class="stat-card {cls}">
           <div class="stat-top"><div class="stat-icon">{ICONS[icon]}</div></div>
@@ -456,6 +570,12 @@ def index():
   {_stat("green", "cart", "Transaksi Hari Ini", tx_today, "transaksi selesai")}
   {_stat("gold", "money", "Omzet Hari Ini", omzet_str, "total pemasukan")}
   {_stat("robux", "star", "Rating Toko", rating_str, f"{rating_n} ulasan total")}
+  {_stat("ml", "cart", "Tiket Aktif", active_tickets, "semua layanan")}
+</div>
+<div class="card">
+  <div class="card-header"><span class="card-title">{ICONS["money"]} Omzet 14 Hari Terakhir</span>
+    <a href="/transactions" class="btn btn-ghost btn-sm">Lihat transaksi</a></div>
+  <div class="card-body"><canvas id="dashChart" height="90"></canvas></div>
 </div>
 <div class="stats-grid">
   {_stat("ml", "ml", "Mobile Legends", ml_count, "produk aktif")}
@@ -481,14 +601,27 @@ def index():
   <div class="card-header"><span class="card-title">{ICONS["bolt"]} Akses Cepat</span></div>
   <div class="card-body">
     <div class="qa-grid">
+      {_qa("/transactions", "money", "Transaksi", "riwayat & export")}
+      {_qa("/tickets", "cart", "Tiket Aktif", "monitor live")}
+      {_qa("/admins", "star", "Performa Admin", "ranking staff")}
       {_qa("/robux", "robux", "Kelola Robux", "produk & rate")}
       {_qa("/ml", "ml", "Kelola ML/FF", "produk topup")}
-      {_qa("/lainnya", "tag", "Layanan Lainnya", "katalog produk")}
-      {_qa("/reviews", "star", "Rating & Ulasan", "feedback member")}
       {_qa("/stats", "money", "Statistik", "omzet & transaksi")}
     </div>
   </div>
-</div>"""
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+new Chart(document.getElementById('dashChart'), {{
+  type:'line',
+  data:{{labels:{chart_labels},datasets:[{{label:'Omzet',data:{chart_omzet},
+    borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.12)',borderWidth:2,
+    pointRadius:2,fill:true,tension:.4}}]}},
+  options:{{responsive:true,plugins:{{legend:{{display:false}}}},
+    scales:{{x:{{grid:{{color:'rgba(148,163,184,.15)'}},ticks:{{color:'#94a3b8',font:{{size:10}}}}}},
+    y:{{grid:{{color:'rgba(148,163,184,.15)'}},ticks:{{color:'#94a3b8',font:{{size:10}}}},beginAtZero:true}}}}}}
+}});
+</script>"""
     return render_page(content)
 
 # ── ML / GAMES ─────────────────────────────────────────────────────────────────
