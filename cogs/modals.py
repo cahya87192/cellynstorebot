@@ -74,7 +74,6 @@ class MidmanTradeModal(discord.ui.Modal, title="Buka Tiket Midman Trade"):
                 ("Admin", "-", True),
                 ("Status", "Menunggu konfirmasi admin", True),
                 ("Estimasi Proses", "Admin akan segera mengatur detail trade. Harap tunggu.", False),
-                ("Peringatan", "Tiket yang tidak aktif selama 2 jam akan otomatis ditutup dan transaksi dianggap batal.", False),
             ])
         msg = await channel.send(
             content=f"{admin_role.mention} — Tiket midman trade baru dari {interaction.user.mention}.",

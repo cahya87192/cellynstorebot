@@ -1,4 +1,3 @@
-import time
 import discord
 from discord.ext import commands
 import asyncio
@@ -40,11 +39,9 @@ class Midman(commands.Cog):
         self.bot = bot
         self.active_tickets = {}
         self.restored = False
-        self.ticket_timeout_check.start()
         self.auto_backup.start()
 
     def cog_unload(self):
-        self.ticket_timeout_check.cancel()
         self.auto_backup.cancel()
 
     @tasks.loop(hours=6)
@@ -55,74 +52,6 @@ class Midman(commands.Cog):
     async def before_auto_backup(self):
         await self.bot.wait_until_ready()
         await asyncio.sleep(6 * 3600)  # skip backup saat startup, tunggu 6 jam dulu
-
-    @tasks.loop(minutes=10)
-    async def ticket_timeout_check(self):
-        now = datetime.datetime.now(datetime.timezone.utc)
-        for ch_id, ticket in list(self.active_tickets.items()):
-            guild = self.bot.get_guild(GUILD_ID)
-            if not guild:
-                continue
-            channel = guild.get_channel(ch_id)
-            if not channel:
-                continue
-            last_msg_time = None
-            async for msg in channel.history(limit=1):
-                last_msg_time = msg.created_at
-            check_time = last_msg_time or ticket.get("opened_at")
-            if not check_time:
-                continue
-            if isinstance(check_time, str):
-                check_time = datetime.datetime.fromisoformat(check_time)
-            if check_time.tzinfo is None:
-                check_time = check_time.replace(tzinfo=datetime.timezone.utc)
-            delta = (now - check_time).total_seconds()
-            if delta >= 7200:
-                try:
-                    await channel.send(
-                        "Tiket ini otomatis ditutup karena tidak ada aktivitas selama 2 jam. "
-                        "Transaksi dianggap batal. Channel akan dihapus dalam 10 detik."
-                    )
-                    await asyncio.sleep(10)
-                    await channel.delete()
-                except Exception:
-                    pass
-                del self.active_tickets[ch_id]
-                save_tickets(self.active_tickets)
-            elif delta >= 3600 and not ticket.get("warned"):
-                try:
-                    old_warn_id = ticket.get("warn_message_id")
-                    if old_warn_id:
-                        try:
-                            old_msg = await channel.fetch_message(old_warn_id)
-                            await old_msg.delete()
-                        except Exception:
-                            pass
-                    warn_embed = discord.Embed(title="PERINGATAN TIKET", color=0xFFA500)
-                    warn_embed.add_field(name="\u200b", value=(
-                        "Tiket tidak ada aktivitas selama **1 jam**.\n\n"
-                        "Segera ketik `!acc` jika selesai, atau `!batal` jika dibatalkan.\n\n"
-                        "Tiket akan otomatis ditutup dalam **1 jam lagi** (<t:" + str(int(time.time()) + 3600) + ":R>)."
-                    ), inline=False)
-                    warn_embed.set_footer(text=STORE_NAME)
-                    _p1 = ticket.get("pihak1")
-                    _p2 = ticket.get("pihak2")
-                    _adm = ticket.get("admin")
-                    _mn = " ".join(filter(None, [
-                        _p1.mention if _p1 else None,
-                        _p2.mention if _p2 else None,
-                        _adm.mention if _adm else None,
-                    ]))
-                    warn_msg = await channel.send(content=_mn, embed=warn_embed)
-                    ticket["warn_message_id"] = warn_msg.id
-                except Exception:
-                    pass
-                ticket["warned"] = True
-                save_tickets(self.active_tickets)
-
-    @ticket_timeout_check.before_loop
-    async def before_timeout_check(self):
-        await self.bot.wait_until_ready()
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):

@@ -1,8 +1,7 @@
-import time
 import discord
 import datetime
 import asyncio
-from discord.ext import commands, tasks
+from discord.ext import commands
 from utils.config import ADMIN_ROLE_ID, LOG_CHANNEL_ID, STORE_NAME, TICKET_CATEGORY_ID, TRANSCRIPT_CHANNEL_ID, GUILD_ID
 from utils.counter import next_ticket_number
 from utils.transcript import generate as generate_transcript
@@ -244,7 +243,6 @@ class GameFormModal(discord.ui.Modal):
             _extra.append(("Server ID", f"`{server_val}`", True))
         _extra.append(("Status", "Menunggu proses", False))
         _extra.append(("Perintah Admin", "**!mlselesai** — konfirmasi topup selesai\n**!mlbatal [alasan]** — batalkan tiket", False))
-        _extra.append(("Peringatan", "Tiket yang tidak aktif selama 2 jam akan otomatis ditutup.", False))
         from cogs.top_spender import is_top_spender
         embed = ticket_ui.open_ticket_embed(
             game_slug, ticket_number, user,
@@ -390,68 +388,6 @@ class MLStore(commands.Cog):
         _migrate_db()
         self.active_tickets = load_ml_tickets()
         self.catalog_message_id = None
-        self.auto_close_task.start()
-
-    def cog_unload(self):
-        self.auto_close_task.cancel()
-
-    @tasks.loop(minutes=10)
-    async def auto_close_task(self):
-        now = datetime.datetime.now(datetime.timezone.utc)
-        guild = self.bot.get_guild(GUILD_ID)
-        if not guild:
-            return
-        for ch_id, ticket in list(self.active_tickets.items()):
-            last = ticket.get("last_activity") or ticket.get("opened_at")
-            if not last:
-                continue
-            last_dt = datetime.datetime.fromisoformat(last)
-            if last_dt.tzinfo is None:
-                last_dt = last_dt.replace(tzinfo=datetime.timezone.utc)
-            elapsed = (now - last_dt).total_seconds()
-            channel = guild.get_channel(ch_id)
-            if elapsed >= 7200:
-                delete_ml_ticket(ch_id)
-                self.active_tickets.pop(ch_id, None)
-                if channel:
-                    try:
-                        await channel.send(
-                            "Tiket ini otomatis ditutup karena tidak ada aktivitas selama 2 jam. "
-                            "Transaksi dianggap batal. Channel akan dihapus dalam 10 detik."
-                        )
-                        await asyncio.sleep(10)
-                        await channel.delete()
-                    except Exception:
-                        pass
-            elif elapsed >= 3600 and not ticket.get("warned"):
-                if channel:
-                    try:
-                        old_warn_id = ticket.get("warn_message_id")
-                        if old_warn_id:
-                            try:
-                                old_msg = await channel.fetch_message(old_warn_id)
-                                await old_msg.delete()
-                            except Exception:
-                                pass
-                        warn_embed = discord.Embed(title="PERINGATAN TIKET", color=0xFFA500)
-                        warn_embed.add_field(name="\u200b", value=(
-                            "Tiket tidak ada aktivitas selama **1 jam**.\n\n"
-                            "Segera ketik `!mlselesai` jika selesai, atau `!mlbatal` jika dibatalkan.\n\n"
-                            "Tiket akan otomatis ditutup dalam **1 jam lagi** (<t:" + str(int(time.time()) + 3600) + ":R>)."
-                        ), inline=False)
-                        warn_embed.set_footer(text=STORE_NAME)
-                        _user = guild.get_member(ticket["user_id"])
-                        _mn = _user.mention if _user else ""
-                        warn_msg = await channel.send(content=_mn, embed=warn_embed)
-                        ticket["warn_message_id"] = warn_msg.id
-                    except Exception:
-                        pass
-                ticket["warned"] = True
-                save_ml_ticket(ticket)
-
-    @auto_close_task.before_loop
-    async def before_auto_close(self):
-        await self.bot.wait_until_ready()
 
     @commands.Cog.listener()
     async def on_message(self, message):
