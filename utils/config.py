@@ -58,3 +58,8 @@ CUSTOMER_INSIGHT_CHANNEL_ID = int(os.getenv('CUSTOMER_INSIGHT_CHANNEL_ID', 0))
 # termasuk Top Spender bulan berjalan. Boleh emoji unicode atau emoji custom
 # server (format "<:nama:id>" / "<a:nama:id>"). Kosongkan untuk menonaktifkan.
 TOP_SPENDER_BADGE = os.getenv('TOP_SPENDER_BADGE', '<a:GreenCrown:1480340921705959493>')
+
+# Channel PUBLIK untuk papan antrian versi ringkas/anonim yang ditujukan ke
+# member (tanpa nama/mention & tanpa link channel). 0 = nonaktif. Bisa juga
+# diset runtime via command !antrianpublik di channel tujuan.
+PUBLIC_QUEUE_CHANNEL_ID = int(os.getenv('PUBLIC_QUEUE_CHANNEL_ID', '1513212206131449916'))
