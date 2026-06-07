@@ -305,11 +305,13 @@ class JBTradeModal(discord.ui.Modal, title="Midman Jual Beli"):
         cog.active_tickets[channel.id] = ticket
         save_jb_ticket(ticket)
 
+        from cogs.top_spender import is_top_spender
         e = ticket_ui.open_ticket_embed(
             "jualbeli", ticket_number, user,
             item=self.deskripsi.value.strip(),
             total=format_nominal(harga_int),
             payment="QRIS",
+            is_priority=is_top_spender(user.id),
             extra_fields=[
                 ("Penjual", user.mention, True),
                 ("Pembeli", "-", True),

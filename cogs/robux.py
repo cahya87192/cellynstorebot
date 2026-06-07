@@ -287,11 +287,13 @@ async def _create_robux_ticket(interaction: discord.Interaction, cart: list, rat
         f"• **{i['name']}** — {i['robux']} Robux — Rp {i['robux']*rate:,}"
         for i in cart
     )
+    from cogs.top_spender import is_top_spender
     embed = ticket_ui.open_ticket_embed(
         "robux", ticket_number, member,
         item=items_text,
         total=f"Rp {total_harga:,}",
         payment="QRIS",
+        is_priority=is_top_spender(member.id),
         extra_fields=[
             ("Total Robux", f"{total_robux} Robux", True),
             ("Rate", f"Rp {rate:,}/Robux", True),
@@ -486,11 +488,13 @@ class CustomOrderModal(discord.ui.Modal, title="Custom Order Robux"):
         cog.active_tickets[channel.id] = ticket
         save_robux_ticket(ticket)
 
+        from cogs.top_spender import is_top_spender
         embed = ticket_ui.open_ticket_embed(
             "robux", ticket_number, member,
             item=f"[Custom] {self.item.value.strip()}",
             total=f"Rp {total:,}",
             payment="QRIS",
+            is_priority=is_top_spender(member.id),
             extra_fields=[
                 ("Game / Map", self.game.value.strip(), True),
                 ("Username Roblox", self.username.value.strip(), True),

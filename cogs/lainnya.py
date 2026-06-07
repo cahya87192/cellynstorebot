@@ -793,11 +793,13 @@ async def open_product_ticket(interaction: discord.Interaction, product_id: int)
     save_lainnya_ticket(ticket)
 
     info = load_category_info(product["category"])
+    from cogs.top_spender import is_top_spender
     embed = ticket_ui.open_ticket_embed(
         "lainnya", ticket_number, member,
         item=product["name"],
         total=f"Rp {product['harga']:,}",
         payment="QRIS",
+        is_priority=is_top_spender(member.id),
         description=info.get("description") or None,
         terms=info.get("terms") or None,
     )
@@ -910,11 +912,13 @@ async def _create_custom_ticket(interaction, cog, member, guild, item_name, qty_
     if notes_value:
         _extra.append(("Catatan", notes_value, False))
     _extra.append(("Status", "Admin akan mengkonfirmasi ketersediaan & harga. Pembayaran via QRIS.", False))
+    from cogs.top_spender import is_top_spender
     embed = ticket_ui.open_ticket_embed(
         "lainnya", ticket_number, member,
         item=item_name,
         total=f"Rp {budget_int:,}",
         payment="QRIS",
+        is_priority=is_top_spender(member.id),
         extra_fields=_extra,
     )
 
@@ -1223,11 +1227,13 @@ async def _create_lainnya_ticket(interaction: discord.Interaction, cart: list):
 
     )
 
+    from cogs.top_spender import is_top_spender
     embed = ticket_ui.open_ticket_embed(
         "lainnya", ticket_number, member,
         item=items_text,
         total=f"Rp {total:,}",
         payment="QRIS",
+        is_priority=is_top_spender(member.id),
         extra_fields=[("Catatan", "Setelah pembayaran dikonfirmasi, admin akan memproses pesanan.", False)],
     )
 

@@ -273,11 +273,13 @@ class ConfirmView(discord.ui.View):
         cog.active_tickets[channel.id] = ticket
         save_gp_ticket(ticket)
 
+        from cogs.top_spender import is_top_spender
         embed = ticket_ui.open_ticket_embed(
             "gp", ticket_number, member,
             item=f"{self.robux} Robux via Gamepass",
             total=f"Rp {self.total:,}",
             payment="QRIS",
+            is_priority=is_top_spender(member.id),
             extra_fields=[
                 ("Rate", f"Rp {self.rate:,}/Robux", True),
                 ("Robux Diterima", f"{self.robux} Robux (after tax)", True),
