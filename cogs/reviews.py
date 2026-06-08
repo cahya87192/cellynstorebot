@@ -28,8 +28,10 @@ from utils.config import (
     ROYAL_CUSTOMER_ROLE_NAME,
 )
 from utils import reviews as rv
+from utils import invoice as invlib
 
 COLOR_REVIEW = 0xFFC107  # kuning/emas
+COLOR_INVOICE = 0x2ECC71  # hijau (struk lunas)
 POLL_INTERVAL_SECONDS = 60
 
 # Role member loyal (didapat otomatis dari transaksi). Dipakai gating /riwayat.
@@ -215,6 +217,43 @@ def build_rating_view(review_id: int, layanan: str = None) -> discord.ui.View:
     if btn is not None:
         view.add_item(btn)
     return view
+
+
+def build_invoice_embed(tx: dict, user: discord.abc.User | None = None) -> discord.Embed:
+    """Struk/invoice digital ringkas & profesional (warna hijau) untuk dikirim
+    ke DM member setelah transaksi selesai.
+
+    `tx` berisi: id, item, layanan, nominal, user_id, dan opsional qty/closed_at.
+    """
+    inv_no = invlib.invoice_number(tx.get("id"), tx.get("closed_at"))
+    tgl = invlib.format_date(tx.get("closed_at"))
+    qty = tx.get("qty") or 1
+    total = tx.get("nominal") or 0
+    produk = tx.get("item") or _pretty_layanan(tx.get("layanan"))
+    layanan = _pretty_layanan(tx.get("layanan"))
+
+    embed = discord.Embed(
+        title="🧾 Struk Pembelian",
+        description=(
+            f"Terima kasih sudah berbelanja di **{STORE_NAME}**! 💚\n"
+            "Berikut bukti transaksimu — simpan baik-baik ya."
+        ),
+        color=COLOR_INVOICE,
+    )
+    embed.add_field(name="No. Invoice", value=f"`{inv_no}`", inline=True)
+    embed.add_field(name="Tanggal", value=tgl, inline=True)
+    embed.add_field(name="Status", value="○ **LUNAS & SELESAI**", inline=True)
+    embed.add_field(name="Produk", value=str(produk)[:256], inline=True)
+    embed.add_field(name="Layanan", value=str(layanan)[:256], inline=True)
+    embed.add_field(name="Jumlah", value=f"{qty}x", inline=True)
+    embed.add_field(name="Total", value=f"**{invlib.rupiah(total)}**", inline=False)
+    if user is not None:
+        try:
+            embed.set_thumbnail(url=user.display_avatar.url)
+        except Exception:
+            pass
+    embed.set_footer(text=f"{STORE_NAME} • Struk Digital")
+    return embed
 
 
 def build_prompt_embed(review: dict, avatar_url: str = None) -> discord.Embed:
@@ -492,10 +531,12 @@ class Reviews(commands.Cog):
 
         embed = build_prompt_embed(review, avatar_url=(user.display_avatar.url if user else None))
         view = build_rating_view(review_id, layanan=tx.get("layanan"))
+        invoice_embed = build_invoice_embed(tx, user)
 
-        # Coba DM dulu.
+        # Coba DM dulu: kirim struk/invoice digital lebih dulu, lalu prompt rating.
         if user is not None:
             try:
+                await user.send(embed=invoice_embed)
                 msg = await user.send(embed=embed, view=view)
                 rv.set_prompt_msg_id(review_id, msg.id)
                 return
@@ -504,16 +545,20 @@ class Reviews(commands.Cog):
             except Exception as e:
                 print(f"[Reviews] DM error user {tx['user_id']}: {e}")
 
-        # Fallback: kirim prompt di channel testimoni dengan mention.
-        await self._send_prompt_to_channel(review_id, tx["user_id"], embed, view)
+        # Fallback: kirim struk + prompt di channel testimoni dengan mention.
+        await self._send_prompt_to_channel(review_id, tx["user_id"], embed, view,
+                                           invoice_embed=invoice_embed)
 
-    async def _send_prompt_to_channel(self, review_id, user_id, embed, view):
+    async def _send_prompt_to_channel(self, review_id, user_id, embed, view,
+                                      invoice_embed=None):
         if not TESTIMONI_CHANNEL_ID:
             return
         channel = self.bot.get_channel(TESTIMONI_CHANNEL_ID)
         if channel is None:
             return
         try:
+            if invoice_embed is not None:
+                await channel.send(content=f"<@{user_id}>", embed=invoice_embed)
             msg = await channel.send(content=f"<@{user_id}>", embed=embed, view=view)
             rv.set_prompt_msg_id(review_id, msg.id)
         except Exception as e:
