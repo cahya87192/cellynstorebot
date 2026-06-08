@@ -17,6 +17,8 @@ COLOR_HELP = 0x5865F2
 # Slash command untuk MEMBER (umum).
 MEMBER_COMMANDS = [
     ("/profil", "Lihat kartu profil kamu (level, XP, badge, statistik)"),
+    ("/faq", "Tampilkan FAQ toko (pertanyaan umum)"),
+    ("/saran", "Kirim saran / masukan / keluhan ke admin"),
     ("/rating", "Lihat statistik rating & ulasan toko"),
     ("/topreviewer", "Lihat member paling rajin memberi rating"),
     ("/topspender", "Lihat leaderboard top spender bulan ini"),
