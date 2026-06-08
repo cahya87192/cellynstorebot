@@ -137,6 +137,7 @@ perlu mengubah kode**.
 | `ROBUX_EMOJI` / `DIAMOND_EMOJI` | Emoji custom server untuk katalog |
 | `QUEUE_SERVICE_EMOJI` / `QUEUE_HANDLED_EMOJI` | Emoji papan antrian |
 | `TOP_SPENDER_BADGE` | Emoji mahkota Top Spender |
+| `LAINNYA_USE_CUSTOM_EMOJI` | `true`/`false` (default `true`). Set `false` di server lain agar emoji grup/kategori katalog "Lainnya" fallback ke unicode netral (custom emoji Cellyn tidak ada di server lain) |
 
 > **Catatan multi-server:** bot ini **single-tenant** (1 instance = 1 server = 1
 > `midman.db` = 1 admin panel). Untuk dipakai di server lain, model yang didukung

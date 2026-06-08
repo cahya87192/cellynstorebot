@@ -42,6 +42,14 @@ def _str(name, default=""):
     return val if (val is not None and str(val).strip() != "") else default
 
 
+def _bool(name, default=False):
+    """Ambil env var sebagai boolean. true/1/yes/on (case-insensitive) -> True."""
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        return default
+    return str(raw).strip().lower() in ("1", "true", "yes", "on", "y")
+
+
 def validate_required():
     """Kembalikan daftar nama env var WAJIB yang belum diisi (kosong = semua OK).
 
@@ -131,6 +139,13 @@ ROBUX_EMOJI = _str("ROBUX_EMOJI", "<:Robux:1480480351611654224>")
 DIAMOND_EMOJI = _str("DIAMOND_EMOJI", "<:diamond:1510720539403096267>")
 QUEUE_SERVICE_EMOJI = _str("QUEUE_SERVICE_EMOJI", "<:symbolcheck:1480599052109217892>")
 QUEUE_HANDLED_EMOJI = _str("QUEUE_HANDLED_EMOJI", "<:emoji:1480573101753503896>")
+
+# Katalog "lainnya" memakai banyak custom emoji server (grup & kategori). Di
+# server self-host lain emoji itu TIDAK ada -> akan tampil sebagai teks mentah
+# (mis. "<:NewChatGPTlogo:123>") atau menolak opsi dropdown. Set false di server
+# lain agar emoji grup/kategori otomatis fallback ke unicode netral yang aman.
+# Default true = perilaku server Cellyn tidak berubah.
+LAINNYA_USE_CUSTOM_EMOJI = _bool("LAINNYA_USE_CUSTOM_EMOJI", True)
 
 
 

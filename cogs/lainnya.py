@@ -10,7 +10,9 @@ from utils.config import (
 
     TICKET_CATEGORY_ID, GUILD_ID,
 
-    LAINNYA_AUTOREPLY_CHANNEL_ID
+    LAINNYA_AUTOREPLY_CHANNEL_ID,
+
+    LAINNYA_USE_CUSTOM_EMOJI
 
 )
 
@@ -26,6 +28,7 @@ from utils.config import LAINNYA_CATALOG_CHANNEL_ID
 # Data katalog produk "lainnya" (PRODUCTS, CATEGORY_INFO, grup, dst).
 from cogs import lainnya_catalog
 from cogs.lainnya_catalog import GROUP_ORDER, GROUP_EMOJI, group_of, get_category_info
+from utils import catalog_emoji
 
 # Kunci bot_state untuk menandai katalog sudah di-seed sekali-jalan.
 SEED_GUARD_KEY = "lainnya_seed_catalog_v1"
@@ -40,6 +43,12 @@ CATALOG_CHANNEL_ID = LAINNYA_CATALOG_CHANNEL_ID
 COLOR_LAINNYA = 0x5865F2
 
 DEFAULT_CAT_EMOJI = "•"
+
+
+def _group_emoji(group):
+    """Emoji grup yang aman lintas-server (fallback unicode bila custom dimatikan)."""
+    return catalog_emoji.resolve_group_emoji(
+        group, GROUP_EMOJI, LAINNYA_USE_CUSTOM_EMOJI)
 
 
 
@@ -515,7 +524,7 @@ def build_catalog_embed(products):
     groups = _groups_with_products(products)
 
     grp_list = "\n".join(
-        f"{GROUP_EMOJI.get(g, DEFAULT_CAT_EMOJI)} **{g}** — {n} produk" for g, n in groups
+        f"{_group_emoji(g) or DEFAULT_CAT_EMOJI} **{g}** — {n} produk" for g, n in groups
     ) or "_Belum ada produk tersedia._"
 
     embed = discord.Embed(
@@ -628,6 +637,12 @@ CATEGORY_EMOJI = {
 }
 
 
+def _category_emoji(category, group=None):
+    """Emoji kategori yang aman lintas-server (fallback ke emoji grup)."""
+    return catalog_emoji.resolve_category_emoji(
+        category, group, CATEGORY_EMOJI, GROUP_EMOJI, LAINNYA_USE_CUSTOM_EMOJI)
+
+
 
 class GroupSelect(discord.ui.Select):
     """Level 1 navigasi: pilih GRUP layanan (maks 8 grup, jauh di bawah batas 25)."""
@@ -637,7 +652,7 @@ class GroupSelect(discord.ui.Select):
         options = [
             discord.SelectOption(
                 label=g,
-                emoji=GROUP_EMOJI.get(g),
+                emoji=_group_emoji(g),
                 description=f"{n} produk",
                 value=g,
             )
@@ -673,7 +688,7 @@ async def _show_categories(interaction: discord.Interaction, group: str):
     options = [
         discord.SelectOption(
             label=cat[:100],
-            emoji=CATEGORY_EMOJI.get(cat) or GROUP_EMOJI.get(group),
+            emoji=_category_emoji(cat, group),
             description=f"{cnt} produk",
             value=cat,
         )
@@ -683,7 +698,7 @@ async def _show_categories(interaction: discord.Interaction, group: str):
     async def on_category(inter: discord.Interaction, value: str):
         await _show_products(inter, value)
 
-    emoji = GROUP_EMOJI.get(group, "")
+    emoji = _group_emoji(group) or ""
     view = PaginatedSelectView(
         options,
         on_select=on_category,
