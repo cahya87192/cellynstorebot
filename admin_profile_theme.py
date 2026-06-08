@@ -1,4 +1,4 @@
-"""admin_profile_theme.py - Editor Kartu Profil untuk Cellyn Admin Panel.
+"""admin_profile_theme.py - Editor Kartu Profil untuk Admin Panel.
 
 Blueprint terpisah (pola sama dgn admin_insights.py). Memberi editor visual:
   - /profil-theme            : halaman editor (drag-drop posisi + warna/font/size)

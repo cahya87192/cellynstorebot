@@ -1105,7 +1105,7 @@ class CustomOrderModal(discord.ui.Modal, title="Custom Order"):
             description=(
                 f"Pastikan nominal yang kamu masukkan **sudah benar** sebelum melanjutkan!\n\n"
                 f"**Salah input nominal = tiket tetap diproses dengan nominal tersebut.**\n"
-                f"Cellyn Store tidak bertanggung jawab atas kesalahan input dari member.\n\n"
+                f"{STORE_NAME} tidak bertanggung jawab atas kesalahan input dari member.\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
                 f"🛒 **Item:** {self.item_name.value}\n"
                 f"📦 **Qty:** {qty_int}\n"

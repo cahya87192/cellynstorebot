@@ -691,7 +691,7 @@ class Reviews(commands.Cog):
         if not has_royal:
             await interaction.response.send_message(
                 f"Fitur **/riwayat** khusus member **{ROYAL_CUSTOMER_ROLE_NAME}**.\n"
-                "Role ini otomatis kamu dapatkan setelah melakukan transaksi di Cellyn Store. 💛",
+                f"Role ini otomatis kamu dapatkan setelah melakukan transaksi di {STORE_NAME}. 💛",
                 ephemeral=True,
             )
             return

@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from utils.db import get_conn
-from utils.config import ADMIN_ROLE_ID, GUILD_ID, OWO_STOK_CHANNEL_ID, OWO_NOTIF_ROLE_ID
+from utils.config import ADMIN_ROLE_ID, GUILD_ID, OWO_STOK_CHANNEL_ID, OWO_NOTIF_ROLE_ID, STORE_NAME
 
 # ── CONSTANTS ──────────────────────────────────────────────────────────────────
 THUMBNAIL_URL        = "https://i.imgur.com/rFFnhZW.png"
@@ -77,7 +77,7 @@ def _build_embed(status: str) -> discord.Embed:
         ),
         inline=False,
     )
-    embed.set_footer(text="Cellyn Store  •  Status diperbarui otomatis")
+    embed.set_footer(text=f"{STORE_NAME}  •  Status diperbarui otomatis")
 
     import datetime
     embed.timestamp = datetime.datetime.now(datetime.timezone.utc)

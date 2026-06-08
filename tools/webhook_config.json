@@ -2,7 +2,7 @@
   "webhook_url": "PASTE_WEBHOOK_URL",
   "interval_seconds": 0,
   "mode": "rotate",
-  "username": "Cellyn Store",
+  "username": "Store",
   "avatar_url": "",
   "messages": [
     {

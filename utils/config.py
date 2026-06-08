@@ -1,95 +1,133 @@
+"""Konfigurasi terpusat (dibaca dari .env).
+
+Untuk portabilitas multi-server (self-host), SEMUA nilai spesifik-server diambil
+dari environment variables. Helper di bawah membuat bot:
+  - TIDAK crash dengan traceback membingungkan saat ada var wajib yang kosong;
+    sebagai gantinya var yang hilang dikumpulkan & dilaporkan rapi oleh
+    validate_required() (dipanggil saat startup di main.py).
+  - tetap berjalan apa adanya untuk server lama (default = nilai server semula).
+"""
 import os
 from dotenv import load_dotenv
+
 load_dotenv(override=True)
-GUILD_ID = int(os.getenv("GUILD_ID"))
-MIDMAN_CHANNEL_ID = int(os.getenv("MIDMAN_CHANNEL_ID"))
-TICKET_CATEGORY_ID = int(os.getenv("TICKET_CATEGORY_ID"))
-ADMIN_ROLE_ID = int(os.getenv("ADMIN_ROLE_ID"))
-TRANSCRIPT_CHANNEL_ID = int(os.getenv("TRANSCRIPT_CHANNEL_ID"))
-LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID"))
-STORE_NAME = os.getenv("STORE_NAME", "Cellyn Store")
-BACKUP_CHANNEL_ID = int(os.getenv('BACKUP_CHANNEL_ID'))
-ERROR_LOG_CHANNEL_ID = int(os.getenv('ERROR_LOG_CHANNEL_ID'))
-# Log channel for Vilog (optional; historically documented but not always set)
-VILOG_CHANNEL_ID = int(os.getenv('VILOG_CHANNEL_ID', 0))
-# Catalog/service channel for Vilog orders
-VILOG_CATALOG_CHANNEL_ID = int(os.getenv('VILOG_CATALOG_CHANNEL_ID', '1493576431718895677'))
-ROBUX_CATALOG_CHANNEL_ID = int(os.getenv('ROBUX_CATALOG_CHANNEL_ID'))
-DANA_NUMBER = os.getenv('DANA_NUMBER', '-')
-BCA_NUMBER = os.getenv('BCA_NUMBER', '-')
-ML_CATALOG_CHANNEL_ID = int(os.getenv('ML_CATALOG_CHANNEL_ID'))
-# Channel auto-reply layanan "lainnya": member ketik kata kunci -> bot balas item + harga + S&K
-LAINNYA_AUTOREPLY_CHANNEL_ID = int(os.getenv('LAINNYA_AUTOREPLY_CHANNEL_ID', '1508564472141447389'))
-# Channel publikasi ulasan/rating member (dipakai sistem reviews)
-TESTIMONI_CHANNEL_ID = int(os.getenv('TESTIMONI_CHANNEL_ID', 0))
-# Role badge untuk reviewer aktif (opsional; 0 = nonaktif). Diberikan otomatis
-# saat member mencapai ambang jumlah rating tertentu.
-REVIEWER_BADGE_ROLE_ID = int(os.getenv('REVIEWER_BADGE_ROLE_ID', 0))
-REVIEWER_BADGE_THRESHOLD = int(os.getenv('REVIEWER_BADGE_THRESHOLD', 3))
-# Channel tempat panel klaim garansi (tombol). 0 = nonaktif.
-WARRANTY_CHANNEL_ID = int(os.getenv('WARRANTY_CHANNEL_ID', 0))
-# Channel laporan harian otomatis (omzet & rating). 0 = nonaktif.
-DAILY_REPORT_CHANNEL_ID = int(os.getenv('DAILY_REPORT_CHANNEL_ID', '1476351037412610048'))
 
-AUTOPOSTER_TOKEN = os.getenv('AUTOPOSTER_TOKEN', '')
+# Dikumpulkan saat import; dilaporkan oleh validate_required() di startup.
+MISSING_REQUIRED = []
 
 
-# Batas maksimal tiket AKTIF per member untuk SETIAP layanan
-# (Midman, ML, Robux, GP, Lainnya, JualBeli, Vilog). Hitungannya per-layanan.
-MAX_TICKETS_PER_SERVICE = int(os.getenv('MAX_TICKETS_PER_SERVICE', 5))
+def _int(name, default=0, required=False):
+    """Ambil env var sebagai int dengan aman.
+
+    - required=True: bila kosong/tidak ada, catat ke MISSING_REQUIRED & kembalikan
+      default (TIDAK me-raise saat import, supaya validate_required bisa melapor
+      semua yang kurang sekaligus dengan pesan ramah).
+    - nilai non-numerik diperlakukan seperti kosong (dicatat bila required).
+    """
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        if required:
+            MISSING_REQUIRED.append(name)
+        return default
+    try:
+        return int(str(raw).strip())
+    except (TypeError, ValueError):
+        if required:
+            MISSING_REQUIRED.append(name)
+        return default
 
 
-
-# Masa garansi default (hari) untuk produk TANPA durasi langganan di namanya
-# (mis. Robux, diamond). Produk langganan ("... 1 Bulan") garansinya mengikuti
-# durasi langganan. Dipakai fitur garansi pintar.
-WARRANTY_DEFAULT_DAYS = int(os.getenv('WARRANTY_DEFAULT_DAYS', 7))
-
-# Berapa hari SEBELUM langganan habis bot mengirim DM follow-up perpanjangan.
-SUB_FOLLOWUP_LEAD_DAYS = int(os.getenv('SUB_FOLLOWUP_LEAD_DAYS', 3))
+def _str(name, default=""):
+    val = os.getenv(name)
+    return val if (val is not None and str(val).strip() != "") else default
 
 
+def validate_required():
+    """Kembalikan daftar nama env var WAJIB yang belum diisi (kosong = semua OK).
+
+    Dipanggil di startup (main.py). Bila tidak kosong, bot menampilkan panduan
+    lalu berhenti dengan rapi — bukan traceback.
+    """
+    return list(MISSING_REQUIRED)
+
+
+# ── WAJIB (bot tidak berfungsi tanpa ini) ────────────────────────────────────
+GUILD_ID = _int("GUILD_ID", required=True)
+MIDMAN_CHANNEL_ID = _int("MIDMAN_CHANNEL_ID", required=True)
+TICKET_CATEGORY_ID = _int("TICKET_CATEGORY_ID", required=True)
+ADMIN_ROLE_ID = _int("ADMIN_ROLE_ID", required=True)
+TRANSCRIPT_CHANNEL_ID = _int("TRANSCRIPT_CHANNEL_ID", required=True)
+LOG_CHANNEL_ID = _int("LOG_CHANNEL_ID", required=True)
+BACKUP_CHANNEL_ID = _int("BACKUP_CHANNEL_ID", required=True)
+ERROR_LOG_CHANNEL_ID = _int("ERROR_LOG_CHANNEL_ID", required=True)
+ROBUX_CATALOG_CHANNEL_ID = _int("ROBUX_CATALOG_CHANNEL_ID", required=True)
+ML_CATALOG_CHANNEL_ID = _int("ML_CATALOG_CHANNEL_ID", required=True)
+
+# Nama toko: dipakai di SEMUA embed/footer/transcript. Ganti via .env untuk
+# rebranding penuh (tidak ada "Cellyn" yang hardcoded di kode).
+STORE_NAME = _str("STORE_NAME", "Cellyn Store")
+
+# ── Opsional (punya default aman) ────────────────────────────────────────────
+VILOG_CHANNEL_ID = _int("VILOG_CHANNEL_ID", 0)
+VILOG_CATALOG_CHANNEL_ID = _int("VILOG_CATALOG_CHANNEL_ID", 1493576431718895677)
+DANA_NUMBER = _str("DANA_NUMBER", "-")
+BCA_NUMBER = _str("BCA_NUMBER", "-")
+# Channel auto-reply layanan "lainnya": member ketik kata kunci -> bot balas item.
+LAINNYA_AUTOREPLY_CHANNEL_ID = _int("LAINNYA_AUTOREPLY_CHANNEL_ID", 1508564472141447389)
+# Channel publikasi ulasan/rating member (dipakai sistem reviews).
+TESTIMONI_CHANNEL_ID = _int("TESTIMONI_CHANNEL_ID", 0)
+# Role badge reviewer aktif (0 = nonaktif).
+REVIEWER_BADGE_ROLE_ID = _int("REVIEWER_BADGE_ROLE_ID", 0)
+REVIEWER_BADGE_THRESHOLD = _int("REVIEWER_BADGE_THRESHOLD", 3)
+# Channel panel klaim garansi (0 = nonaktif).
+WARRANTY_CHANNEL_ID = _int("WARRANTY_CHANNEL_ID", 0)
+# Channel laporan harian otomatis (0 = nonaktif).
+DAILY_REPORT_CHANNEL_ID = _int("DAILY_REPORT_CHANNEL_ID", 1476351037412610048)
+
+AUTOPOSTER_TOKEN = _str("AUTOPOSTER_TOKEN", "")
+
+# Batas tiket AKTIF per member per layanan.
+MAX_TICKETS_PER_SERVICE = _int("MAX_TICKETS_PER_SERVICE", 5)
+
+# Masa garansi default (hari) untuk produk non-langganan.
+WARRANTY_DEFAULT_DAYS = _int("WARRANTY_DEFAULT_DAYS", 7)
+
+# Hari sebelum langganan habis bot kirim DM follow-up perpanjangan.
+SUB_FOLLOWUP_LEAD_DAYS = _int("SUB_FOLLOWUP_LEAD_DAYS", 3)
 
 # Channel ADMIN untuk insight pelanggan saat tiket dibuka (0 = pakai LOG_CHANNEL_ID).
-# Data belanja member sengaja dikirim ke channel admin, bukan ke channel tiket.
-CUSTOMER_INSIGHT_CHANNEL_ID = int(os.getenv('CUSTOMER_INSIGHT_CHANNEL_ID', 0))
+CUSTOMER_INSIGHT_CHANNEL_ID = _int("CUSTOMER_INSIGHT_CHANNEL_ID", 0)
 
-# Badge yang ditempel di samping nama buyer pada log transaksi bila pembeli
-# termasuk Top Spender bulan berjalan. Boleh emoji unicode atau emoji custom
-# server (format "<:nama:id>" / "<a:nama:id>"). Kosongkan untuk menonaktifkan.
-TOP_SPENDER_BADGE = os.getenv('TOP_SPENDER_BADGE', '<a:GreenCrown:1480340921705959493>')
+# Badge Top Spender pada log transaksi (emoji unicode / custom server). Kosong = nonaktif.
+TOP_SPENDER_BADGE = _str("TOP_SPENDER_BADGE", "<a:GreenCrown:1480340921705959493>")
 
-# Channel PUBLIK untuk papan antrian versi ringkas/anonim yang ditujukan ke
-# member (tanpa nama/mention & tanpa link channel). 0 = nonaktif. Bisa juga
-# diset runtime via command !antrianpublik di channel tujuan.
-PUBLIC_QUEUE_CHANNEL_ID = int(os.getenv('PUBLIC_QUEUE_CHANNEL_ID', '1513212206131449916'))
-
+# Channel papan antrian publik (ringkas/anonim untuk member). 0 = nonaktif.
+PUBLIC_QUEUE_CHANNEL_ID = _int("PUBLIC_QUEUE_CHANNEL_ID", 1513212206131449916)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PORTABILITAS: ID channel/role/emoji yang dulu hardcoded di tiap cog kini bisa
-# diatur lewat .env supaya bot gampang dipakai di server lain. Default tetap
-# nilai milik server Cellyn, jadi tanpa .env pun perilaku tidak berubah.
-# (Produk/katalog TIDAK di sini — itu data per-toko, diatur lewat admin panel.)
+# PORTABILITAS: ID channel/role/emoji yang dulu hardcoded di tiap cog. Default =
+# nilai server semula, jadi tanpa .env perilaku tidak berubah; server lain
+# tinggal override. (Produk/katalog TIDAK di sini — itu data per-toko via panel.)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Channel
-GENERAL_CHANNEL_ID = int(os.getenv('GENERAL_CHANNEL_ID', '1476350394526339084'))
-GP_CATALOG_CHANNEL_ID = int(os.getenv('GP_CATALOG_CHANNEL_ID', '1478917118715236603'))
-LAINNYA_CATALOG_CHANNEL_ID = int(os.getenv('LAINNYA_CATALOG_CHANNEL_ID', '1476349829113315489'))
-OWO_STOK_CHANNEL_ID = int(os.getenv('OWO_STOK_CHANNEL_ID', '1511134940643983371'))
-STATUS_VOICE_CHANNEL_ID = int(os.getenv('STATUS_VOICE_CHANNEL_ID', '1476382504838500362'))
-ADMIN_STATS_CHANNEL_ID = int(os.getenv('ADMIN_STATS_CHANNEL_ID', '1512224258565079130'))
+GENERAL_CHANNEL_ID = _int("GENERAL_CHANNEL_ID", 1476350394526339084)
+GP_CATALOG_CHANNEL_ID = _int("GP_CATALOG_CHANNEL_ID", 1478917118715236603)
+LAINNYA_CATALOG_CHANNEL_ID = _int("LAINNYA_CATALOG_CHANNEL_ID", 1476349829113315489)
+OWO_STOK_CHANNEL_ID = _int("OWO_STOK_CHANNEL_ID", 1511134940643983371)
+STATUS_VOICE_CHANNEL_ID = _int("STATUS_VOICE_CHANNEL_ID", 1476382504838500362)
+ADMIN_STATS_CHANNEL_ID = _int("ADMIN_STATS_CHANNEL_ID", 1512224258565079130)
 
 # Role
-BOOST_ROLE_ID = int(os.getenv('BOOST_ROLE_ID', '1476362606552809683'))
-CUSTOMER_ROLE_ID = int(os.getenv('CUSTOMER_ROLE_ID', '1476360559048786083'))
-TOP_SPENDER_ROLE_ID = int(os.getenv('TOP_SPENDER_ROLE_ID', '1508950886251106517'))
-OWO_NOTIF_ROLE_ID = int(os.getenv('OWO_NOTIF_ROLE_ID', '1496781799211270194'))
-ROYAL_CUSTOMER_ROLE_NAME = os.getenv('ROYAL_CUSTOMER_ROLE_NAME', 'Royal Customer')
+BOOST_ROLE_ID = _int("BOOST_ROLE_ID", 1476362606552809683)
+CUSTOMER_ROLE_ID = _int("CUSTOMER_ROLE_ID", 1476360559048786083)
+TOP_SPENDER_ROLE_ID = _int("TOP_SPENDER_ROLE_ID", 1508950886251106517)
+OWO_NOTIF_ROLE_ID = _int("OWO_NOTIF_ROLE_ID", 1496781799211270194)
+ROYAL_CUSTOMER_ROLE_NAME = _str("ROYAL_CUSTOMER_ROLE_NAME", "Royal Customer")
 
 # Emoji server (boleh unicode juga). Kosongkan untuk fallback default di cog.
-ROBUX_EMOJI = os.getenv('ROBUX_EMOJI', '<:Robux:1480480351611654224>')
-DIAMOND_EMOJI = os.getenv('DIAMOND_EMOJI', '<:diamond:1510720539403096267>')
-QUEUE_SERVICE_EMOJI = os.getenv('QUEUE_SERVICE_EMOJI', '<:symbolcheck:1480599052109217892>')
-QUEUE_HANDLED_EMOJI = os.getenv('QUEUE_HANDLED_EMOJI', '<:emoji:1480573101753503896>')
+ROBUX_EMOJI = _str("ROBUX_EMOJI", "<:Robux:1480480351611654224>")
+DIAMOND_EMOJI = _str("DIAMOND_EMOJI", "<:diamond:1510720539403096267>")
+QUEUE_SERVICE_EMOJI = _str("QUEUE_SERVICE_EMOJI", "<:symbolcheck:1480599052109217892>")
+QUEUE_HANDLED_EMOJI = _str("QUEUE_HANDLED_EMOJI", "<:emoji:1480573101753503896>")

@@ -1,5 +1,5 @@
 """
-Cellyn Store - Free Game Notifier Cog
+Free Game Notifier Cog
 Memantau game gratis dari Epic Games, Steam, GOG, dan Ubisoft
 setiap 15 menit dan auto-post ke channel yang ditentukan.
 """
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 # KONFIGURASI — sesuaikan di sini atau via .env
 # ─────────────────────────────────────────────
+from utils.config import STORE_NAME
 FREE_GAME_CHANNEL_ID = int(os.getenv("FREE_GAME_CHANNEL_ID", "0"))  # ID channel Discord
 SEEN_GAMES_FILE = Path("data/seen_games.json")  # file penyimpanan game yang sudah dipost
 
@@ -219,7 +220,7 @@ async def fetch_ubisoft(session: aiohttp.ClientSession) -> list[dict]:
 # COG UTAMA
 # ─────────────────────────────────────────────
 class FreeGameNotifier(commands.Cog):
-    """Cog notifikasi game gratis untuk Cellyn Store."""
+    """Cog notifikasi game gratis (PC)."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -295,7 +296,7 @@ class FreeGameNotifier(commands.Cog):
                 pass
 
         embed.add_field(name="🔗 Klaim Sekarang", value=f"[Klik di sini]({game.get('url', '#')})", inline=True)
-        embed.set_footer(text="Cellyn Store • Free Game Notifier")
+        embed.set_footer(text=f"{STORE_NAME} • Free Game Notifier")
 
         return embed
 

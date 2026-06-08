@@ -1,4 +1,4 @@
-"""admin_insights.py - Analitik & monitor untuk Cellyn Admin Panel.
+"""admin_insights.py - Analitik & monitor untuk Admin Panel.
 
 Blueprint terpisah (pola sama dgn admin_embed.py) berisi halaman baru:
   - /transactions            : riwayat transaksi (filter + search + pagination)

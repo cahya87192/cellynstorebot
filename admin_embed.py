@@ -1,5 +1,5 @@
 """
-admin_embed.py — Embed Builder Blueprint untuk Cellyn Admin Panel
+admin_embed.py — Embed Builder Blueprint untuk Admin Panel
 Menggunakan Discord REST API langsung (tidak butuh bot instance).
 Daftarkan otomatis via admin.py:
     from admin_embed import embed_bp

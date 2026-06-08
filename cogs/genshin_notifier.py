@@ -1,5 +1,5 @@
 """
-Cellyn Store - Genshin Impact Event Notifier Cog
+Genshin Impact Event Notifier Cog
 Auto-post event, banner, dan redeem code Genshin Impact
 ke channel komunitas setiap 1 jam.
 
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 # KONFIGURASI
 # ─────────────────────────────────────────────
+from utils.config import STORE_NAME
 GENSHIN_CHANNEL_ID = int(os.getenv("GENSHIN_CHANNEL_ID", "0"))
 SEEN_GENSHIN_FILE  = Path("data/seen_genshin.json")
 
@@ -75,7 +76,7 @@ def fmt_time(ts: int) -> str:
 # COG UTAMA
 # ─────────────────────────────────────────────
 class GenshinNotifier(commands.Cog):
-    """Cog notifikasi event Genshin Impact untuk Cellyn Store."""
+    """Cog notifikasi event Genshin Impact."""
 
     def __init__(self, bot: commands.Bot):
         self.bot  = bot
@@ -113,7 +114,7 @@ class GenshinNotifier(commands.Cog):
                 url,
                 params=params,
                 timeout=aiohttp.ClientTimeout(total=10),
-                headers={"User-Agent": "CellynStoreBot/1.0"},
+                headers={"User-Agent": "StoreBot/1.0"},
             ) as resp:
                 if resp.status == 200:
                     return await resp.json(content_type=None)
@@ -210,7 +211,7 @@ class GenshinNotifier(commands.Cog):
             )
             embed.add_field(name="🎁 Reward", value=reward_text, inline=False)
 
-        embed.set_footer(text="Cellyn Store • Genshin Impact Events")
+        embed.set_footer(text=f"{STORE_NAME} • Genshin Impact Events")
         return embed
 
     def _build_banner_embed(self, banner: dict) -> discord.Embed:
@@ -255,7 +256,7 @@ class GenshinNotifier(commands.Cog):
         if chars and chars[0].get("icon"):
             embed.set_thumbnail(url=chars[0]["icon"])
 
-        embed.set_footer(text="Cellyn Store • Genshin Impact Banner")
+        embed.set_footer(text=f"{STORE_NAME} • Genshin Impact Banner")
         return embed
 
     def _build_codes_embed(self, codes: list) -> discord.Embed:
@@ -274,7 +275,7 @@ class GenshinNotifier(commands.Cog):
                 inline=False,
             )
 
-        embed.set_footer(text="Cellyn Store • Genshin Impact | Kode bisa expired kapan saja!")
+        embed.set_footer(text=f"{STORE_NAME} • Genshin Impact | Kode bisa expired kapan saja!")
         return embed
 
     def _build_news_embed(self, article: dict) -> discord.Embed:
@@ -295,7 +296,7 @@ class GenshinNotifier(commands.Cog):
             value=f"[Klik di sini]({article.get('url', '#')})",
             inline=False,
         )
-        embed.set_footer(text="Cellyn Store • Genshin Impact")
+        embed.set_footer(text=f"{STORE_NAME} • Genshin Impact")
         return embed
 
     # ── Command manual ────────────────────────
