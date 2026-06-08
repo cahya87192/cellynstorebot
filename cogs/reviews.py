@@ -24,6 +24,8 @@ from utils.config import (
     REVIEWER_BADGE_ROLE_ID, REVIEWER_BADGE_THRESHOLD,
     ROBUX_CATALOG_CHANNEL_ID, ML_CATALOG_CHANNEL_ID,
     VILOG_CATALOG_CHANNEL_ID, MIDMAN_CHANNEL_ID,
+    GP_CATALOG_CHANNEL_ID, LAINNYA_CATALOG_CHANNEL_ID,
+    ROYAL_CUSTOMER_ROLE_NAME,
 )
 from utils import reviews as rv
 
@@ -32,12 +34,10 @@ POLL_INTERVAL_SECONDS = 60
 
 # Role member loyal (didapat otomatis dari transaksi). Dipakai gating /riwayat.
 # Konsisten dengan cog lain yang assign role by-name saat transaksi selesai.
-ROYAL_CUSTOMER_ROLE_NAME = "Royal Customer"
+# (ROYAL_CUSTOMER_ROLE_NAME diimpor dari utils.config supaya bisa diatur .env.)
 
 # Channel katalog per layanan (untuk tombol "Order Lagi" di prompt rating).
-# gp & lainnya pakai channel hardcoded (sesuai cog masing-masing).
-GP_CATALOG_CHANNEL_ID = 1478917118715236603
-LAINNYA_CATALOG_CHANNEL_ID = 1476349829113315489
+# gp & lainnya dari config (bisa di-override via .env).
 
 ORDER_AGAIN = {
     "robux": (ROBUX_CATALOG_CHANNEL_ID, "🛒 Order Robux Lagi"),

@@ -2,11 +2,10 @@ import datetime
 
 from discord.ext import commands, tasks
 
-from utils.config import GUILD_ID
+from utils.config import GUILD_ID, STATUS_VOICE_CHANNEL_ID
 from utils.store_hours import WIB, is_store_open
 
 
-STATUS_VOICE_CHANNEL_ID = 1476382504838500362
 OPEN_NAME = "🟢 STATUS : OPEN"
 CLOSE_NAME = "🔴 STATUS : CLOSE"
 

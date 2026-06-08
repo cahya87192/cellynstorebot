@@ -10,10 +10,9 @@ import datetime
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
-from utils.config import ADMIN_ROLE_ID, STORE_NAME, TOP_SPENDER_BADGE
+from utils.config import ADMIN_ROLE_ID, STORE_NAME, TOP_SPENDER_BADGE, TOP_SPENDER_ROLE_ID
 from utils.db import get_conn
 
-TOP_SPENDER_ROLE_ID = 1508950886251106517
 TOP_SPENDER_TOP_N   = 10
 LEADERBOARD_LIMIT   = 20
 

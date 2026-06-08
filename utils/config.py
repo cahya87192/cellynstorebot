@@ -63,3 +63,33 @@ TOP_SPENDER_BADGE = os.getenv('TOP_SPENDER_BADGE', '<a:GreenCrown:14803409217059
 # member (tanpa nama/mention & tanpa link channel). 0 = nonaktif. Bisa juga
 # diset runtime via command !antrianpublik di channel tujuan.
 PUBLIC_QUEUE_CHANNEL_ID = int(os.getenv('PUBLIC_QUEUE_CHANNEL_ID', '1513212206131449916'))
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PORTABILITAS: ID channel/role/emoji yang dulu hardcoded di tiap cog kini bisa
+# diatur lewat .env supaya bot gampang dipakai di server lain. Default tetap
+# nilai milik server Cellyn, jadi tanpa .env pun perilaku tidak berubah.
+# (Produk/katalog TIDAK di sini — itu data per-toko, diatur lewat admin panel.)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Channel
+GENERAL_CHANNEL_ID = int(os.getenv('GENERAL_CHANNEL_ID', '1476350394526339084'))
+GP_CATALOG_CHANNEL_ID = int(os.getenv('GP_CATALOG_CHANNEL_ID', '1478917118715236603'))
+LAINNYA_CATALOG_CHANNEL_ID = int(os.getenv('LAINNYA_CATALOG_CHANNEL_ID', '1476349829113315489'))
+OWO_STOK_CHANNEL_ID = int(os.getenv('OWO_STOK_CHANNEL_ID', '1511134940643983371'))
+STATUS_VOICE_CHANNEL_ID = int(os.getenv('STATUS_VOICE_CHANNEL_ID', '1476382504838500362'))
+ADMIN_STATS_CHANNEL_ID = int(os.getenv('ADMIN_STATS_CHANNEL_ID', '1512224258565079130'))
+
+# Role
+BOOST_ROLE_ID = int(os.getenv('BOOST_ROLE_ID', '1476362606552809683'))
+CUSTOMER_ROLE_ID = int(os.getenv('CUSTOMER_ROLE_ID', '1476360559048786083'))
+TOP_SPENDER_ROLE_ID = int(os.getenv('TOP_SPENDER_ROLE_ID', '1508950886251106517'))
+OWO_NOTIF_ROLE_ID = int(os.getenv('OWO_NOTIF_ROLE_ID', '1496781799211270194'))
+ROYAL_CUSTOMER_ROLE_NAME = os.getenv('ROYAL_CUSTOMER_ROLE_NAME', 'Royal Customer')
+
+# Emoji server (boleh unicode juga). Kosongkan untuk fallback default di cog.
+ROBUX_EMOJI = os.getenv('ROBUX_EMOJI', '<:Robux:1480480351611654224>')
+DIAMOND_EMOJI = os.getenv('DIAMOND_EMOJI', '<:diamond:1510720539403096267>')
+QUEUE_SERVICE_EMOJI = os.getenv('QUEUE_SERVICE_EMOJI', '<:symbolcheck:1480599052109217892>')
+QUEUE_HANDLED_EMOJI = os.getenv('QUEUE_HANDLED_EMOJI', '<:emoji:1480573101753503896>')

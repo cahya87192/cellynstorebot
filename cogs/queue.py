@@ -76,7 +76,11 @@ COLOR_HANDLING = 0x39FF14  # neon hijau
 # Thumbnail papan antrian publik.
 PUBLIC_BOARD_THUMBNAIL = "https://i.imgur.com/32I6YIx.png"
 # Emoji server untuk tiket yang SEDANG DILAYANI admin (seksi "diproses").
-HANDLED_EMOJI = "<:emoji:1480573101753503896>"
+# Dari config (bisa diatur via .env).
+try:
+    from utils.config import QUEUE_HANDLED_EMOJI as HANDLED_EMOJI
+except Exception:  # pragma: no cover
+    HANDLED_EMOJI = "<:emoji:1480573101753503896>"
 # Penjelasan fungsi papan (ditampilkan di bagian bawah embed publik). Sengaja
 # tanpa emoji dekoratif.
 PUBLIC_BOARD_INFO = (
@@ -87,9 +91,12 @@ PUBLIC_BOARD_INFO = (
 )
 
 # Emoji per-layanan untuk papan & kartu. Per keputusan owner, semua layanan
-# memakai satu emoji server yang sama. Ganti SERVICE_EMOJI bila ingin set lain;
-# bila dikosongkan, _layanan_emoji() jatuh ke "🎫" unicode.
-SERVICE_EMOJI = "<:symbolcheck:1480599052109217892>"
+# memakai satu emoji server yang sama (dari config; bisa diatur via .env).
+# Bila dikosongkan, _layanan_emoji() jatuh ke "🎫" unicode.
+try:
+    from utils.config import QUEUE_SERVICE_EMOJI as SERVICE_EMOJI
+except Exception:  # pragma: no cover
+    SERVICE_EMOJI = "<:symbolcheck:1480599052109217892>"
 LAYANAN_EMOJI = {
     "midman": SERVICE_EMOJI,
     "jualbeli": SERVICE_EMOJI,

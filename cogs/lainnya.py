@@ -20,6 +20,7 @@ from utils.paginator import PaginatedSelectView, with_price
 from utils.counter import next_ticket_number
 from utils import ticket_ui
 from utils import reviews as reviews_data
+from utils.config import LAINNYA_CATALOG_CHANNEL_ID
 
 
 # Data katalog produk "lainnya" (PRODUCTS, CATEGORY_INFO, grup, dst).
@@ -33,7 +34,8 @@ SEED_GUARD_KEY = "lainnya_seed_catalog_v1"
 
 THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
 
-CATALOG_CHANNEL_ID = 1476349829113315489
+# Channel katalog "Layanan Lainnya" (dari config; bisa di-override via .env).
+CATALOG_CHANNEL_ID = LAINNYA_CATALOG_CHANNEL_ID
 
 COLOR_LAINNYA = 0x5865F2
 

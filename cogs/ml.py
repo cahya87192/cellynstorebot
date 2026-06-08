@@ -2,7 +2,7 @@ import discord
 import datetime
 import asyncio
 from discord.ext import commands
-from utils.config import ADMIN_ROLE_ID, LOG_CHANNEL_ID, STORE_NAME, TICKET_CATEGORY_ID, TRANSCRIPT_CHANNEL_ID, GUILD_ID
+from utils.config import ADMIN_ROLE_ID, LOG_CHANNEL_ID, STORE_NAME, TICKET_CATEGORY_ID, TRANSCRIPT_CHANNEL_ID, GUILD_ID, DIAMOND_EMOJI
 from utils.counter import next_ticket_number
 from utils.transcript import generate as generate_transcript
 from utils.db import get_conn
@@ -285,7 +285,7 @@ GAME_EMOJI = {
     "WDP": "<:mole:1497007406415220857>",
     "FF": "<:Garena:1496829013967241388>",
 }
-DIAMOND_EMOJI = "<:diamond:1510720539403096267>"
+# DIAMOND_EMOJI diimpor dari utils.config (bisa diatur via .env).
 
 
 def _build_product_options(game: dict) -> list:

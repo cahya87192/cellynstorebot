@@ -29,6 +29,8 @@ from utils.config import (
     LAINNYA_AUTOREPLY_CHANNEL_ID,
     ML_CATALOG_CHANNEL_ID,
     ROBUX_CATALOG_CHANNEL_ID,
+    ROBUX_EMOJI,
+    DIAMOND_EMOJI,
 )
 
 # Channel katalog interaktif "Lainnya" (konstanta modul di cogs/lainnya.py).
@@ -56,9 +58,9 @@ COLOR_SUGGEST = 0x64748B    # abu kebiruan
 EM_TITLE = "\u2726"     # ✦ (penanda judul, dekoratif)
 EM_BULLET = "\u2727"    # ✧ (bullet item, dekoratif)
 EM_PRICE = "\u21B3"     # ↳ (penanda harga, dekoratif)
-EM_STOCK = "<:Robux:1480480351611654224>"    # stok Robux
-EM_ML = "<:diamond:1510720539403096267>"     # Topup Game
-EM_ROBUX = "<:Robux:1480480351611654224>"    # Robux Store
+EM_STOCK = ROBUX_EMOJI       # stok Robux
+EM_ML = DIAMOND_EMOJI        # Topup Game
+EM_ROBUX = ROBUX_EMOJI       # Robux Store
 EM_LAINNYA = "\u2756"   # ❖ (Layanan Lainnya — tak ada emoji custom khusus)
 EM_SUGGEST = "\u2727"   # ✧
 EM_FOOT = "\u2727"      # ✧
