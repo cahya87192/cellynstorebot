@@ -131,3 +131,14 @@ ROBUX_EMOJI = _str("ROBUX_EMOJI", "<:Robux:1480480351611654224>")
 DIAMOND_EMOJI = _str("DIAMOND_EMOJI", "<:diamond:1510720539403096267>")
 QUEUE_SERVICE_EMOJI = _str("QUEUE_SERVICE_EMOJI", "<:symbolcheck:1480599052109217892>")
 QUEUE_HANDLED_EMOJI = _str("QUEUE_HANDLED_EMOJI", "<:emoji:1480573101753503896>")
+
+
+
+# ── FAQ / Auto-CS / Saran (semua opsional; 0 = nonaktif) ─────────────────────
+# Channel tempat embed FAQ dipajang & diperbarui otomatis.
+FAQ_CHANNEL_ID = _int("FAQ_CHANNEL_ID", 0)
+# Channel tempat Auto-CS mendengarkan pertanyaan member & menjawab dari FAQ.
+# 0 = dengarkan di channel FAQ (bila diset) atau nonaktif.
+AUTOCS_CHANNEL_ID = _int("AUTOCS_CHANNEL_ID", 0)
+# Channel admin tujuan kiriman /saran (0 = pakai LOG_CHANNEL_ID).
+FEEDBACK_CHANNEL_ID = _int("FEEDBACK_CHANNEL_ID", 0)
