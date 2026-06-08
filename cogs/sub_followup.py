@@ -22,12 +22,11 @@ channel testimoni), supaya promo perpanjangan tidak bocor ke channel ulasan.
 import discord
 from discord.ext import commands, tasks
 
-from utils.config import STORE_NAME, GUILD_ID, SUB_FOLLOWUP_LEAD_DAYS
+from utils.config import STORE_NAME, GUILD_ID, SUB_FOLLOWUP_LEAD_DAYS, LAINNYA_CATALOG_CHANNEL_ID
 from utils.db import fetch_followup_candidates, mark_followup_sent
 from utils import subscription as sub
 
-# Channel katalog "Layanan Lainnya" (sama dengan cogs/lainnya.py CATALOG_CHANNEL_ID).
-LAINNYA_CATALOG_CHANNEL_ID = 1476349829113315489
+# Channel katalog "Layanan Lainnya" (dari config; bisa di-override via .env).
 COLOR_FOLLOWUP = 0x00BFFF
 
 

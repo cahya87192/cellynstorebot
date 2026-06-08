@@ -21,8 +21,8 @@ from utils.store_hours import is_store_open
 from utils.counter import next_ticket_number
 from utils import ticket_ui
 from utils import reviews as reviews_data
+from utils.config import GP_CATALOG_CHANNEL_ID
 
-GP_CATALOG_CHANNEL_ID = 1478917118715236603
 MIN_ROBUX = 300
 THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
 COLOR = 0x9B59B6

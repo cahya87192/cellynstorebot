@@ -16,12 +16,12 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from utils.config import ADMIN_ROLE_ID, STORE_NAME
+from utils.config import ADMIN_ROLE_ID, STORE_NAME, ADMIN_STATS_CHANNEL_ID
 from utils.db import get_conn
 
 # Channel publik tempat kartu performa admin dipajang (bisa di-override via
 # /setadminstatschannel; nilai ini jadi default).
-DEFAULT_ADMIN_STATS_CHANNEL_ID = 1512224258565079130
+DEFAULT_ADMIN_STATS_CHANNEL_ID = ADMIN_STATS_CHANNEL_ID
 
 COLOR_ADMIN_STATS = 0x5865F2
 UPDATE_INTERVAL_MINUTES = 15

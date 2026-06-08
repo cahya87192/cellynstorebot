@@ -4,7 +4,10 @@ import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
-from utils.config import ADMIN_ROLE_ID, STORE_NAME
+from utils.config import (
+    ADMIN_ROLE_ID, STORE_NAME,
+    BOOST_ROLE_ID, CUSTOMER_ROLE_ID, GENERAL_CHANNEL_ID,
+)
 from utils.db import get_conn
 
 THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
@@ -14,9 +17,6 @@ DATA_DIR = "data"
 WELCOME_IMAGE_BASE = "welcome"
 BOOST_IMAGE_BASE = "boost"
 ALLOWED_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp")
-BOOST_ROLE_ID = 1476362606552809683
-CUSTOMER_ROLE_ID = 1476360559048786083
-GENERAL_CHANNEL_ID = 1476350394526339084
 
 
 def _find_image(base: str):

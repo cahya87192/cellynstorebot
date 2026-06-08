@@ -2,7 +2,7 @@ import asyncio
 import discord
 import datetime
 from discord.ext import commands
-from utils.config import ADMIN_ROLE_ID, ROBUX_CATALOG_CHANNEL_ID, LOG_CHANNEL_ID, STORE_NAME, TICKET_CATEGORY_ID, GUILD_ID
+from utils.config import ADMIN_ROLE_ID, ROBUX_CATALOG_CHANNEL_ID, LOG_CHANNEL_ID, STORE_NAME, TICKET_CATEGORY_ID, GUILD_ID, ROBUX_EMOJI
 from utils.db import get_conn
 from utils.robux_db import load_robux_tickets, save_robux_ticket, delete_robux_ticket
 from utils.robux_stock import (
@@ -128,8 +128,6 @@ def harga(robux, rate):
         return "Belum diset"
     total = robux * rate
     return f"Rp {total:,}"
-
-ROBUX_EMOJI = "<:Robux:1480480351611654224>"
 
 
 def build_catalog_embed(rate):

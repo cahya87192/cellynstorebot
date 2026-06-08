@@ -2,11 +2,9 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from utils.db import get_conn
-from utils.config import ADMIN_ROLE_ID, GUILD_ID
+from utils.config import ADMIN_ROLE_ID, GUILD_ID, OWO_STOK_CHANNEL_ID, OWO_NOTIF_ROLE_ID
 
 # ── CONSTANTS ──────────────────────────────────────────────────────────────────
-OWO_STOK_CHANNEL_ID  = 1511134940643983371   # channel embed stok
-OWO_NOTIF_ROLE_ID    = 1496781799211270194   # role yang di-ping & bisa di-toggle
 THUMBNAIL_URL        = "https://i.imgur.com/rFFnhZW.png"
 
 COLOR_ADA    = 0x39FF14   # hijau neon
