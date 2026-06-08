@@ -276,6 +276,57 @@ def render_profile_card(name: str, avatar_bytes, data: dict, *,
     return buf
 
 
+# Ukuran kartu notifikasi achievement (banner, lebih pendek dari kartu profil).
+ACH_W, ACH_H = 880, 300
+
+
+def render_achievement_card(name: str, avatar_bytes, badge_names, tier: str = "Bronze") -> io.BytesIO:
+    """Render kartu 'Achievement Unlocked' -> PNG BytesIO. Murni Pillow.
+
+    Dipakai notifikasi badge baru (cogs/reviews.py). Tema warna mengikuti tier
+    member. Teks polos (font bundel tak render emoji warna).
+    """
+    dark, mid, accent = TIER_THEME.get(tier, TIER_THEME["Bronze"])
+    badge_names = [str(b) for b in (badge_names or []) if str(b)][:4]
+
+    bg = _gradient(dark, mid).resize((ACH_W, ACH_H)).convert("RGBA")
+    card = bg
+
+    panel = Image.new("RGBA", (ACH_W, ACH_H), (0, 0, 0, 0))
+    pd = ImageDraw.Draw(panel)
+    _rounded(pd, (20, 20, ACH_W - 20, ACH_H - 20), 26, (0, 0, 0, 150))
+    card = Image.alpha_composite(card, panel)
+    d = ImageDraw.Draw(card)
+
+    # Avatar bulat + ring aksen (kiri).
+    av_size, ax, ay = 150, 56, 75
+    d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=accent + (255,))
+    if avatar_bytes:
+        try:
+            im = Image.open(io.BytesIO(avatar_bytes))
+            circ = _circle_avatar(im, av_size)
+            card.paste(circ, (ax, ay), circ)
+        except Exception:
+            d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+    else:
+        d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+
+    tx = ax + av_size + 40
+    d.text((tx, 52), "ACHIEVEMENT UNLOCKED", font=_font(26, True), fill=accent + (255,))
+    d.text((tx, 92), name[:24], font=_font(34, True), fill=(255, 255, 255))
+
+    d.text((tx, 150), "Badge baru:", font=_font(18, False), fill=(210, 210, 220))
+    by = 176
+    for bn in badge_names:
+        d.text((tx, by), f"\u2022  {bn}", font=_font(22, True), fill=(255, 255, 255))
+        by += 30
+
+    buf = io.BytesIO()
+    card.convert("RGB").save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+
 
 def _is_admin(member) -> bool:
     return any(r.id == ADMIN_ROLE_ID for r in getattr(member, "roles", []))
