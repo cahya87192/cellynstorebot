@@ -173,7 +173,13 @@ var ORDER = {order_json};
 var theme = JSON.parse(JSON.stringify(THEME));
 var CARD_W=900, CARD_H=360;
 
-function markDirty(){{ document.getElementById('status').innerHTML='<span style="color:var(--warning)">● Perubahan belum disimpan</span>'; }}
+var _previewTimer=null;
+function markDirty(){{
+  document.getElementById('status').innerHTML='<span style="color:var(--warning)">● Perubahan belum disimpan (pratinjau diperbarui...)</span>';
+  // Debounce: perbarui pratinjau 400ms setelah perubahan terakhir.
+  if(_previewTimer) clearTimeout(_previewTimer);
+  _previewTimer=setTimeout(refreshPreview, 400);
+}}
 function setOk(m){{ document.getElementById('status').innerHTML='<span style="color:var(--success)">✓ '+m+'</span>'; }}
 
 // Build element selector
@@ -214,7 +220,7 @@ function onDrag(e){{
   el.x=Math.max(0,Math.min(CARD_W,nx)); el.y=Math.max(0,Math.min(CARD_H,ny));
   renderBoxes(); renderControls(); markDirty();
 }}
-function endDrag(){{ drag=null; document.onmousemove=null; document.onmouseup=null; }}
+function endDrag(){{ drag=null; document.onmousemove=null; document.onmouseup=null; refreshPreview(); }}
 
 function renderControls(){{
   var k=sel.value, el=theme.elements[k]; var h='';
