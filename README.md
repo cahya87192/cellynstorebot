@@ -21,8 +21,11 @@ Bot Discord untuk operasional toko digital. Menangani transaksi middleman trade,
 - **Admin Panel Web** — kelola produk ML/FF/WDP/Robux/Lainnya dan statistik transaksi via browser
 - **Statistik Transaksi** — dashboard grafik 7 hari dan 30 hari, produk terlaris, jam tersibuk per layanan
 - **Royal Customer** — auto-assign role setelah transaksi sukses di semua layanan
+- **Antrian Tiket** — papan antrian admin + papan publik ringkas untuk member, kartu posisi per tiket, prioritas Top Spender, command `!pay`/`!unpay`
+- **Top Spender** — leaderboard bulanan + prioritas antrean & badge untuk Top-N pembeli
+- **Kartu Profil Member** — `/profil` render kartu PNG (level/XP, tier, badge) yang bisa dikustomisasi penuh via admin panel (Editor Profil)
+- **Sticky Message** — `/stick_msg` menjaga pesan tetap di bawah channel
 - **Auto-restart** — bot restart otomatis jika crash (max 5x)
-- **Warning & Auto-close** — tiket tidak aktif 1 jam dapat peringatan, 2 jam ditutup otomatis
 - **Notifikasi URL Admin** — URL Cloudflare Tunnel dikirim ke channel admin setiap bot online
 
 ---
@@ -110,6 +113,37 @@ Salin `.env.example` ke `.env` dan isi semua variabel:
 | `ADMIN_PASSWORD` | `cellyn123` | Password login admin panel |
 | `ADMIN_SECRET` | *(auto)* | Secret key Flask session |
 | `ADMIN_PORT` | `5000` | Port admin panel |
+
+### Portabilitas multi-server (opsional)
+
+Semua key di bawah **punya default** (nilai server Cellyn), jadi bot tetap jalan
+tanpa mengisinya. Server lain cukup meng-override yang relevan di `.env` — **tidak
+perlu mengubah kode**.
+
+| Variable | Keterangan |
+|---|---|
+| `GENERAL_CHANNEL_ID` | Channel umum (sapaan, dll) |
+| `GP_CATALOG_CHANNEL_ID` | Channel katalog GP |
+| `LAINNYA_CATALOG_CHANNEL_ID` | Channel katalog "Lainnya" |
+| `OWO_STOK_CHANNEL_ID` | Channel embed stok OWO |
+| `STATUS_VOICE_CHANNEL_ID` | Voice channel status toko (Open/Close) |
+| `ADMIN_STATS_CHANNEL_ID` | Channel kartu performa admin |
+| `PUBLIC_QUEUE_CHANNEL_ID` | Channel papan antrian publik (member) |
+| `BOOST_ROLE_ID` | Role booster |
+| `CUSTOMER_ROLE_ID` | Role customer (auto-assign saat join) |
+| `TOP_SPENDER_ROLE_ID` | Role Top Spender (Top-N) |
+| `OWO_NOTIF_ROLE_ID` | Role ping notif stok OWO |
+| `ROYAL_CUSTOMER_ROLE_NAME` | Nama role Royal Customer (default `Royal Customer`) |
+| `ROBUX_EMOJI` / `DIAMOND_EMOJI` | Emoji custom server untuk katalog |
+| `QUEUE_SERVICE_EMOJI` / `QUEUE_HANDLED_EMOJI` | Emoji papan antrian |
+| `TOP_SPENDER_BADGE` | Emoji mahkota Top Spender |
+
+> **Catatan multi-server:** bot ini **single-tenant** (1 instance = 1 server = 1
+> `midman.db` = 1 admin panel). Untuk dipakai di server lain, model yang didukung
+> adalah **self-host**: tiap pemilik server menjalankan salinan bot & panelnya
+> sendiri di VPS/hosting masing-masing (token, `.env`, database, dan panel
+> terpisah total — data antar-toko tidak tercampur). **Produk/katalog diatur
+> sendiri oleh tiap toko lewat admin panel**, tidak diambil dari server lain.
 
 ---
 
