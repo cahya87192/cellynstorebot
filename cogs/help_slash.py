@@ -24,6 +24,7 @@ MEMBER_COMMANDS = [
     ("/topreviewer", "Lihat member paling rajin memberi rating"),
     ("/topspender", "Lihat leaderboard top spender bulan ini"),
     ("/riwayat", "Lihat riwayat transaksimu (khusus Royal Customer)"),
+    ("/struk", "Lihat ulang struk/invoice transaksi terakhirmu"),
 ]
 
 # Slash command khusus ADMIN.
