@@ -22,6 +22,7 @@ from PIL import Image, ImageDraw, ImageFont
 from utils.config import ADMIN_ROLE_ID, STORE_NAME
 from utils import profile as profilelib
 from utils import profile_theme as themelib
+from utils import achievements as achlib
 
 # Background kustom per tier (di-upload admin via /setprofilbg). Disimpan di
 # data/profilebg_<tier>.<ext>, mirip gambar welcome/boost.
@@ -284,14 +285,19 @@ def _is_admin(member) -> bool:
 def _compute_badges(data: dict, rank, is_priority: bool) -> list:
     # Catatan: Pillow tidak bisa render emoji berwarna (jadi kotak-kotak), jadi
     # badge pakai teks polos + bullet sederhana yang didukung font biasa.
+    #
+    # Sumber tunggal badge = utils.achievements (sama dgn command /badges), supaya
+    # konsisten. Badge tier akun (Member Gold/Diamond) di-skip di kartu karena
+    # tier sudah tampil sebagai "GOLD · Level X". "Top Spender" tetap dari rank
+    # bulan ini (bukan bagian achievements). Dibatasi agar muat di kartu.
     badges = []
     if is_priority or rank:
         badges.append("Top Spender")
-    if (data.get("total_orders") or 0) >= 10:
-        badges.append("Repeat Buyer")
-    if (data.get("total_reviews") or 0) >= 3:
-        badges.append("Reviewer")
-    return badges
+    for b in achlib.compute_achievements(data)["earned"]:
+        if b["category"] == "tier":
+            continue
+        badges.append(b["name"])
+    return badges[:4]
 
 
 class MemberProfile(commands.Cog):
