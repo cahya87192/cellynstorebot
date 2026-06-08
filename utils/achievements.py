@@ -132,3 +132,15 @@ def compute_achievements(profile: dict) -> dict:
 def earned_badge_names(profile: dict) -> list:
     """Daftar nama badge yang sudah diraih (tertinggi per kategori)."""
     return [b["name"] for b in compute_achievements(profile)["earned"]]
+
+
+def newly_earned(profile: dict, announced_names) -> list:
+    """Badge yang diraih SEKARANG tapi BELUM pernah diumumkan.
+
+    `announced_names`: iterable nama badge yang sudah pernah diumumkan ke member.
+    Return list badge dict (urut sesuai earned) untuk badge yang baru. Dipakai
+    sistem notifikasi badge agar tiap badge hanya diumumkan sekali.
+    """
+    announced = set(announced_names or [])
+    return [b for b in compute_achievements(profile)["earned"]
+            if b["name"] not in announced]

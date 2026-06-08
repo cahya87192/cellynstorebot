@@ -15,6 +15,7 @@ rating = garansi, jadi semua transaksi diberi kesempatan rating.
 import re
 import datetime
 
+import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -25,10 +26,13 @@ from utils.config import (
     ROBUX_CATALOG_CHANNEL_ID, ML_CATALOG_CHANNEL_ID,
     VILOG_CATALOG_CHANNEL_ID, MIDMAN_CHANNEL_ID,
     GP_CATALOG_CHANNEL_ID, LAINNYA_CATALOG_CHANNEL_ID,
-    ROYAL_CUSTOMER_ROLE_NAME, ADMIN_ROLE_ID,
+    ROYAL_CUSTOMER_ROLE_NAME, ADMIN_ROLE_ID, LOG_CHANNEL_ID,
 )
 from utils import reviews as rv
 from utils import invoice as invlib
+from utils import profile as profilelib
+from utils import achievements as achlib
+from utils import achievement_state as achstate
 
 COLOR_REVIEW = 0xFFC107  # kuning/emas
 COLOR_INVOICE = 0x2ECC71  # hijau (struk lunas)
@@ -147,6 +151,7 @@ class ReviewModal(discord.ui.Modal):
             await cog.update_success_log(self.review_id)
             await cog.publish_review(self.review_id)
             await cog.maybe_award_badge(interaction.user)
+            await cog._announce_for_review(self.review_id)
         # Bersihkan tombol di prompt (kalau bisa diakses).
         try:
             await interaction.message.edit(view=None)
@@ -522,6 +527,9 @@ class Reviews(commands.Cog):
 
         review = rv.get_review(review_id)
 
+        # Umumkan badge baru (jika ada) sebagai reply di log transaksi ini.
+        await self._announce_achievements(tx["user_id"], tx["id"])
+
         user = self.bot.get_user(tx["user_id"])
         if user is None:
             try:
@@ -563,6 +571,84 @@ class Reviews(commands.Cog):
             rv.set_prompt_msg_id(review_id, msg.id)
         except Exception as e:
             print(f"[Reviews] channel prompt error: {e}")
+
+    # ── Notifikasi achievement / badge baru ───────
+    async def _fetch_avatar_bytes(self, user):
+        """Bytes avatar member untuk kartu achievement (None bila gagal)."""
+        if user is None:
+            return None
+        try:
+            url = user.display_avatar.replace(size=256).url
+        except Exception:
+            return None
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.get(url) as r:
+                    if r.status == 200:
+                        return await r.read()
+        except Exception:
+            return None
+        return None
+
+    async def _announce_for_review(self, review_id: int):
+        """Cek badge baru setelah member memberi rating (total ulasan bertambah)."""
+        review = rv.get_review(review_id)
+        if review and review.get("user_id"):
+            await self._announce_achievements(review["user_id"], review.get("tx_id"))
+
+    async def _announce_achievements(self, user_id: int, tx_id):
+        """Umumkan badge baru sebagai REPLY di pesan log transaksi MILIK member.
+
+        Reply ke `log_message_id` transaksi memastikan kartu badge menempel di
+        log pemiliknya, walau ada log transaksi lain nyempil di antaranya.
+        Anti-dobel via utils.achievement_state. Bila pesan log spesifik tak
+        ditemukan, fallback kirim di channel log dengan mention.
+        """
+        try:
+            data = profilelib.get_member_profile(user_id)
+            announced = achstate.get_announced(user_id)
+            new_badges = achlib.newly_earned(data, announced)
+            if not new_badges:
+                return
+            names = [b["name"] for b in new_badges]
+
+            # Channel + pesan log transaksi pemilik (target reply yang tepat).
+            from utils.db import get_transaction
+            target_msg = None
+            channel = None
+            tx = get_transaction(tx_id) if tx_id else None
+            if tx and tx.get("log_channel_id"):
+                channel = self.bot.get_channel(tx["log_channel_id"])
+                if channel is not None and tx.get("log_message_id"):
+                    try:
+                        target_msg = await channel.fetch_message(tx["log_message_id"])
+                    except Exception:
+                        target_msg = None
+            if channel is None and LOG_CHANNEL_ID:
+                channel = self.bot.get_channel(LOG_CHANNEL_ID)
+            if channel is None:
+                return  # tak ada tempat -> jangan tandai, dicoba lagi nanti
+
+            guild = self.bot.get_guild(GUILD_ID)
+            member = guild.get_member(user_id) if guild else None
+            user = member or self.bot.get_user(user_id)
+            name = (getattr(member, "display_name", None)
+                    or getattr(user, "name", None) or f"User {user_id}")
+            avatar = await self._fetch_avatar_bytes(user)
+
+            from cogs.profile import render_achievement_card
+            buf = await self.bot.loop.run_in_executor(
+                None, lambda: render_achievement_card(name, avatar, names, data.get("tier"))
+            )
+            file = discord.File(buf, filename="achievement.png")
+            content = f"🏅 <@{user_id}> meraih badge baru: **{', '.join(names)}**!"
+            if target_msg is not None:
+                await target_msg.reply(content, file=file, mention_author=False)
+            else:
+                await channel.send(content, file=file)
+            achstate.mark_announced(user_id, names)
+        except Exception as e:
+            print(f"[Reviews] announce achievement error {user_id}: {e}")
 
     # ── Update pesan log transaksi setelah rating ──
     async def update_success_log(self, review_id: int):
