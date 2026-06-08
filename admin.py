@@ -1,5 +1,5 @@
 """
-admin.py — Cellyn Store Admin Panel
+admin.py — Store Admin Panel
 Jalankan: python admin.py
 Akses: http://localhost:5000
 Password default: cellyn123 (ubah via env ADMIN_PASSWORD)
@@ -26,6 +26,14 @@ from admin_embed import embed_bp
 from admin_insights import insights_bp
 from admin_profile_theme import theme_bp
 from functools import wraps
+
+# Brand panel: ikut STORE_NAME (.env) supaya tidak ada "Cellyn" yang nyangkut
+# saat dipakai server lain. Default aman bila config gagal di-import.
+try:
+    from utils.config import STORE_NAME as _STORE_NAME
+except Exception:
+    _STORE_NAME = "Store"
+ADMIN_BRAND = f"{_STORE_NAME} Admin"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("ADMIN_SECRET", "cellyn-admin-secret-2024")
@@ -70,7 +78,7 @@ BASE = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cellyn Admin</title>
+<title>BRANDPLACEHOLDER</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -284,7 +292,7 @@ NAVPLACEHOLDER
 <div class="main">
   <!-- Topbar Mobile -->
   <div class="topbar">
-    <div class="topbar-logo">CELLYN <span>ADMIN</span></div>
+    <div class="topbar-logo">BRANDPLACEHOLDER</div>
     <button class="hamburger" onclick="toggleSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
@@ -402,8 +410,8 @@ def render_page(content, **ctx):
         ico_out   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
         nav = f'''<aside class="sidebar">
   <div class="sidebar-logo">
-    <img src="https://i.imgur.com/xp2F452.png" alt="Cellyn">
-    <div class="sidebar-logo-text">Cellyn Admin<span>Store Management</span></div>
+    <img src="https://i.imgur.com/xp2F452.png" alt="logo">
+    <div class="sidebar-logo-text">{ADMIN_BRAND}<span>Store Management</span></div>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section">Menu</div>
@@ -445,7 +453,7 @@ def render_page(content, **ctx):
         for cat, msg in msgs:
             flash_html += f'<li class="flash flash-{cat}">{msg}</li>'
         flash_html += '</ul>'
-    html = BASE.replace("NAVPLACEHOLDER", nav).replace("FLASHPLACEHOLDER", flash_html).replace("CONTENTPLACEHOLDER", content)
+    html = BASE.replace("NAVPLACEHOLDER", nav).replace("FLASHPLACEHOLDER", flash_html).replace("CONTENTPLACEHOLDER", content).replace("BRANDPLACEHOLDER", ADMIN_BRAND)
     return render_template_string(html, **ctx)
 
 
@@ -462,8 +470,8 @@ def login():
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;background:var(--bg);">
   <div style="width:100%;max-width:380px;">
     <div style="text-align:center;margin-bottom:2rem;">
-      <img src="https://i.imgur.com/xp2F452.png" alt="Cellyn" style="width:64px;height:64px;border-radius:14px;margin-bottom:1rem;box-shadow:var(--shadow);">
-      <div style="font-size:1.4rem;font-weight:700;letter-spacing:-.02em;color:var(--text);">Cellyn Admin</div>
+      <img src="https://i.imgur.com/xp2F452.png" alt="logo" style="width:64px;height:64px;border-radius:14px;margin-bottom:1rem;box-shadow:var(--shadow);">
+      <div style="font-size:1.4rem;font-weight:700;letter-spacing:-.02em;color:var(--text);">{ADMIN_BRAND}</div>
       <div style="color:var(--muted);font-size:.8rem;margin-top:.25rem;">Store Management Panel</div>
     </div>
     <div class="card">
@@ -2085,6 +2093,6 @@ def autopost_edit_save(tid):
 
 if __name__ == "__main__":
     port = int(os.environ.get("ADMIN_PORT", 5000))
-    print(f"[ADMIN] Cellyn Store Admin Panel berjalan di http://localhost:{port}")
+    print(f"[ADMIN] {ADMIN_BRAND} Panel berjalan di http://localhost:{port}")
     print(f"[ADMIN] Password: {ADMIN_PASSWORD}")
     app.run(host="0.0.0.0", port=port, debug=False)

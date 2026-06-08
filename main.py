@@ -152,7 +152,7 @@ async def setup_and_run(bot):
 
         if cf_url:
             embed = discord.Embed(
-                title="🌐 Admin Panel Online Password Cellyn123",
+                title="🌐 Admin Panel Online",
                 description=f"Admin panel dapat diakses di:\n**{cf_url}**",
                 color=0x7c6aff
             )
@@ -221,4 +221,35 @@ async def main():
             retry_delay = 60  # reset delay kalau berhasil
 
 
+def check_env():
+    """Validasi konfigurasi wajib sebelum bot jalan.
+
+    Mencegah crash dengan traceback membingungkan saat .env belum lengkap
+    (umum terjadi waktu deploy di server baru). Menampilkan daftar yang kurang
+    lalu keluar rapi.
+    """
+    missing = []
+    if not TOKEN or not str(TOKEN).strip():
+        missing.append("TOKEN")
+    try:
+        from utils.config import validate_required
+        missing.extend(validate_required())
+    except Exception as e:
+        print(f"[SETUP] Gagal memuat konfigurasi: {e}")
+        sys.exit(1)
+
+    if missing:
+        print("=" * 60)
+        print("  KONFIGURASI BELUM LENGKAP — bot tidak bisa dijalankan.")
+        print("  Variabel .env berikut WAJIB diisi:")
+        for name in missing:
+            print(f"    - {name}")
+        print()
+        print("  Salin .env.example menjadi .env lalu isi nilainya.")
+        print("  (Lihat README bagian 'Setup Awal' & 'Environment Variables'.)")
+        print("=" * 60)
+        sys.exit(1)
+
+
+check_env()
 asyncio.run(main())

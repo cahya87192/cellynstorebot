@@ -49,7 +49,13 @@ def render_message(msg):
     </div>'''
 
 
-async def generate(channel, store_name="Cellyn Store"):
+async def generate(channel, store_name=None):
+    if store_name is None:
+        try:
+            from utils.config import STORE_NAME
+            store_name = STORE_NAME
+        except Exception:
+            store_name = "Store"
     messages = []
     async for msg in channel.history(limit=500, oldest_first=True):
         messages.append(msg)

@@ -1,5 +1,5 @@
 """
-Cellyn Store - Top Spender Monthly Leaderboard
+Top Spender Monthly Leaderboard
 - Auto update & edit embed tiap 30 menit
 - Top 20 ditampilkan
 - Role ID 1508950886251106517 diberikan ke top 1-10

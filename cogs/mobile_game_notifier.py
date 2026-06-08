@@ -1,5 +1,5 @@
 """
-Cellyn Store - Mobile Free Game Notifier Cog
+Mobile Free Game Notifier Cog
 Memantau game gratis Android & iOS via GamerPower API
 setiap 15 menit dan auto-post ke channel yang ditentukan.
 
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 # KONFIGURASI
 # ─────────────────────────────────────────────
+from utils.config import STORE_NAME
 MOBILE_GAME_CHANNEL_ID = int(os.getenv("MOBILE_GAME_CHANNEL_ID", "0"))
 SEEN_MOBILE_FILE = Path("data/seen_mobile_games.json")
 
@@ -74,7 +75,7 @@ def detect_platform(game: dict) -> str:
 # COG UTAMA
 # ─────────────────────────────────────────────
 class MobileGameNotifier(commands.Cog):
-    """Cog notifikasi game gratis Android & iOS untuk Cellyn Store."""
+    """Cog notifikasi game gratis Android & iOS."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -122,7 +123,7 @@ class MobileGameNotifier(commands.Cog):
                 async with session.get(
                     GAMERPOWER_API,
                     timeout=aiohttp.ClientTimeout(total=10),
-                    headers={"User-Agent": "CellynStoreBot/1.0"}
+                    headers={"User-Agent": "StoreBot/1.0"}
                 ) as resp:
                     if resp.status == 200:
                         data = await resp.json(content_type=None)
@@ -199,7 +200,7 @@ class MobileGameNotifier(commands.Cog):
             inline=False,
         )
 
-        embed.set_footer(text="Cellyn Store • Mobile Free Games | Data by GamerPower.com")
+        embed.set_footer(text=f"{STORE_NAME} • Mobile Free Games | Data by GamerPower.com")
 
         return embed
 
