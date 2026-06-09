@@ -44,6 +44,7 @@ from admin_gp import gp_bp
 from admin_robux import robux_bp
 from admin_ml import ml_bp
 from admin_lainnya import lainnya_text_bp
+from admin_lainnya_info import lainnya_info_bp
 from functools import wraps
 
 # Brand panel: ikut STORE_NAME (.env) supaya tidak ada "Cellyn" yang nyangkut
@@ -78,6 +79,7 @@ app.register_blueprint(gp_bp)
 app.register_blueprint(robux_bp)
 app.register_blueprint(ml_bp)
 app.register_blueprint(lainnya_text_bp)
+app.register_blueprint(lainnya_info_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
 
@@ -411,6 +413,7 @@ var CMD_ITEMS=[
   {t:'Katalog Robux',u:'/robux-editor'},
   {t:'Katalog ML',u:'/ml-editor'},
   {t:'Katalog Lainnya',u:'/lainnya-editor'},
+  {t:'Info Kategori Lainnya',u:'/lainnya-info-editor'},
   {t:'Rating & Ulasan',u:'/reviews'},{t:'Info Layanan',u:'/service-info'},
   {t:'Embed Builder',u:'/embeds'},{t:'AutoPost',u:'/autopost'}
 ];
@@ -507,6 +510,7 @@ def render_page(content, **ctx):
     {_a("Katalog Robux", "/robux-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9 9h4a2 2 0 0 1 0 4H9zM9 13l4 4"/></svg>', "robux_bp.page_robux")}
     {_a("Katalog ML", "/ml-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 19 7 19 17 12 22 5 17 5 7 12 2"/></svg>', "ml_bp.page_ml")}
     {_a("Katalog Lainnya", "/lainnya-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>', "lainnya_text_bp.page_lainnya_text")}
+    {_a("Info Kategori Lainnya", "/lainnya-info-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8"/></svg>', "lainnya_info_bp.page_lainnya_info")}
     {_a("Rating &amp; Ulasan", "/reviews", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', "page_reviews")}
     {_a("Info Layanan", "/service-info", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', "page_service_info")}
     {_a("Embed Builder", "/embeds", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>', "page_embeds")}
