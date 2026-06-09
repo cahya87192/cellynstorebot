@@ -28,6 +28,7 @@ from admin_profile_theme import theme_bp
 from admin_achievement_theme import badge_theme_bp
 from admin_catalog_thumbnail import catalog_thumb_bp
 from admin_lainnya_emoji import lainnya_emoji_bp
+from admin_selfhost import selfhost_bp
 from admin_faq import faq_bp
 from functools import wraps
 
@@ -47,6 +48,7 @@ app.register_blueprint(theme_bp)
 app.register_blueprint(badge_theme_bp)
 app.register_blueprint(catalog_thumb_bp)
 app.register_blueprint(lainnya_emoji_bp)
+app.register_blueprint(selfhost_bp)
 app.register_blueprint(faq_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
@@ -364,6 +366,7 @@ var CMD_ITEMS=[
   {t:'Editor Profil',u:'/profil-theme'},{t:'Editor Badge',u:'/badge-theme'},
   {t:'Thumbnail Katalog',u:'/catalog-thumbnails'},
   {t:'Emoji Katalog',u:'/lainnya/emoji'},
+  {t:'Cek Self-Host',u:'/self-host-check'},
   {t:'Editor FAQ',u:'/faq-editor'},
   {t:'Rating & Ulasan',u:'/reviews'},{t:'Info Layanan',u:'/service-info'},
   {t:'Embed Builder',u:'/embeds'},{t:'AutoPost',u:'/autopost'}
@@ -444,6 +447,7 @@ def render_page(content, **ctx):
     {_a("Editor Badge", "/badge-theme", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="6"/><path d="M8.5 13.5L7 22l5-3 5 3-1.5-8.5"/></svg>', "badge_theme_bp.page_theme")}
     {_a("Thumbnail Katalog", "/catalog-thumbnails", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>', "catalog_thumb_bp.page")}
     {_a("Emoji Katalog", "/lainnya/emoji", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>', "lainnya_emoji_bp.page")}
+    {_a("Cek Self-Host", "/self-host-check", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.66 0 3.22.45 4.56 1.24"/></svg>', "selfhost_bp.page")}
     {_a("Editor FAQ", "/faq-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19l-7 3V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v9"/><path d="M9.5 8.5a2.5 2.5 0 1 1 3 2.45V13"/><line x1="12.5" y1="16" x2="12.5" y2="16"/></svg>', "faq_bp.page_faq")}
     {_a("Rating &amp; Ulasan", "/reviews", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', "page_reviews")}
     {_a("Info Layanan", "/service-info", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', "page_service_info")}
