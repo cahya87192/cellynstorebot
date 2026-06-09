@@ -39,6 +39,7 @@ from admin_queue import queue_text_bp
 from admin_orders import order_bp
 from admin_reviews import review_bp
 from admin_midman import midman_bp
+from admin_vilog import vilog_bp
 from functools import wraps
 
 # Brand panel: ikut STORE_NAME (.env) supaya tidak ada "Cellyn" yang nyangkut
@@ -68,6 +69,7 @@ app.register_blueprint(queue_text_bp)
 app.register_blueprint(order_bp)
 app.register_blueprint(review_bp)
 app.register_blueprint(midman_bp)
+app.register_blueprint(vilog_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
 
@@ -396,6 +398,7 @@ var CMD_ITEMS=[
   {t:'Pesan Order',u:'/order-editor'},
   {t:'Pesan Rating',u:'/review-editor'},
   {t:'Panel Midman',u:'/midman-editor'},
+  {t:'Katalog Vilog',u:'/vilog-editor'},
   {t:'Rating & Ulasan',u:'/reviews'},{t:'Info Layanan',u:'/service-info'},
   {t:'Embed Builder',u:'/embeds'},{t:'AutoPost',u:'/autopost'}
 ];
@@ -487,6 +490,7 @@ def render_page(content, **ctx):
     {_a("Pesan Order", "/order-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>', "order_bp.page_order")}
     {_a("Pesan Rating", "/review-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', "review_bp.page_review")}
     {_a("Panel Midman", "/midman-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>', "midman_bp.page_midman")}
+    {_a("Katalog Vilog", "/vilog-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>', "vilog_bp.page_vilog")}
     {_a("Rating &amp; Ulasan", "/reviews", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', "page_reviews")}
     {_a("Info Layanan", "/service-info", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', "page_service_info")}
     {_a("Embed Builder", "/embeds", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>', "page_embeds")}
