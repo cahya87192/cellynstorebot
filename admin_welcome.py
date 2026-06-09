@@ -1,15 +1,15 @@
-"""admin_welcome.py - Editor teks pesan Welcome (sambutan member baru).
+"""admin_welcome.py - Editor teks pesan event member (welcome / boost / leave).
 
-Blueprint terpisah (pola sama dgn admin_faq.py / admin_sticky.py). Mengubah
-judul & isi embed sambutan join yang dikirim ke channel welcome. Cog
-`cogs/welcome.py` membaca teks lewat utils.welcome.render_welcome(), jadi
-perubahan di sini langsung dipakai pada member yang join berikutnya.
+Blueprint terpisah (pola sama dgn admin_faq.py / admin_sticky.py). Mengubah judul
+& isi embed yang dikirim saat member join, nge-boost server, atau keluar. Cog
+`cogs/welcome.py` membaca teks lewat utils.welcome.render_*(), jadi perubahan di
+sini langsung dipakai pada event berikutnya.
 
-  - /welcome-editor         : form judul + isi (template) & pratinjau langsung
-  - /welcome-editor/save    : simpan template (POST JSON)
-  - /welcome-editor/reset   : kembalikan ke teks default (POST)
+  - /welcome-editor              : form per jenis pesan + pratinjau langsung
+  - /welcome-editor/save         : simpan template (POST JSON {kind,title,desc})
+  - /welcome-editor/reset        : kembalikan satu jenis ke default (POST JSON {kind})
 
-Catatan: channel welcome & gambar tetap diatur dari Discord (/setwelcome)
+Catatan: channel & gambar welcome/boost tetap diatur dari Discord (/setwelcome)
 karena butuh izin bot. Halaman ini hanya mengubah teksnya.
 """
 import json
@@ -25,25 +25,18 @@ except Exception:
 
 welcome_bp = Blueprint("welcome_bp", __name__)
 
+# Nilai contoh per jenis pesan untuk pratinjau langsung di panel.
+_SAMPLES = {
+    "welcome": {"member": "Andi", "store": _STORE_NAME, "count": "123"},
+    "boost": {"member": "@Andi", "store": _STORE_NAME},
+    "leave": {"member": "Andi", "store": _STORE_NAME, "durasi": "3 bulan"},
+}
+
 
 def _guard():
     if not session.get("logged_in"):
         return redirect("/login")
     return None
-
-
-def _welcome_channel_id():
-    """Ambil welcome_channel_id (read-only, untuk info) dari bot_state."""
-    try:
-        from utils.db import get_conn
-        conn = get_conn()
-        row = conn.execute(
-            "SELECT value FROM bot_state WHERE key=?", ("welcome_channel_id",)
-        ).fetchone()
-        conn.close()
-        return (row["value"] if row else "") or ""
-    except Exception:
-        return ""
 
 
 @welcome_bp.route("/welcome-editor/save", methods=["POST"])
@@ -52,11 +45,14 @@ def save_welcome_route():
     if g:
         return g
     payload = request.get_json(force=True, silent=True) or {}
+    kind = payload.get("kind")
+    if kind not in welcomelib.MSG_SPECS:
+        return jsonify({"ok": False, "error": "Jenis pesan tidak dikenal."}), 400
     title = payload.get("title")
     desc = payload.get("desc")
     if (title is None or not str(title).strip()) and (desc is None or not str(desc).strip()):
         return jsonify({"ok": False, "error": "Judul & isi tidak boleh kosong keduanya."}), 400
-    welcomelib.save_welcome_texts(title=title, desc=desc)
+    welcomelib.save_texts(kind, title=title, desc=desc)
     return jsonify({"ok": True})
 
 
@@ -65,9 +61,12 @@ def reset_welcome_route():
     g = _guard()
     if g:
         return g
-    # String kosong -> baris dihapus -> kembali ke default.
-    welcomelib.save_welcome_texts(title="", desc="")
-    title, desc = welcomelib.load_welcome_texts()
+    payload = request.get_json(force=True, silent=True) or {}
+    kind = payload.get("kind")
+    if kind not in welcomelib.MSG_SPECS:
+        return jsonify({"ok": False, "error": "Jenis pesan tidak dikenal."}), 400
+    welcomelib.save_texts(kind, title="", desc="")
+    title, desc = welcomelib.load_texts(kind)
     return jsonify({"ok": True, "title": title, "desc": desc})
 
 
@@ -78,98 +77,107 @@ def page_welcome():
         return g
     from admin import render_page
 
-    title, desc = welcomelib.load_welcome_texts()
-    ch_id = _welcome_channel_id()
-    data = {
-        "title": title,
-        "desc": desc,
-        "store": _STORE_NAME,
-        "channel_id": ch_id,
-    }
-    data_json = json.dumps(data)
+    sections = []
+    for kind, spec in welcomelib.MSG_SPECS.items():
+        title, desc = welcomelib.load_texts(kind)
+        sections.append({
+            "kind": kind,
+            "label": spec["label"],
+            "title": title,
+            "desc": desc,
+            "placeholders": list(spec["placeholders"]),
+            "sample": _SAMPLES.get(kind, {}),
+        })
+    sections_json = json.dumps(sections)
 
     content = """
 <div class="page-header">
-  <div class="page-title">Pesan Welcome <small>Teks sambutan member baru di channel welcome</small></div>
+  <div class="page-title">Pesan Member <small>Teks Welcome, Boost &amp; Leave</small></div>
 </div>
 <div class="card"><div class="card-body">
   <div class="note" style="margin-bottom:1rem;">
-    Channel &amp; gambar welcome diatur dari Discord (<code>/setwelcome</code>). Halaman ini mengubah <b>teksnya</b>.
-    Perubahan langsung dipakai untuk member yang join berikutnya.
-    <br>Placeholder: <code>{member}</code> (nama member), <code>{store}</code> (nama toko),
-    <code>{count}</code> (nomor urut member). Channel welcome saat ini:
-    <code id="chInfo"></code>
+    Channel &amp; gambar welcome/boost diatur dari Discord (<code>/setwelcome</code>). Halaman ini mengubah <b>teksnya</b>.
+    Perubahan langsung dipakai pada event berikutnya. Mendukung <b>**bold**</b> ala Discord.
   </div>
-
-  <div class="form-group">
-    <label>Judul sambutan</label>
-    <input type="text" id="wTitle" maxlength="256" oninput="updatePreview();markDirty();" style="width:100%;">
-  </div>
-  <div class="form-group">
-    <label>Isi sambutan (boleh beberapa baris, mendukung **bold** Discord)</label>
-    <textarea id="wDesc" rows="6" oninput="updatePreview();markDirty();" style="width:100%;"></textarea>
-  </div>
-
-  <button class="btn btn-primary btn-sm" onclick="saveWelcome()">💾 Simpan</button>
-  <button class="btn btn-ghost btn-sm" onclick="resetWelcome()">↺ Kembalikan default</button>
-  <span id="status" style="margin-left:.6rem;font-size:.85rem;"></span>
-
-  <div style="margin-top:1.2rem;">
-    <label style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">Pratinjau</label>
-    <div style="border-left:4px solid #00BFFF;background:var(--surface3);border-radius:6px;padding:.8rem 1rem;margin-top:.4rem;">
-      <div id="pvTitle" style="font-weight:700;margin-bottom:.4rem;"></div>
-      <div id="pvDesc" style="white-space:pre-wrap;color:var(--text);"></div>
-    </div>
-  </div>
+  <div id="sections"></div>
 </div></div>
 
 <script>
-var DATA = DATA_JSON;
-var SAMPLE = {member:"Andi", store:DATA.store || "Store", count:"123"};
+var SECTIONS = SECTIONS_JSON;
 
 function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-function render(tpl){
-  return esc(tpl)
-    .replace(/\\{member\\}/g, esc(SAMPLE.member))
-    .replace(/\\{store\\}/g, esc(SAMPLE.store))
-    .replace(/\\{count\\}/g, esc(SAMPLE.count))
-    .replace(/\\*\\*(.+?)\\*\\*/g, "<b>$1</b>");
+function render(tpl, sample){
+  var out = esc(tpl);
+  Object.keys(sample||{}).forEach(function(k){
+    out = out.split("{"+k+"}").join(esc(String(sample[k])));
+  });
+  return out.replace(/\\*\\*([^*]+)\\*\\*/g, "<b>$1</b>").replace(/\\n/g, "<br>");
 }
-function updatePreview(){
-  document.getElementById('pvTitle').innerHTML = render(document.getElementById('wTitle').value);
-  document.getElementById('pvDesc').innerHTML = render(document.getElementById('wDesc').value);
-}
-function setStatus(msg, ok){
-  document.getElementById('status').innerHTML =
+function setStatus(kind, msg, ok){
+  document.getElementById('st_'+kind).innerHTML =
     '<span style="color:var(--'+(ok?'success':'warning')+')">'+(ok?'✓ ':'● ')+msg+'</span>';
 }
-function markDirty(){ setStatus('Perubahan belum disimpan', false); }
+function updatePreview(i){
+  var s = SECTIONS[i];
+  var t = document.getElementById('title_'+s.kind).value;
+  var d = document.getElementById('desc_'+s.kind).value;
+  document.getElementById('pvt_'+s.kind).innerHTML = render(t, s.sample);
+  document.getElementById('pvd_'+s.kind).innerHTML = render(d, s.sample);
+}
 
-function saveWelcome(){
+function build(){
+  var html = '';
+  SECTIONS.forEach(function(s, i){
+    var chips = s.placeholders.map(function(p){ return '<code>'+esc(p)+'</code>'; }).join(' ');
+    html += '<div class="card" style="margin-bottom:1rem;border:1px solid var(--border);"><div class="card-body">'
+      + '<div style="font-weight:700;margin-bottom:.2rem;">'+esc(s.label)+'</div>'
+      + '<div style="font-size:.78rem;color:var(--muted);margin-bottom:.7rem;">Placeholder: '+chips+'</div>'
+      + '<div class="form-group"><label>Judul</label>'
+      + '<input type="text" id="title_'+s.kind+'" maxlength="256" style="width:100%;" '
+      + 'oninput="updatePreview('+i+');setStatus(\\''+s.kind+'\\',\\'Belum disimpan\\',false);"></div>'
+      + '<div class="form-group"><label>Isi</label>'
+      + '<textarea id="desc_'+s.kind+'" rows="5" style="width:100%;" '
+      + 'oninput="updatePreview('+i+');setStatus(\\''+s.kind+'\\',\\'Belum disimpan\\',false);"></textarea></div>'
+      + '<button class="btn btn-primary btn-sm" onclick="saveSec('+i+')">💾 Simpan</button> '
+      + '<button class="btn btn-ghost btn-sm" onclick="resetSec('+i+')">↺ Default</button>'
+      + '<span id="st_'+s.kind+'" style="margin-left:.6rem;font-size:.85rem;"></span>'
+      + '<div style="margin-top:.9rem;border-left:4px solid var(--accent);background:var(--surface3);border-radius:6px;padding:.7rem .9rem;">'
+      + '<div id="pvt_'+s.kind+'" style="font-weight:700;margin-bottom:.35rem;"></div>'
+      + '<div id="pvd_'+s.kind+'" style="color:var(--text);"></div></div>'
+      + '</div></div>';
+  });
+  document.getElementById('sections').innerHTML = html;
+  SECTIONS.forEach(function(s, i){
+    document.getElementById('title_'+s.kind).value = s.title;
+    document.getElementById('desc_'+s.kind).value = s.desc;
+    updatePreview(i);
+  });
+}
+
+function saveSec(i){
+  var s = SECTIONS[i];
   fetch('/welcome-editor/save',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({title:document.getElementById('wTitle').value,
-                         desc:document.getElementById('wDesc').value})})
+    body:JSON.stringify({kind:s.kind, title:document.getElementById('title_'+s.kind).value,
+                         desc:document.getElementById('desc_'+s.kind).value})})
     .then(function(r){return r.json();}).then(function(d){
-      setStatus(d.ok ? 'Tersimpan.' : (d.error||'Gagal menyimpan'), !!d.ok);
+      setStatus(s.kind, d.ok ? 'Tersimpan.' : (d.error||'Gagal menyimpan'), !!d.ok);
     });
 }
-function resetWelcome(){
-  if(!confirm('Kembalikan judul & isi ke teks default?')) return;
-  fetch('/welcome-editor/reset',{method:'POST'})
+function resetSec(i){
+  var s = SECTIONS[i];
+  if(!confirm('Kembalikan pesan "'+s.label+'" ke teks default?')) return;
+  fetch('/welcome-editor/reset',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({kind:s.kind})})
     .then(function(r){return r.json();}).then(function(d){
       if(d.ok){
-        document.getElementById('wTitle').value = d.title;
-        document.getElementById('wDesc').value = d.desc;
-        updatePreview();
-        setStatus('Dikembalikan ke default.', true);
-      } else { setStatus('Gagal reset', false); }
+        document.getElementById('title_'+s.kind).value = d.title;
+        document.getElementById('desc_'+s.kind).value = d.desc;
+        updatePreview(i);
+        setStatus(s.kind, 'Dikembalikan ke default.', true);
+      } else { setStatus(s.kind, d.error||'Gagal reset', false); }
     });
 }
-
-document.getElementById('wTitle').value = DATA.title;
-document.getElementById('wDesc').value = DATA.desc;
-document.getElementById('chInfo').textContent = DATA.channel_id ? DATA.channel_id : '(belum diset)';
-updatePreview();
+build();
 </script>"""
-    content = content.replace("DATA_JSON", data_json)
+    content = content.replace("SECTIONS_JSON", sections_json)
     return render_page(content)
