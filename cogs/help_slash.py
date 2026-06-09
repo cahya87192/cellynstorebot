@@ -10,6 +10,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from utils.config import ADMIN_ROLE_ID, STORE_NAME
+from utils import help_text as hstext
 
 AUTO_DELETE_SECONDS = 60
 COLOR_HELP = 0x5865F2
@@ -68,14 +69,14 @@ class HelpSlash(commands.Cog):
                           description="Daftar slash command yang tersedia")
     async def help_cmd(self, interaction: discord.Interaction):
         embed = discord.Embed(
-            title="📖 Panduan Slash Command",
-            description="Untuk command prefix (`!...`), admin bisa pakai `!cmd`.",
+            title=hstext.load_text("title"),
+            description=hstext.load_text("description"),
             color=COLOR_HELP,
         )
         embed.add_field(name="👥 Untuk Member", value=_fmt(MEMBER_COMMANDS), inline=False)
         if _is_admin(interaction.user):
             embed.add_field(name="🛠️ Admin", value=_fmt(ADMIN_COMMANDS), inline=False)
-        embed.set_footer(text=f"{STORE_NAME} • pesan ini hilang dalam {AUTO_DELETE_SECONDS} detik")
+        embed.set_footer(text=hstext.render_text("footer", store=STORE_NAME, seconds=AUTO_DELETE_SECONDS))
         await interaction.response.send_message(embed=embed, delete_after=AUTO_DELETE_SECONDS)
 
 
