@@ -20,6 +20,59 @@ theme_bp = Blueprint("theme_bp", __name__)
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 ALLOWED_FONT_EXTS = (".ttf", ".otf")
+ALLOWED_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+VALID_TIERS = ["Bronze", "Silver", "Gold", "Diamond"]
+PROFILE_BG_BASE = "profilebg"
+
+
+def _bg_path(base, tier):
+    """Path file background tier (atau None). Sama dgn yang dibaca cogs/profile.py."""
+    if tier not in VALID_TIERS:
+        return None
+    for ext in ALLOWED_IMAGE_EXTS:
+        p = os.path.join(DATA_DIR, f"{base}_{tier.lower()}{ext}")
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def _tiers_with_bg(base):
+    return [t for t in VALID_TIERS if _bg_path(base, t)]
+
+
+def _save_bg_file(base, tier, file_storage):
+    """Validasi & simpan background -> data/<base>_<tier>.<ext>. Return (ok, msg)."""
+    if tier not in VALID_TIERS:
+        return False, "Tier tidak valid."
+    if not file_storage or not file_storage.filename:
+        return False, "Tidak ada file."
+    ext = os.path.splitext(file_storage.filename)[1].lower()
+    if ext not in ALLOWED_IMAGE_EXTS:
+        return False, "Format harus PNG/JPG/WEBP."
+    os.makedirs(DATA_DIR, exist_ok=True)
+    # hapus versi lama (ekstensi apa pun) supaya tak ada dobel.
+    for e in ALLOWED_IMAGE_EXTS:
+        old = os.path.join(DATA_DIR, f"{base}_{tier.lower()}{e}")
+        if os.path.exists(old):
+            try:
+                os.remove(old)
+            except Exception:
+                pass
+    file_storage.save(os.path.join(DATA_DIR, f"{base}_{tier.lower()}{ext}"))
+    return True, "ok"
+
+
+def _delete_bg_file(base, tier):
+    removed = False
+    for e in ALLOWED_IMAGE_EXTS:
+        p = os.path.join(DATA_DIR, f"{base}_{(tier or '').lower()}{e}")
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+                removed = True
+            except Exception:
+                pass
+    return removed
 
 
 def _guard():
@@ -48,11 +101,12 @@ def preview_png():
     # Render pakai theme yang dikirim via query (?t=<json>) bila ada, else tersimpan.
     raw = request.args.get("t")
     theme = themelib.merge_theme(raw) if raw else themelib.load_theme()
+    bg_path = _bg_path(PROFILE_BG_BASE, request.args.get("bg"))
     try:
         from cogs.profile import render_profile_card
         buf = render_profile_card("ContohMember", None, _sample_data(),
                                   rank=3, badges=["👑 Top Spender", "🔁 Repeat Buyer"],
-                                  bg_path=None, theme=theme)
+                                  bg_path=bg_path, theme=theme)
         return Response(buf.getvalue(), mimetype="image/png")
     except Exception as e:
         # Pillow tak tersedia / error -> PNG 1x1 transparan + pesan di header.
@@ -117,6 +171,28 @@ def upload_font():
 
 
 
+@theme_bp.route("/profil-theme/bg", methods=["POST"])
+def upload_bg():
+    g = _guard()
+    if g:
+        return g
+    tier = request.form.get("tier", "")
+    ok, msg = _save_bg_file(PROFILE_BG_BASE, tier, request.files.get("bg"))
+    if not ok:
+        return jsonify({"ok": False, "error": msg}), 400
+    return jsonify({"ok": True, "tier": tier, "tiers_with_bg": _tiers_with_bg(PROFILE_BG_BASE)})
+
+
+@theme_bp.route("/profil-theme/bg/delete", methods=["POST"])
+def delete_bg():
+    g = _guard()
+    if g:
+        return g
+    tier = (request.get_json(force=True, silent=True) or {}).get("tier", "")
+    removed = _delete_bg_file(PROFILE_BG_BASE, tier)
+    return jsonify({"ok": True, "removed": removed, "tiers_with_bg": _tiers_with_bg(PROFILE_BG_BASE)})
+
+
 @theme_bp.route("/profil-theme")
 def page_theme():
     g = _guard()
@@ -129,6 +205,8 @@ def page_theme():
     labels_json = json.dumps(dict(themelib.ELEMENT_LABELS))
     order_json = json.dumps([k for k, _ in themelib.ELEMENT_LABELS])
     cur_font = theme.get("font_file") or "(default sistem)"
+    bg_tiers_json = json.dumps(_tiers_with_bg(PROFILE_BG_BASE))
+    tiers_json = json.dumps(VALID_TIERS)
 
     content = f"""
 <div class="page-header">
@@ -159,6 +237,16 @@ def page_theme():
       <input type="file" id="fontFile" accept=".ttf,.otf">
       <button class="btn btn-ghost btn-sm" style="margin-top:.4rem;" onclick="uploadFont()">⬆️ Upload Font (.ttf/.otf)</button>
     </div>
+    <div class="form-group">
+      <label>Background per Tier <small style="color:var(--muted)" id="bgInfo"></small></label>
+      <select id="bgTier" onchange="refreshPreview()" style="width:100%;margin-bottom:.4rem;"></select>
+      <input type="file" id="bgFile" accept=".png,.jpg,.jpeg,.webp">
+      <div style="display:flex;gap:.5rem;margin-top:.4rem;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="uploadBg()">⬆️ Upload Background</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteBg()">🗑️ Hapus Background</button>
+      </div>
+      <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem;">Pratinjau memakai background tier yang dipilih di atas.</div>
+    </div>
     <hr style="border-color:var(--border);margin:1rem 0;">
     <label style="font-weight:600;">Elemen</label>
     <select id="elemSel" onchange="renderControls()" style="width:100%;margin:.4rem 0 .8rem;"></select>
@@ -170,6 +258,8 @@ def page_theme():
 var THEME = {theme_json};
 var LABELS = {labels_json};
 var ORDER = {order_json};
+var BG_TIERS = {bg_tiers_json};
+var TIERS = {tiers_json};
 var theme = JSON.parse(JSON.stringify(THEME));
 var CARD_W=900, CARD_H=360;
 
@@ -243,8 +333,39 @@ function renderControls(){{
 }}
 
 function refreshPreview(){{
-  var url='/profil-theme/preview.png?t='+encodeURIComponent(JSON.stringify(theme))+'&_='+Date.now();
+  var bgt=document.getElementById('bgTier');
+  var bgq=(bgt && bgt.value) ? '&bg='+encodeURIComponent(bgt.value) : '';
+  var url='/profil-theme/preview.png?t='+encodeURIComponent(JSON.stringify(theme))+bgq+'&_='+Date.now();
   stage.style.backgroundImage="url('"+url+"')";
+}}
+function initBgUI(){{
+  var sel=document.getElementById('bgTier');
+  sel.innerHTML='';
+  TIERS.forEach(function(t){{
+    var o=document.createElement('option'); o.value=t;
+    o.textContent=t+(BG_TIERS.indexOf(t)>=0?' ✓':' (default)'); sel.appendChild(o);
+  }});
+  var def=BG_TIERS.length?BG_TIERS[0]:'Gold'; sel.value=def;
+  document.getElementById('bgInfo').textContent = BG_TIERS.length
+    ? '— punya BG: '+BG_TIERS.join(', ') : '— belum ada BG kustom';
+}}
+function uploadBg(){{
+  var f=document.getElementById('bgFile').files[0];
+  var tier=document.getElementById('bgTier').value;
+  if(!f){{alert('Pilih file gambar dulu.');return;}}
+  var fd=new FormData(); fd.append('tier',tier); fd.append('bg',f);
+  fetch('/profil-theme/bg',{{method:'POST',body:fd}}).then(r=>r.json()).then(function(d){{
+    if(d.ok){{ BG_TIERS=d.tiers_with_bg; initBgUI(); document.getElementById('bgTier').value=tier;
+      setOk('Background tier '+tier+' diupload & diterapkan ke bot.'); refreshPreview(); }}
+    else {{ alert(d.error||'Gagal upload background.'); }}
+  }});
+}}
+function deleteBg(){{
+  var tier=document.getElementById('bgTier').value;
+  if(!confirm('Hapus background tier '+tier+'?')) return;
+  fetch('/profil-theme/bg/delete',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{tier:tier}})}})
+    .then(r=>r.json()).then(function(d){{ BG_TIERS=d.tiers_with_bg; initBgUI();
+      document.getElementById('bgTier').value=tier; setOk('Background tier '+tier+' dihapus (kembali ke gradien).'); refreshPreview(); }});
 }}
 function saveTheme(){{
   fetch('/profil-theme/save',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(theme)}})
@@ -266,7 +387,7 @@ function uploadFont(){{
 }}
 
 window.addEventListener('resize', renderBoxes);
-renderBoxes(); renderControls();
+renderBoxes(); renderControls(); initBgUI();
 </script>"""
     content = content.replace("{{op}}", str(theme["panel_opacity"]))
     return render_page(content)
