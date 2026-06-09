@@ -9,6 +9,7 @@ import discord
 import datetime
 from discord.ext import commands
 from utils.db import get_conn
+from utils import afk as afklib
 
 def init_afk_table():
     conn = get_conn()
@@ -69,7 +70,10 @@ class AFK(commands.Cog):
     async def afk_cmd(self, ctx, *, reason: str = "AFK"):
         user = ctx.author
         if user.id in self.afk_users:
-            await ctx.send(f"{user.mention} kamu sudah AFK.", delete_after=5)
+            await ctx.send(
+                afklib.render_text("already", member=user.mention),
+                delete_after=5,
+            )
             return
 
         original_nick = user.display_name
@@ -78,7 +82,10 @@ class AFK(commands.Cog):
         save_afk(user.id, reason, original_nick, afk_since)
 
         await ctx.message.delete()
-        await ctx.send(f"{user.mention} sekarang AFK: **{reason}**", delete_after=5)
+        await ctx.send(
+            afklib.render_text("set", member=user.mention, reason=reason),
+            delete_after=5,
+        )
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -97,7 +104,7 @@ class AFK(commands.Cog):
             delete_afk(message.author.id)
 
             await message.channel.send(
-                f"Selamat datang kembali {message.author.mention}, kamu sudah tidak AFK."
+                afklib.render_text("back", member=message.author.mention)
             )
 
         # Cek mention ke user yang AFK
@@ -136,7 +143,12 @@ class AFK(commands.Cog):
                         except Exception:
                             pass
                     await message.channel.send(
-                        f"**{mentioned.display_name}** sedang AFK: {data['reason']} • {durasi}"
+                        afklib.render_text(
+                            "mention",
+                            name=mentioned.display_name,
+                            reason=data["reason"],
+                            durasi=durasi,
+                        )
                     )
                     notified.add(mentioned.id)
 
