@@ -43,6 +43,7 @@ except Exception:  # pragma: no cover
 PRIORITY_BADGE = _PRIORITY_BADGE or ""
 from utils.db import get_conn
 from utils import queue as queuelib
+from utils import queue_text as qtext
 from utils import ticket_ui
 
 try:
@@ -81,14 +82,6 @@ try:
     from utils.config import QUEUE_HANDLED_EMOJI as HANDLED_EMOJI
 except Exception:  # pragma: no cover
     HANDLED_EMOJI = "<:emoji:1480573101753503896>"
-# Penjelasan fungsi papan (ditampilkan di bagian bawah embed publik). Sengaja
-# tanpa emoji dekoratif.
-PUBLIC_BOARD_INFO = (
-    "Papan ini menampilkan antrean tiket secara **real-time** agar kamu tahu "
-    "posisi & estimasi giliranmu. Admin memproses tiket **berurutan dari yang "
-    "paling lama menunggu** (pesanan Top Spender diprioritaskan). Mohon "
-    "ditunggu dengan sabar ya — setiap tiket pasti dilayani."
-)
 
 # Emoji per-layanan untuk papan & kartu. Per keputusan owner, semua layanan
 # memakai satu emoji server yang sama (dari config; bisa diatur via .env).
@@ -350,9 +343,8 @@ class TicketQueue(commands.Cog):
         if PUBLIC_BOARD_THUMBNAIL:
             embed.set_thumbnail(url=PUBLIC_BOARD_THUMBNAIL)
         if not ordered:
-            embed.description = ("Tidak ada antrean saat ini. Toko siap melayani — "
-                                 "silakan buka tiket! 🎉")
-            embed.add_field(name="ℹ️ Tentang Papan Ini", value=PUBLIC_BOARD_INFO, inline=False)
+            embed.description = qtext.load_text("public_empty")
+            embed.add_field(name="ℹ️ Tentang Papan Ini", value=qtext.load_text("public_info"), inline=False)
             embed.set_footer(text=f"{STORE_NAME} • diperbarui otomatis")
             return embed
 
@@ -384,7 +376,7 @@ class TicketQueue(commands.Cog):
         if PRIORITY_BADGE:
             lines.append(f"{PRIORITY_BADGE} = pesanan diprioritaskan (Top Spender)")
         embed.description = "\n".join(lines)[:4000]
-        embed.add_field(name="ℹ️ Tentang Papan Ini", value=PUBLIC_BOARD_INFO, inline=False)
+        embed.add_field(name="ℹ️ Tentang Papan Ini", value=qtext.load_text("public_info"), inline=False)
         embed.set_footer(text=f"{STORE_NAME} • antrean diperbarui otomatis")
         return embed
 
@@ -430,13 +422,11 @@ class TicketQueue(commands.Cog):
         """Teks status untuk customer. Dipakai juga sebagai cache key (kurangi edit)."""
         if t["handling"]:
             admin = f"<@{t['admin_id']}>" if t.get("admin_id") else "admin"
-            return f"🟢 Sedang diproses oleh {admin}. Mohon tunggu sebentar ya"
+            return qtext.render_text("card_handling", admin=admin)
         if t["position"] == 1:
-            return ("🟡 **Posisi Antrean: 1** — kamu berada di antrean terdepan. "
-                    "Admin akan segera memproses pesananmu")
+            return qtext.load_text("card_first")
         ahead = t.get("ahead") or 0
-        return (f"🔄 **Posisi Antrean: {t['position']}** "
-                f"({ahead} tiket di depanmu). Mohon ditunggu ya!")
+        return qtext.render_text("card_waiting", position=t["position"], ahead=ahead)
 
     def _card_embed(self, t, text):
         num = _fmt_ticket_no(t["ticket_number"])
