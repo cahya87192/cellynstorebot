@@ -27,8 +27,9 @@ from utils.config import LAINNYA_CATALOG_CHANNEL_ID
 
 # Data katalog produk "lainnya" (PRODUCTS, CATEGORY_INFO, grup, dst).
 from cogs import lainnya_catalog
-from cogs.lainnya_catalog import GROUP_ORDER, GROUP_EMOJI, group_of, get_category_info
+from cogs.lainnya_catalog import GROUP_ORDER, GROUP_EMOJI, CATEGORY_EMOJI, group_of, get_category_info
 from utils import catalog_emoji
+from utils import catalog_emoji_settings as emoji_settings
 
 # Kunci bot_state untuk menandai katalog sudah di-seed sekali-jalan.
 SEED_GUARD_KEY = "lainnya_seed_catalog_v1"
@@ -46,9 +47,10 @@ DEFAULT_CAT_EMOJI = "•"
 
 
 def _group_emoji(group):
-    """Emoji grup yang aman lintas-server (fallback unicode bila custom dimatikan)."""
-    return catalog_emoji.resolve_group_emoji(
-        group, GROUP_EMOJI, LAINNYA_USE_CUSTOM_EMOJI)
+    """Emoji grup yang aman lintas-server (override DB > map statis > fallback)."""
+    ov = emoji_settings.load_overrides()
+    gmap = emoji_settings.effective_map(GROUP_EMOJI, ov.get("groups"))
+    return catalog_emoji.resolve_group_emoji(group, gmap, LAINNYA_USE_CUSTOM_EMOJI)
 
 
 
@@ -598,54 +600,14 @@ class CatalogView(discord.ui.View):
 
 
 
-CATEGORY_EMOJI = {
-    # AI
-    "CHATGPT": "<:NewChatGPTlogo_Round:1485497156629696653>",
-    "GEMINI AI": "<:gemini_ai:1510724751944056984>",
-    # Streaming
-    "NETFLIX": "<:SCM_netflix:1481991841560789079>",
-    # Musik
-    "SPOTIFY": "<:Music:1510720973656031232>",
-    "APPLE MUSIC": "<:Music:1510720973656031232>",
-    # Editing
-    "CANVA": "<:SCM_canva:1485497715637883013>",
-    # Gaming
-    "AKUN ROBLOX": "<:RobloxVerifiedBadge:1479498873641762837>",
-    "ROBUX GIFT CARD": "<:Robux:1480480351611654224>",
-    # Discord
-    "DISCORD NITRO": "<:Discord:1510719862396293390>",
-    "NITRO BASIC": "<:Discord:1510719862396293390>",
-    "NITRO CODE": "<:Discord:1510719862396293390>",
-    "TOKEN DISCORD": "<:Discord:1510719862396293390>",
-    "QUEST ORBS": "<:Discord:1510719862396293390>",
-    "NITRO BOOST": "<a:dcboost:1481992932692070585>",
-    "JASA BOOST SERVER": "<a:dcboost:1481992932692070585>",
-    # YouTube (premium + sosmed)
-    "YOUTUBE PREMIUM": "<:Youtubelogo:1485497230960889951>",
-    "YOUTUBE SUBSCRIBER": "<:Youtubelogo:1485497230960889951>",
-    "YOUTUBE LIKES": "<:Youtubelogo:1485497230960889951>",
-    "YOUTUBE VIEWS": "<:Youtubelogo:1485497230960889951>",
-    "YOUTUBE SHORT": "<:Youtubelogo:1485497230960889951>",
-    "YOUTUBE LIVE VIEWERS": "<:Youtubelogo:1485497230960889951>",
-    "YOUTUBE JAM TAYANG": "<:Youtubelogo:1485497230960889951>",
-    # Instagram
-    "INSTAGRAM FOLLOWERS": "<:Instagram:1510719283825742066>",
-    "INSTAGRAM LIKE": "<:Instagram:1510719283825742066>",
-    "INSTAGRAM VIEWS": "<:Instagram:1510719283825742066>",
-    "INSTAGRAM LIVE VIEWERS": "<:Instagram:1510719283825742066>",
-    # TikTok
-    "TIKTOK FOLLOWERS": "<:tiktok:1510719541875834991>",
-    "TIKTOK LIKE": "<:tiktok:1510719541875834991>",
-    "TIKTOK VIEWS": "<:tiktok:1510719541875834991>",
-    "TIKTOK SHARE": "<:tiktok:1510719541875834991>",
-    "TIKTOK LIVE VIEWERS": "<:tiktok:1510719541875834991>",
-}
-
-
 def _category_emoji(category, group=None):
-    """Emoji kategori yang aman lintas-server (fallback ke emoji grup)."""
+    """Emoji kategori yang aman lintas-server (override DB > map statis >
+    emoji grup > fallback unicode)."""
+    ov = emoji_settings.load_overrides()
+    gmap = emoji_settings.effective_map(GROUP_EMOJI, ov.get("groups"))
+    cmap = emoji_settings.effective_map(CATEGORY_EMOJI, ov.get("categories"))
     return catalog_emoji.resolve_category_emoji(
-        category, group, CATEGORY_EMOJI, GROUP_EMOJI, LAINNYA_USE_CUSTOM_EMOJI)
+        category, group, cmap, gmap, LAINNYA_USE_CUSTOM_EMOJI)
 
 
 
