@@ -29,6 +29,9 @@ from utils import achievements as achlib
 # data/profilebg_<tier>.<ext>, mirip gambar welcome/boost.
 DATA_DIR = "data"
 PROFILE_BG_BASE = "profilebg"
+# Background kustom kartu badge "Achievement Unlocked" (di-upload admin via
+# /setbadgebg). Disimpan di data/badgebg_<tier>.<ext>.
+BADGE_BG_BASE = "badgebg"
 ALLOWED_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
 VALID_TIERS = ["Bronze", "Silver", "Gold", "Diamond"]
 
@@ -285,7 +288,7 @@ ACH_W, ACH_H = 880, 300
 def _badge_bg_path_for(tier: str):
     """Path background kustom kartu badge untuk tier (atau None). Pola sama
     dengan /setprofilbg: data/badgebg_<tier>.<ext>."""
-    base = f"badgebg_{(tier or '').lower()}"
+    base = f"{BADGE_BG_BASE}_{(tier or '').lower()}"
     for ext in ALLOWED_IMAGE_EXTS:
         path = os.path.join(DATA_DIR, base + ext)
         if os.path.exists(path):
@@ -487,12 +490,13 @@ class MemberProfile(commands.Cog):
             await interaction.followup.send(embed=embed)
 
 
-    async def _save_bg(self, attachment: discord.Attachment, tier: str):
-        """Download & simpan background tier -> data/profilebg_<tier>.<ext>."""
+    async def _save_bg(self, attachment: discord.Attachment, tier: str,
+                       base_name: str = PROFILE_BG_BASE):
+        """Download & simpan background tier -> data/<base_name>_<tier>.<ext>."""
         ext = os.path.splitext(attachment.filename)[1].lower()
         if ext not in ALLOWED_IMAGE_EXTS:
             return None
-        base = f"{PROFILE_BG_BASE}_{tier.lower()}"
+        base = f"{base_name}_{tier.lower()}"
         try:
             os.makedirs(DATA_DIR, exist_ok=True)
             for old_ext in ALLOWED_IMAGE_EXTS:
@@ -558,6 +562,58 @@ class MemberProfile(commands.Cog):
         if path:
             await interaction.followup.send(
                 f"✅ Background tier **{tname}** diset. Coba `/profil` untuk melihat.",
+                ephemeral=True)
+        else:
+            await interaction.followup.send(
+                "❌ Gagal menyimpan. Pastikan format PNG/JPG/WEBP.", ephemeral=True)
+
+    @app_commands.command(
+        name="setbadgebg",
+        description="[ADMIN] Set background kartu badge 'Achievement' per tier (upload PNG/JPG)")
+    @app_commands.describe(
+        tier="Tier yang diatur backgroundnya",
+        image="Gambar background (PNG/JPG/WEBP). Kosongkan + reset:True untuk hapus.",
+        reset="Hapus background kustom tier ini (kembali ke gradien default).")
+    @app_commands.choices(tier=[
+        app_commands.Choice(name=t, value=t) for t in VALID_TIERS
+    ])
+    async def setbadgebg(self, interaction: discord.Interaction,
+                         tier: app_commands.Choice[str],
+                         image: discord.Attachment = None,
+                         reset: bool = False):
+        if not _is_admin(interaction.user):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        tname = tier.value
+
+        if reset:
+            removed = False
+            base = f"{BADGE_BG_BASE}_{tname.lower()}"
+            for ext in ALLOWED_IMAGE_EXTS:
+                pth = os.path.join(DATA_DIR, base + ext)
+                if os.path.exists(pth):
+                    try:
+                        os.remove(pth)
+                        removed = True
+                    except Exception:
+                        pass
+            msg = (f"🗑️ Background kartu badge tier **{tname}** dihapus (kembali ke gradien default)."
+                   if removed else f"ℹ️ Tier **{tname}** memang belum punya background kartu badge kustom.")
+            await interaction.followup.send(msg, ephemeral=True)
+            return
+
+        if image is None:
+            await interaction.followup.send(
+                "❌ Sertakan gambar (`image:`) atau gunakan `reset:True` untuk menghapus.",
+                ephemeral=True)
+            return
+        path = await self._save_bg(image, tname, base_name=BADGE_BG_BASE)
+        if path:
+            await interaction.followup.send(
+                f"✅ Background kartu badge tier **{tname}** diset. Berlaku saat member "
+                f"berikutnya dapat badge baru (tier {tname}). Atur tata letak teks/avatar "
+                f"lewat panel **Editor Badge**.",
                 ephemeral=True)
         else:
             await interaction.followup.send(

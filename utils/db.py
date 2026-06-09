@@ -1,6 +1,13 @@
+import os
 import sqlite3
 
-DB_FILE = "midman.db"
+# Path ABSOLUT ke DB di root repo (induk folder utils/). Bot & admin panel bisa
+# dijalankan dari working directory berbeda (lihat start.sh: admin.py tidak di-cd
+# ke BOT_DIR sebelum dijalankan). Dengan path relatif ("midman.db"), editor panel
+# bisa menulis ke file DB yang BERBEDA dari yang dibaca bot -> perubahan editor
+# (tema profil/badge, thumbnail & emoji katalog) seolah tidak berpengaruh.
+# Path absolut menjamin keduanya selalu memakai database yang sama.
+DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "midman.db")
 
 def get_conn():
     conn = sqlite3.connect(DB_FILE)
