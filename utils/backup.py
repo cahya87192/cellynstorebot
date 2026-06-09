@@ -2,7 +2,9 @@ import discord
 import os
 import datetime
 
-DB_FILE = "midman.db"
+# Path absolut ke DB root repo (lihat catatan di utils/db.py) agar konsisten
+# lintas working directory antara bot & admin panel.
+DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "midman.db")
 BACKUP_LABEL = "MIDMAN-BACKUP"
 
 async def do_backup(bot, channel_id):

@@ -105,6 +105,7 @@ fi
 
 # ── ADMIN PANEL ───────────────────────────────────────────────────
 log INFO "Memulai Admin Panel di port 5000..."
+cd "$BOT_DIR"
 python "$BOT_DIR/admin.py" >> "$BOT_DIR/admin.log" 2>&1 &
 ADMIN_PID=$!
 log OK "Admin Panel berjalan (PID: $ADMIN_PID)"
