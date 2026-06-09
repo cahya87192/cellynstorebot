@@ -41,6 +41,7 @@ _GROUPS = [
         ("📖", "Teks /help", "/help-editor", "Pembungkus panduan slash command"),
         ("🏆", "Papan Top Spender", "/topspender-editor", "Leaderboard pelanggan"),
         ("🏅", "Teks Badge & Profil", "/profiltext-editor", "Embed /badges & fallback /profil"),
+        ("🔎", "Teks Pencarian", "/psearch-editor", "Balasan auto-search produk"),
     ]),
     ("Alat", [
         ("💾", "Backup Teks", "/text-backup", "Export / import semua teks"),

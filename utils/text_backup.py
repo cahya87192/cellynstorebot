@@ -21,6 +21,7 @@ def _simple_specs():
     from utils import midman_text, vilog_text, gp_text, robux_text, ml_text
     from utils import lainnya_text, faq_text, sub_followup_text, top_spender_text
     from utils import help_text, badge_profile_text
+    from utils import product_search_text
     return [
         afk.AFK_SPECS,
         warranty_text.WARRANTY_SPECS,
@@ -38,6 +39,7 @@ def _simple_specs():
         top_spender_text.TOP_SPENDER_SPECS,
         help_text.HELP_SPECS,
         badge_profile_text.BADGE_PROFILE_SPECS,
+        product_search_text.PRODUCT_SEARCH_SPECS,
     ]
 
 
