@@ -50,6 +50,7 @@ from admin_sub_followup import sub_followup_bp
 from admin_top_spender import top_spender_bp
 from admin_help import help_bp
 from admin_profile_text import profile_text_bp
+from admin_text_center import text_center_bp
 from functools import wraps
 
 # Brand panel: ikut STORE_NAME (.env) supaya tidak ada "Cellyn" yang nyangkut
@@ -90,6 +91,7 @@ app.register_blueprint(sub_followup_bp)
 app.register_blueprint(top_spender_bp)
 app.register_blueprint(help_bp)
 app.register_blueprint(profile_text_bp)
+app.register_blueprint(text_center_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
 
@@ -409,6 +411,7 @@ var CMD_ITEMS=[
   {t:'Cek Self-Host',u:'/self-host-check'},
   {t:'Editor FAQ',u:'/faq-editor'},
   {t:'Sticky Message',u:'/sticky-manager'},
+  {t:'Pusat Teks Bot',u:'/text-center'},
   {t:'Pesan Member',u:'/welcome-editor'},
   {t:'DM Sambutan',u:'/dm-editor'},
   {t:'DM Perpanjangan',u:'/subfollowup-editor'},
@@ -512,6 +515,7 @@ def render_page(content, **ctx):
     {_a("Editor FAQ", "/faq-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19l-7 3V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v9"/><path d="M9.5 8.5a2.5 2.5 0 1 1 3 2.45V13"/><line x1="12.5" y1="16" x2="12.5" y2="16"/></svg>', "faq_bp.page_faq")}
     {_a("Teks FAQ", "/faq-text-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg>', "faq_text_bp.page_faq_text")}
     {_a("Sticky Message", "/sticky-manager", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9z"/><path d="M15 3v6h6"/></svg>', "sticky_bp.page_sticky")}
+    {_a("Pusat Teks Bot", "/text-center", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>', "text_center_bp.page_text_center")}
     {_a("Pesan Member", "/welcome-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "welcome_bp.page_welcome")}
     {_a("DM Sambutan", "/dm-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>', "welcome_bp.page_dm")}
     {_a("DM Perpanjangan", "/subfollowup-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>', "sub_followup_bp.page_sub_followup")}
