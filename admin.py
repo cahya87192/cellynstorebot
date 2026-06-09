@@ -36,6 +36,7 @@ from admin_afk import afk_bp
 from admin_store_status import store_status_bp
 from admin_warranty import warranty_bp
 from admin_queue import queue_text_bp
+from admin_orders import order_bp
 from functools import wraps
 
 # Brand panel: ikut STORE_NAME (.env) supaya tidak ada "Cellyn" yang nyangkut
@@ -62,6 +63,7 @@ app.register_blueprint(afk_bp)
 app.register_blueprint(store_status_bp)
 app.register_blueprint(warranty_bp)
 app.register_blueprint(queue_text_bp)
+app.register_blueprint(order_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
 
@@ -387,6 +389,7 @@ var CMD_ITEMS=[
   {t:'Status Toko',u:'/store-status-editor'},
   {t:'Pesan Garansi',u:'/warranty-editor'},
   {t:'Teks Antrian',u:'/queue-editor'},
+  {t:'Pesan Order',u:'/order-editor'},
   {t:'Rating & Ulasan',u:'/reviews'},{t:'Info Layanan',u:'/service-info'},
   {t:'Embed Builder',u:'/embeds'},{t:'AutoPost',u:'/autopost'}
 ];
@@ -475,6 +478,7 @@ def render_page(content, **ctx):
     {_a("Status Toko", "/store-status-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l1-5h16l1 5"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></svg>', "store_status_bp.page_store_status")}
     {_a("Pesan Garansi", "/warranty-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', "warranty_bp.page_warranty")}
     {_a("Teks Antrian", "/queue-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>', "queue_text_bp.page_queue")}
+    {_a("Pesan Order", "/order-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>', "order_bp.page_order")}
     {_a("Rating &amp; Ulasan", "/reviews", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', "page_reviews")}
     {_a("Info Layanan", "/service-info", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', "page_service_info")}
     {_a("Embed Builder", "/embeds", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>', "page_embeds")}

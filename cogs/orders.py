@@ -5,6 +5,7 @@ from discord.ext import commands
 from utils.config import ADMIN_ROLE_ID, LOG_CHANNEL_ID, STORE_NAME, TRANSCRIPT_CHANNEL_ID
 from utils.transcript import generate as generate_transcript
 from utils import ticket_ui
+from utils import order_text as otext
 
 THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
 
@@ -69,7 +70,7 @@ class OrdersAdmin(commands.Cog):
         await ctx.send(
             content=member.mention if member else None,
             embed=ticket_ui.ticket_success_embed(
-                f"Pesanan berhasil diproses. Terima kasih telah berbelanja di {STORE_NAME}!"
+                otext.render_text("success", store=STORE_NAME)
             ),
         )
         await asyncio.sleep(5)
@@ -153,7 +154,7 @@ class OrdersAdmin(commands.Cog):
         await ctx.channel.delete()
 
     @commands.command(name="cancel")
-    async def cancel(self, ctx, *, alasan: str = "Tidak ada alasan diberikan."):
+    async def cancel(self, ctx, *, alasan: str = None):
         if not any(r.id == ADMIN_ROLE_ID for r in ctx.author.roles):
             return
         ch_id = ctx.channel.id
@@ -162,7 +163,9 @@ class OrdersAdmin(commands.Cog):
             return
 
         await ctx.send(embed=ticket_ui.ticket_cancel_embed(
-            by_mention=ctx.author.mention, reason=alasan, title="❌ Pesanan Dibatalkan"
+            by_mention=ctx.author.mention,
+            reason=alasan or otext.load_text("cancel_reason_default"),
+            title=otext.load_text("cancel_title"),
         ))
         await asyncio.sleep(5)
 
