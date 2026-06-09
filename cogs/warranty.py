@@ -27,6 +27,7 @@ from utils.counter import next_ticket_number
 from utils import reviews as rv
 from utils import subscription as sub
 from utils import ticket_ui
+from utils import warranty_text as wtext
 
 THUMBNAIL = "https://i.imgur.com/CX8PHWk.png"
 COLOR_WARRANTY = 0x2ECC71
@@ -63,14 +64,8 @@ def _active_warranty_transactions(user_id: int) -> list:
 
 def build_panel_embed() -> discord.Embed:
     embed = discord.Embed(
-        title="Klaim Garansi",
-        description=(
-            f"Punya kendala dengan pesananmu di {STORE_NAME}?\n"
-            "Klik tombol di bawah untuk membuka tiket klaim garansi.\n\n"
-            "**Syarat garansi:** kamu sudah memberi **rating** untuk transaksi "
-            "tersebut (dalam batas 24 jam setelah transaksi).\n"
-            "Tanpa rating, garansi tidak berlaku."
-        ),
+        title=wtext.load_text("panel_title"),
+        description=wtext.render_text("panel_desc", store=STORE_NAME),
         color=COLOR_WARRANTY,
     )
     embed.set_thumbnail(url=THUMBNAIL)
@@ -120,17 +115,14 @@ class Warranty(commands.Cog):
         # Verifikasi kelayakan garansi: (1) sudah rating, (2) masa garansi masih aktif.
         if not rv.has_valid_warranty(member.id):
             await interaction.response.send_message(
-                "Maaf, kamu belum memenuhi syarat garansi.\n"
-                "Garansi hanya berlaku untuk transaksi yang **sudah kamu beri rating** "
-                "dalam batas **24 jam** setelah transaksi. 🙏",
+                wtext.render_text("reject_unrated"),
                 ephemeral=True,
             )
             return
 
         if not _active_warranty_transactions(member.id):
             await interaction.response.send_message(
-                "Maaf, masa garansi transaksimu sudah **habis**. 🙏\n"
-                "Tiket klaim hanya bisa dibuka selama garansi masih berlaku.",
+                wtext.render_text("reject_expired"),
                 ephemeral=True,
             )
             return
@@ -236,10 +228,7 @@ class Warranty(commands.Cog):
 
         embed = discord.Embed(
             title=f"TIKET KLAIM GARANSI · #{ticket_ui.format_number(ticket_number)}",
-            description=(
-                "Garansi terverifikasi (kamu sudah memberi rating). ✅\n"
-                "Jelaskan kendala pesananmu di bawah ini. Admin akan segera membantu."
-            ),
+            description=wtext.render_text("ticket_desc"),
             color=COLOR_WARRANTY,
             timestamp=datetime.datetime.now(datetime.timezone.utc),
         )
