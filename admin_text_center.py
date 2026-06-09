@@ -42,6 +42,7 @@ _GROUPS = [
         ("🏆", "Papan Top Spender", "/topspender-editor", "Leaderboard pelanggan"),
         ("🏅", "Teks Badge & Profil", "/profiltext-editor", "Embed /badges & fallback /profil"),
         ("🔎", "Teks Pencarian", "/psearch-editor", "Balasan auto-search produk"),
+        ("📊", "Statistik Member", "/serverstats-editor", "Format nama channel jumlah member"),
     ]),
     ("Alat", [
         ("💾", "Backup Teks", "/text-backup", "Export / import semua teks"),

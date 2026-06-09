@@ -1,0 +1,158 @@
+"""admin_server_stats.py - Editor format nama channel statistik (cogs/server_stats.py).
+
+Blueprint terpisah (pola sama dgn admin_afk.py). Mengubah format nama voice channel
+statistik member. Cog membaca lewat utils.server_stats_text, jadi perubahan dipakai
+pada update berikutnya (otomatis tiap 10 menit / saat member join-leave).
+
+  - /serverstats-editor          : form + pratinjau langsung
+  - /serverstats-editor/save     : simpan (POST JSON {kind,text})
+  - /serverstats-editor/reset    : kembalikan ke default (POST JSON {kind})
+"""
+import json
+
+from flask import Blueprint, request, session, redirect, jsonify
+
+from utils import server_stats_text as sstext
+
+server_stats_bp = Blueprint("server_stats_bp", __name__)
+
+_SAMPLE = {"count": "1234"}
+
+
+def _guard():
+    if not session.get("logged_in"):
+        return redirect("/login")
+    return None
+
+
+@server_stats_bp.route("/serverstats-editor/save", methods=["POST"])
+def save_server_stats_route():
+    g = _guard()
+    if g:
+        return g
+    payload = request.get_json(force=True, silent=True) or {}
+    kind = payload.get("kind")
+    if kind not in sstext.SERVER_STATS_SPECS:
+        return jsonify({"ok": False, "error": "Jenis teks tidak dikenal."}), 400
+    text = payload.get("text")
+    if text is None or not str(text).strip():
+        return jsonify({"ok": False, "error": "Teks tidak boleh kosong."}), 400
+    sstext.save_text(kind, text=text)
+    return jsonify({"ok": True})
+
+
+@server_stats_bp.route("/serverstats-editor/reset", methods=["POST"])
+def reset_server_stats_route():
+    g = _guard()
+    if g:
+        return g
+    payload = request.get_json(force=True, silent=True) or {}
+    kind = payload.get("kind")
+    if kind not in sstext.SERVER_STATS_SPECS:
+        return jsonify({"ok": False, "error": "Jenis teks tidak dikenal."}), 400
+    sstext.save_text(kind, text="")
+    return jsonify({"ok": True, "text": sstext.load_text(kind)})
+
+
+@server_stats_bp.route("/serverstats-editor")
+def page_server_stats():
+    g = _guard()
+    if g:
+        return g
+    from admin import render_page
+
+    sections = []
+    for kind, spec in sstext.SERVER_STATS_SPECS.items():
+        sections.append({
+            "kind": kind,
+            "label": spec["label"],
+            "text": sstext.load_text(kind),
+            "placeholders": list(spec["placeholders"]),
+            "sample": {k: v for k, v in _SAMPLE.items() if ("{" + k + "}") in spec["default"]},
+        })
+    sections_json = json.dumps(sections)
+
+    content = """
+<div class="page-header">
+  <div class="page-title">Statistik Member <small>Format nama voice channel jumlah member</small></div>
+</div>
+<div class="card"><div class="card-body">
+  <div class="note" style="margin-bottom:1rem;">
+    Format nama voice channel statistik member (di-update otomatis tiap ~10 menit &amp; saat ada
+    member join/leave). Gunakan placeholder <code>{count}</code> untuk jumlah member.
+    Maksimal 100 karakter (batas nama channel Discord).
+  </div>
+  <div id="sections"></div>
+</div></div>
+
+<script>
+var SECTIONS = SECTIONS_JSON;
+
+function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function render(tpl, sample){
+  var out = esc(tpl);
+  Object.keys(sample||{}).forEach(function(k){
+    out = out.split("{"+k+"}").join(esc(String(sample[k])));
+  });
+  return out.replace(/\\n/g, "<br>");
+}
+function setStatus(kind, msg, ok){
+  document.getElementById('st_'+kind).innerHTML =
+    '<span style="color:var(--'+(ok?'success':'warning')+')">'+(ok?'✓ ':'● ')+msg+'</span>';
+}
+function updatePreview(i){
+  var s = SECTIONS[i];
+  document.getElementById('pv_'+s.kind).innerHTML =
+    '🔊 ' + render(document.getElementById('txt_'+s.kind).value, s.sample);
+}
+
+function build(){
+  var html = '';
+  SECTIONS.forEach(function(s, i){
+    var chips = s.placeholders.length
+      ? 'Placeholder: ' + s.placeholders.map(function(p){ return '<code>'+esc(p)+'</code>'; }).join(' ')
+      : '<span style="color:var(--muted)">Tanpa placeholder</span>';
+    html += '<div class="card" style="margin-bottom:1rem;border:1px solid var(--border);"><div class="card-body">'
+      + '<div style="font-weight:700;margin-bottom:.2rem;">'+esc(s.label)+'</div>'
+      + '<div style="font-size:.78rem;color:var(--muted);margin-bottom:.7rem;">'+chips+'</div>'
+      + '<div class="form-group"><input type="text" id="txt_'+s.kind+'" maxlength="100" style="width:100%;" '
+      + 'oninput="updatePreview('+i+');setStatus(\\''+s.kind+'\\',\\'Belum disimpan\\',false);"></div>'
+      + '<button class="btn btn-primary btn-sm" onclick="saveSec('+i+')">💾 Simpan</button> '
+      + '<button class="btn btn-ghost btn-sm" onclick="resetSec('+i+')">↺ Default</button>'
+      + '<span id="st_'+s.kind+'" style="margin-left:.6rem;font-size:.85rem;"></span>'
+      + '<div style="margin-top:.9rem;border-left:4px solid var(--accent);background:var(--surface3);border-radius:6px;padding:.7rem .9rem;">'
+      + '<div id="pv_'+s.kind+'" style="color:var(--text);font-weight:600;"></div></div>'
+      + '</div></div>';
+  });
+  document.getElementById('sections').innerHTML = html;
+  SECTIONS.forEach(function(s, i){
+    document.getElementById('txt_'+s.kind).value = s.text;
+    updatePreview(i);
+  });
+}
+
+function saveSec(i){
+  var s = SECTIONS[i];
+  fetch('/serverstats-editor/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({kind:s.kind, text:document.getElementById('txt_'+s.kind).value})})
+    .then(function(r){return r.json();}).then(function(d){
+      setStatus(s.kind, d.ok ? 'Tersimpan.' : (d.error||'Gagal menyimpan'), !!d.ok);
+    });
+}
+function resetSec(i){
+  var s = SECTIONS[i];
+  if(!confirm('Kembalikan teks "'+s.label+'" ke default?')) return;
+  fetch('/serverstats-editor/reset',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({kind:s.kind})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.ok){
+        document.getElementById('txt_'+s.kind).value = d.text;
+        updatePreview(i);
+        setStatus(s.kind, 'Dikembalikan ke default.', true);
+      } else { setStatus(s.kind, d.error||'Gagal reset', false); }
+    });
+}
+build();
+</script>"""
+    content = content.replace("SECTIONS_JSON", sections_json)
+    return render_page(content)

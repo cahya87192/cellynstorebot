@@ -53,6 +53,7 @@ from admin_profile_text import profile_text_bp
 from admin_text_center import text_center_bp
 from admin_text_backup import text_backup_bp
 from admin_product_search import psearch_bp
+from admin_server_stats import server_stats_bp
 from functools import wraps
 
 # Brand panel: ikut STORE_NAME (.env) supaya tidak ada "Cellyn" yang nyangkut
@@ -96,6 +97,7 @@ app.register_blueprint(profile_text_bp)
 app.register_blueprint(text_center_bp)
 app.register_blueprint(text_backup_bp)
 app.register_blueprint(psearch_bp)
+app.register_blueprint(server_stats_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
 
@@ -424,6 +426,7 @@ var CMD_ITEMS=[
   {t:'Teks /help',u:'/help-editor'},
   {t:'Teks Badge & Profil',u:'/profiltext-editor'},
   {t:'Teks Pencarian',u:'/psearch-editor'},
+  {t:'Statistik Member',u:'/serverstats-editor'},
   {t:'Pesan AFK',u:'/afk-editor'},
   {t:'Status Toko',u:'/store-status-editor'},
   {t:'Pesan Garansi',u:'/warranty-editor'},
@@ -530,6 +533,7 @@ def render_page(content, **ctx):
     {_a("Teks /help", "/help-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', "help_bp.page_help")}
     {_a("Teks Badge & Profil", "/profiltext-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>', "profile_text_bp.page_profile_text")}
     {_a("Teks Pencarian", "/psearch-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>', "psearch_bp.page_psearch")}
+    {_a("Statistik Member", "/serverstats-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>', "server_stats_bp.page_server_stats")}
     {_a("Pesan AFK", "/afk-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', "afk_bp.page_afk")}
     {_a("Status Toko", "/store-status-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l1-5h16l1 5"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></svg>', "store_status_bp.page_store_status")}
     {_a("Pesan Garansi", "/warranty-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', "warranty_bp.page_warranty")}
