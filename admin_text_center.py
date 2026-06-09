@@ -47,6 +47,7 @@ _GROUPS = [
     ("Alat", [
         ("💾", "Backup Teks", "/text-backup", "Export / import semua teks"),
         ("🕘", "Riwayat Teks", "/text-audit", "Jejak perubahan teks (kapan & apa)"),
+        ("🗄️", "Backup Database", "/db-backup", "Cadangkan / pulihkan seluruh data"),
     ]),
 ]
 
