@@ -4,10 +4,7 @@ from discord.ext import commands, tasks
 
 from utils.config import GUILD_ID, STATUS_VOICE_CHANNEL_ID
 from utils.store_hours import WIB, is_store_open
-
-
-OPEN_NAME = "🟢 STATUS : OPEN"
-CLOSE_NAME = "🔴 STATUS : CLOSE"
+from utils import store_status as statuslib
 
 
 class StoreStatusCog(commands.Cog):
@@ -42,7 +39,7 @@ class StoreStatusCog(commands.Cog):
             return
 
         store_open = is_store_open()
-        new_name = OPEN_NAME if store_open else CLOSE_NAME
+        new_name = statuslib.get_label(store_open)
         channel = guild.get_channel(STATUS_VOICE_CHANNEL_ID)
         try:
             if channel and getattr(channel, "name", None) != new_name:
