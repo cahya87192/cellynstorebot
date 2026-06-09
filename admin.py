@@ -425,7 +425,7 @@ function toggleTheme(){
 var CMD_ITEMS=[
   {t:'Dashboard',u:'/'},{t:'Mobile Legends',u:'/ml'},{t:'Free Fire',u:'/ff'},
   {t:'Robux Store',u:'/robux'},{t:'GP Topup',u:'/gp'},{t:'Lainnya',u:'/lainnya'},
-  {t:'QRIS',u:'/qr'},{t:'Statistik',u:'/stats'},{t:'Transaksi',u:'/transactions'},
+  {t:'QRIS',u:'/qr'},{t:'Statistik',u:'/stats'},{t:'Analitik',u:'/analytics'},{t:'Transaksi',u:'/transactions'},
   {t:'Tiket Aktif',u:'/tickets'},{t:'Performa Admin',u:'/admins'},
   {t:'Editor Profil',u:'/profil-theme'},{t:'Editor Badge',u:'/badge-theme'},
   {t:'Thumbnail Katalog',u:'/catalog-thumbnails'},
@@ -532,6 +532,7 @@ def render_page(content, **ctx):
     {_a("QRIS", "/qr", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3"/></svg>', "page_qr")}
     {_a("Statistik", "/stats", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', "page_stats")}
     {_a("Transaksi", "/transactions", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M3 12h18M3 18h12"/></svg>', "insights_bp.page_transactions")}
+    {_a("Analitik", "/analytics", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>', "insights_bp.page_analytics")}
     {_a("Tiket Aktif", "/tickets", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/></svg>', "insights_bp.page_tickets")}
     {_a("Performa Admin", "/admins", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>', "insights_bp.page_admins")}
     {_a("Editor Profil", "/profil-theme", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>', "theme_bp.page_theme")}
@@ -756,6 +757,7 @@ def index():
       {_qa("/robux", "robux", "Kelola Robux", "produk & rate")}
       {_qa("/ml", "ml", "Kelola ML/FF", "produk topup")}
       {_qa("/stats", "money", "Statistik", "omzet & transaksi")}
+      {_qa("/analytics", "money", "Analitik", "tren & produk laris")}
     </div>
   </div>
 </div>
