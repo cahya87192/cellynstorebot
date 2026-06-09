@@ -12,8 +12,6 @@ from utils.db import get_conn
 from utils import welcome as welcomelib
 
 THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
-# Gambar khusus untuk DM sambutan member baru.
-WELCOME_DM_THUMBNAIL = "https://i.imgur.com/4lpmtpL.png"
 DATA_DIR = "data"
 WELCOME_IMAGE_BASE = "welcome"
 BOOST_IMAGE_BASE = "boost"
@@ -309,66 +307,33 @@ class WelcomeCog(commands.Cog):
         Bila dipanggil lewat `/setwelcome action:testdm`, preview dikirim ephemeral
         ke admin (lewat `interaction`) alih-alih ke DM member.
         """
-        embed = discord.Embed(
-            title=f"🤍 Selamat Datang di {STORE_NAME}!",
-            description=(
-                f"Hai **{member.display_name}**! 👋\n"
-                f"Makasih banyak udah gabung ke **{STORE_NAME}** — tempat jual-beli "
-                f"& top-up digital yang aman dan terpercaya. Biar kamu makin nyaman "
-                f"belanja, baca info singkat di bawah ini ya 🙏"
-            ),
-            color=0x00BFFF,
-        )
-        embed.add_field(
-            name="🏪 Tentang Kami",
-            value=(
-                f"{STORE_NAME} melayani kebutuhan game & akunmu dengan proses "
-                f"**cepat**, harga **bersahabat**, dan admin yang **ramah**. "
-                f"Setiap transaksi memakai sistem **tiket** + **garansi** supaya aman."
-            ),
-            inline=False,
-        )
-        embed.add_field(
-            name="🛍️ Layanan Kami",
-            value=(
-                "• Top-up Mobile Legends & Free Fire\n"
-                "• Robux (Store, Via Login, Gamepass)\n"
-                "• Middleman Trade & Jual Beli\n"
-                "• Cloud Phone & Discord Nitro\n"
-                "• dan layanan lainnya!"
-            ),
-            inline=False,
-        )
-        embed.add_field(
-            name="📜 Peraturan Singkat",
-            value=(
-                "**1.** Hormati semua member & admin — no toxic/SARA.\n"
-                "**2.** Dilarang spam & promosi toko lain tanpa izin.\n"
-                "**3.** Transaksi **WAJIB** lewat tiket & admin resmi — "
-                "waspada admin palsu/penipu!\n"
-                "**4.** Selalu simpan bukti pembayaranmu.\n"
-                "**5.** Jangan lupa beri **rating** tiap selesai order — "
-                "rating = garansimu aktif."
-            ),
-            inline=False,
-        )
-        embed.add_field(
-            name="💬 Siap Order?",
-            value=(
-                "Buka tiket di channel layanan yang sesuai, admin kami siap bantu. "
-                "Kalau ada pertanyaan, tanya aja langsung di server ya!"
-            ),
-            inline=False,
-        )
-        embed.set_thumbnail(url=WELCOME_DM_THUMBNAIL)
-        embed.set_footer(text=f"{STORE_NAME} • Selamat berbelanja & semoga betah! 🤍")
+        cfg = welcomelib.render_dm(member.display_name, STORE_NAME)
+        embed = discord.Embed(title=cfg["title"], description=cfg["desc"], color=0x00BFFF)
+        for f in cfg["fields"]:
+            embed.add_field(
+                name=f["name"] or "\u200b",
+                value=f["value"] or "\u200b",
+                inline=False,
+            )
+        if cfg["thumbnail"]:
+            embed.set_thumbnail(url=cfg["thumbnail"])
+        if cfg["footer"]:
+            embed.set_footer(text=cfg["footer"])
+
+        # Banner di ATAS: kirim sebagai embed terpisah sebelum embed teks.
+        embeds = []
+        if cfg["banner"]:
+            banner_embed = discord.Embed(color=0x00BFFF)
+            banner_embed.set_image(url=cfg["banner"])
+            embeds.append(banner_embed)
+        embeds.append(embed)
 
         # Mode test: kirim preview ephemeral ke admin, jangan ke DM member.
         if interaction is not None:
-            await interaction.followup.send(embed=embed, ephemeral=True)
+            await interaction.followup.send(embeds=embeds, ephemeral=True)
             return
         try:
-            await member.send(embed=embed)
+            await member.send(embeds=embeds)
         except discord.Forbidden:
             print(f"[Welcome] DM sambutan ke {member.id} ditolak (DM tertutup).")
         except Exception as e:
