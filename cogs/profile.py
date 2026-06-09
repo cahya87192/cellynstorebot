@@ -24,6 +24,7 @@ from utils import profile as profilelib
 from utils import profile_theme as themelib
 from utils import achievement_theme as achthemelib
 from utils import achievements as achlib
+from utils import badge_profile_text as bptext
 
 # Background kustom per tier (di-upload admin via /setprofilbg). Disimpan di
 # data/profilebg_<tier>.<ext>, mirip gambar welcome/boost.
@@ -508,7 +509,7 @@ class MemberProfile(commands.Cog):
             print(f"[Profile] render error: {e}")
             # Fallback embed bila rendering gambar gagal.
             embed = discord.Embed(
-                title=f"Profil {name}",
+                title=bptext.render_text("profile_title", name=name),
                 description=(f"**{data['tier']} · Level {data['level']}**\n"
                             f"XP {data['xp_into_level']}/{data['xp_for_next']}"),
                 color=0x5865F2,
@@ -518,7 +519,7 @@ class MemberProfile(commands.Cog):
             embed.add_field(name="Ulasan", value=str(data["total_reviews"]), inline=True)
             if badges:
                 embed.add_field(name="Badge", value=" · ".join(badges), inline=False)
-            embed.set_footer(text=STORE_NAME)
+            embed.set_footer(text=bptext.render_text("profile_footer", store=STORE_NAME))
             await interaction.followup.send(embed=embed)
 
 

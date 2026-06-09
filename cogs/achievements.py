@@ -16,6 +16,7 @@ from discord.ext import commands
 from utils.config import ADMIN_ROLE_ID, STORE_NAME
 from utils import profile as profilelib
 from utils import achievements as achlib
+from utils import badge_profile_text as bptext
 
 COLOR_BADGE = 0xF1C40F  # emas
 MAX_LOCKED = 6
@@ -54,7 +55,7 @@ class Achievements(commands.Cog):
         locked = result["locked"][:MAX_LOCKED]
 
         embed = discord.Embed(
-            title=f"🏅 Badge — {target.display_name}",
+            title=bptext.render_text("badge_title", name=target.display_name),
             color=COLOR_BADGE,
         )
         if earned:
@@ -66,7 +67,7 @@ class Achievements(commands.Cog):
         else:
             embed.add_field(
                 name="✅ Sudah Diraih",
-                value="_Belum ada badge. Yuk mulai dari transaksi pertamamu!_",
+                value=bptext.load_text("badge_empty"),
                 inline=False,
             )
         if locked:
@@ -79,7 +80,7 @@ class Achievements(commands.Cog):
             embed.set_thumbnail(url=target.display_avatar.url)
         except Exception:
             pass
-        embed.set_footer(text=STORE_NAME)
+        embed.set_footer(text=bptext.render_text("badge_footer", store=STORE_NAME))
         await interaction.followup.send(embed=embed)
 
 
