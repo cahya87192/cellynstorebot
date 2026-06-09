@@ -27,7 +27,10 @@ from utils import achievements as achlib
 
 # Background kustom per tier (di-upload admin via /setprofilbg). Disimpan di
 # data/profilebg_<tier>.<ext>, mirip gambar welcome/boost.
-DATA_DIR = "data"
+# Path ABSOLUT ke <repo>/data agar font/background yang di-upload lewat admin
+# panel (yang memakai path absolut) SELALU ditemukan bot, terlepas dari working
+# directory tempat bot dijalankan (samakan dengan utils/db.py).
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 PROFILE_BG_BASE = "profilebg"
 # Background kustom kartu badge "Achievement Unlocked" (di-upload admin via
 # /setbadgebg). Disimpan di data/badgebg_<tier>.<ext>.
