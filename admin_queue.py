@@ -1,18 +1,16 @@
 """admin_queue.py - Editor teks antrian yang dilihat customer (cogs/queue.py).
 
-Blueprint terpisah (pola sama dgn admin_afk.py). Mengubah teks papan antrian
-PUBLIK & kartu posisi yang dilihat member (bukan papan admin internal). Cog
-`cogs/queue.py` membaca teks lewat utils.queue_text, jadi perubahan dipakai pada
-pembaruan papan/kartu berikutnya (otomatis tiap 30 detik).
+Mengubah teks papan antrian PUBLIK & kartu posisi (bukan papan admin internal). Cog
+`cogs/queue.py` membaca teks lewat utils.queue_text. Halaman dibangun lewat komponen
+bersama `admin_text_editor`.
 
   - /queue-editor          : form per jenis teks + pratinjau langsung
   - /queue-editor/save     : simpan teks (POST JSON {kind,text})
   - /queue-editor/reset    : kembalikan satu jenis ke default (POST JSON {kind})
 """
-import json
+from flask import Blueprint
 
-from flask import Blueprint, request, session, redirect, jsonify
-
+import admin_text_editor as ate
 from utils import queue_text as qtext
 
 queue_text_bp = Blueprint("queue_text_bp", __name__)
@@ -23,141 +21,40 @@ _SAMPLES = {
     "card_waiting": {"position": "3", "ahead": "2"},
 }
 
-
-def _guard():
-    if not session.get("logged_in"):
-        return redirect("/login")
-    return None
+_INTRO = (
+    "Teks ini dilihat member di papan antrian publik &amp; kartu posisi tiket. "
+    "Perubahan dipakai pada pembaruan berikutnya (otomatis tiap ~30 detik). "
+    "Mendukung <b>**bold**</b> ala Discord. Gunakan placeholder yang tersedia."
+)
 
 
 @queue_text_bp.route("/queue-editor/save", methods=["POST"])
 def save_queue_route():
-    g = _guard()
+    g = ate.guard()
     if g:
         return g
-    payload = request.get_json(force=True, silent=True) or {}
-    kind = payload.get("kind")
-    if kind not in qtext.QUEUE_SPECS:
-        return jsonify({"ok": False, "error": "Jenis teks tidak dikenal."}), 400
-    text = payload.get("text")
-    if text is None or not str(text).strip():
-        return jsonify({"ok": False, "error": "Teks tidak boleh kosong."}), 400
-    qtext.save_text(kind, text=text)
-    return jsonify({"ok": True})
+    return ate.save_request(qtext.QUEUE_SPECS, qtext.save_text)
 
 
 @queue_text_bp.route("/queue-editor/reset", methods=["POST"])
 def reset_queue_route():
-    g = _guard()
+    g = ate.guard()
     if g:
         return g
-    payload = request.get_json(force=True, silent=True) or {}
-    kind = payload.get("kind")
-    if kind not in qtext.QUEUE_SPECS:
-        return jsonify({"ok": False, "error": "Jenis teks tidak dikenal."}), 400
-    qtext.save_text(kind, text="")
-    return jsonify({"ok": True, "text": qtext.load_text(kind)})
+    return ate.reset_request(qtext.QUEUE_SPECS, qtext.save_text, qtext.load_text)
 
 
 @queue_text_bp.route("/queue-editor")
 def page_queue():
-    g = _guard()
+    g = ate.guard()
     if g:
         return g
-    from admin import render_page
-
-    sections = []
-    for kind, spec in qtext.QUEUE_SPECS.items():
-        sections.append({
-            "kind": kind,
-            "label": spec["label"],
-            "text": qtext.load_text(kind),
-            "placeholders": list(spec["placeholders"]),
-            "sample": _SAMPLES.get(kind, {}),
-        })
-    sections_json = json.dumps(sections)
-
-    content = """
-<div class="page-header">
-  <div class="page-title">Teks Antrian <small>Papan publik &amp; kartu posisi customer</small></div>
-</div>
-<div class="card"><div class="card-body">
-  <div class="note" style="margin-bottom:1rem;">
-    Teks ini dilihat member di papan antrian publik &amp; kartu posisi tiket.
-    Perubahan dipakai pada pembaruan berikutnya (otomatis tiap ~30 detik).
-    Mendukung <b>**bold**</b> ala Discord. Gunakan placeholder yang tersedia.
-  </div>
-  <div id="sections"></div>
-</div></div>
-
-<script>
-var SECTIONS = SECTIONS_JSON;
-
-function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-function render(tpl, sample){
-  var out = esc(tpl);
-  Object.keys(sample||{}).forEach(function(k){
-    out = out.split("{"+k+"}").join(esc(String(sample[k])));
-  });
-  return out.replace(/\\*\\*([^*]+)\\*\\*/g, "<b>$1</b>").replace(/\\n/g, "<br>");
-}
-function setStatus(kind, msg, ok){
-  document.getElementById('st_'+kind).innerHTML =
-    '<span style="color:var(--'+(ok?'success':'warning')+')">'+(ok?'✓ ':'● ')+msg+'</span>';
-}
-function updatePreview(i){
-  var s = SECTIONS[i];
-  document.getElementById('pv_'+s.kind).innerHTML =
-    render(document.getElementById('txt_'+s.kind).value, s.sample);
-}
-
-function build(){
-  var html = '';
-  SECTIONS.forEach(function(s, i){
-    var chips = s.placeholders.length
-      ? 'Placeholder: ' + s.placeholders.map(function(p){ return '<code>'+esc(p)+'</code>'; }).join(' ')
-      : '<span style="color:var(--muted)">Tanpa placeholder</span>';
-    html += '<div class="card" style="margin-bottom:1rem;border:1px solid var(--border);"><div class="card-body">'
-      + '<div style="font-weight:700;margin-bottom:.2rem;">'+esc(s.label)+'</div>'
-      + '<div style="font-size:.78rem;color:var(--muted);margin-bottom:.7rem;">'+chips+'</div>'
-      + '<div class="form-group"><textarea id="txt_'+s.kind+'" rows="3" style="width:100%;" '
-      + 'oninput="updatePreview('+i+');setStatus(\\''+s.kind+'\\',\\'Belum disimpan\\',false);"></textarea></div>'
-      + '<button class="btn btn-primary btn-sm" onclick="saveSec('+i+')">💾 Simpan</button> '
-      + '<button class="btn btn-ghost btn-sm" onclick="resetSec('+i+')">↺ Default</button>'
-      + '<span id="st_'+s.kind+'" style="margin-left:.6rem;font-size:.85rem;"></span>'
-      + '<div style="margin-top:.9rem;border-left:4px solid var(--accent);background:var(--surface3);border-radius:6px;padding:.7rem .9rem;">'
-      + '<div id="pv_'+s.kind+'" style="color:var(--text);"></div></div>'
-      + '</div></div>';
-  });
-  document.getElementById('sections').innerHTML = html;
-  SECTIONS.forEach(function(s, i){
-    document.getElementById('txt_'+s.kind).value = s.text;
-    updatePreview(i);
-  });
-}
-
-function saveSec(i){
-  var s = SECTIONS[i];
-  fetch('/queue-editor/save',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({kind:s.kind, text:document.getElementById('txt_'+s.kind).value})})
-    .then(function(r){return r.json();}).then(function(d){
-      setStatus(s.kind, d.ok ? 'Tersimpan.' : (d.error||'Gagal menyimpan'), !!d.ok);
-    });
-}
-function resetSec(i){
-  var s = SECTIONS[i];
-  if(!confirm('Kembalikan teks "'+s.label+'" ke default?')) return;
-  fetch('/queue-editor/reset',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({kind:s.kind})})
-    .then(function(r){return r.json();}).then(function(d){
-      if(d.ok){
-        document.getElementById('txt_'+s.kind).value = d.text;
-        updatePreview(i);
-        setStatus(s.kind, 'Dikembalikan ke default.', true);
-      } else { setStatus(s.kind, d.error||'Gagal reset', false); }
-    });
-}
-build();
-</script>"""
-    content = content.replace("SECTIONS_JSON", sections_json)
-    return render_page(content)
+    return ate.render(
+        qtext.QUEUE_SPECS, qtext.load_text,
+        base_route="/queue-editor",
+        title="Teks Antrian",
+        subtitle="Papan publik &amp; kartu posisi customer",
+        intro=_INTRO,
+        rows=3,
+        sample_for=ate.per_kind_sample_resolver(_SAMPLES),
+    )
