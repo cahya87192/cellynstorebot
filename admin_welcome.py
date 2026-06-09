@@ -30,6 +30,7 @@ _SAMPLES = {
     "welcome": {"member": "Andi", "store": _STORE_NAME, "count": "123"},
     "boost": {"member": "@Andi", "store": _STORE_NAME},
     "leave": {"member": "Andi", "store": _STORE_NAME, "durasi": "3 bulan"},
+    "general_greeting": {"member": "@Andi", "store": _STORE_NAME},
 }
 
 
@@ -70,6 +71,35 @@ def reset_welcome_route():
     return jsonify({"ok": True, "title": title, "desc": desc})
 
 
+@welcome_bp.route("/welcome-editor/save-text", methods=["POST"])
+def save_text_route():
+    g = _guard()
+    if g:
+        return g
+    payload = request.get_json(force=True, silent=True) or {}
+    kind = payload.get("kind")
+    if kind not in welcomelib.TEXT_SPECS:
+        return jsonify({"ok": False, "error": "Jenis pesan tidak dikenal."}), 400
+    text = payload.get("text")
+    if text is None or not str(text).strip():
+        return jsonify({"ok": False, "error": "Teks tidak boleh kosong."}), 400
+    welcomelib.save_text(kind, text=text)
+    return jsonify({"ok": True})
+
+
+@welcome_bp.route("/welcome-editor/reset-text", methods=["POST"])
+def reset_text_route():
+    g = _guard()
+    if g:
+        return g
+    payload = request.get_json(force=True, silent=True) or {}
+    kind = payload.get("kind")
+    if kind not in welcomelib.TEXT_SPECS:
+        return jsonify({"ok": False, "error": "Jenis pesan tidak dikenal."}), 400
+    welcomelib.save_text(kind, text="")
+    return jsonify({"ok": True, "text": welcomelib.load_text(kind)})
+
+
 @welcome_bp.route("/welcome-editor")
 def page_welcome():
     g = _guard()
@@ -90,9 +120,20 @@ def page_welcome():
         })
     sections_json = json.dumps(sections)
 
+    text_sections = []
+    for kind, spec in welcomelib.TEXT_SPECS.items():
+        text_sections.append({
+            "kind": kind,
+            "label": spec["label"],
+            "text": welcomelib.load_text(kind),
+            "placeholders": list(spec["placeholders"]),
+            "sample": _SAMPLES.get(kind, {}),
+        })
+    text_sections_json = json.dumps(text_sections)
+
     content = """
 <div class="page-header">
-  <div class="page-title">Pesan Member <small>Teks Welcome, Boost &amp; Leave</small></div>
+  <div class="page-title">Pesan Member <small>Welcome, Boost, Leave &amp; Sapaan Publik</small></div>
 </div>
 <div class="card"><div class="card-body">
   <div class="note" style="margin-bottom:1rem;">
@@ -100,10 +141,12 @@ def page_welcome():
     Perubahan langsung dipakai pada event berikutnya. Mendukung <b>**bold**</b> ala Discord.
   </div>
   <div id="sections"></div>
+  <div id="textSections"></div>
 </div></div>
 
 <script>
 var SECTIONS = SECTIONS_JSON;
+var TEXT_SECTIONS = TEXT_SECTIONS_JSON;
 
 function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function render(tpl, sample){
@@ -177,8 +220,59 @@ function resetSec(i){
       } else { setStatus(s.kind, d.error||'Gagal reset', false); }
     });
 }
+
+function buildText(){
+  var html = '';
+  TEXT_SECTIONS.forEach(function(s, i){
+    var chips = s.placeholders.map(function(p){ return '<code>'+esc(p)+'</code>'; }).join(' ');
+    html += '<div class="card" style="margin-bottom:1rem;border:1px solid var(--border);"><div class="card-body">'
+      + '<div style="font-weight:700;margin-bottom:.2rem;">'+esc(s.label)+'</div>'
+      + '<div style="font-size:.78rem;color:var(--muted);margin-bottom:.7rem;">Pesan teks biasa (bukan embed). Placeholder: '+chips+'</div>'
+      + '<div class="form-group"><textarea id="txt_'+s.kind+'" rows="3" style="width:100%;" '
+      + 'oninput="updateText('+i+');setStatus(\\''+s.kind+'\\',\\'Belum disimpan\\',false);"></textarea></div>'
+      + '<button class="btn btn-primary btn-sm" onclick="saveText('+i+')">💾 Simpan</button> '
+      + '<button class="btn btn-ghost btn-sm" onclick="resetText('+i+')">↺ Default</button>'
+      + '<span id="st_'+s.kind+'" style="margin-left:.6rem;font-size:.85rem;"></span>'
+      + '<div style="margin-top:.9rem;border-left:4px solid var(--accent);background:var(--surface3);border-radius:6px;padding:.7rem .9rem;">'
+      + '<div id="pvtxt_'+s.kind+'" style="color:var(--text);"></div></div>'
+      + '</div></div>';
+  });
+  document.getElementById('textSections').innerHTML = html;
+  TEXT_SECTIONS.forEach(function(s, i){
+    document.getElementById('txt_'+s.kind).value = s.text;
+    updateText(i);
+  });
+}
+function updateText(i){
+  var s = TEXT_SECTIONS[i];
+  document.getElementById('pvtxt_'+s.kind).innerHTML =
+    render(document.getElementById('txt_'+s.kind).value, s.sample);
+}
+function saveText(i){
+  var s = TEXT_SECTIONS[i];
+  fetch('/welcome-editor/save-text',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({kind:s.kind, text:document.getElementById('txt_'+s.kind).value})})
+    .then(function(r){return r.json();}).then(function(d){
+      setStatus(s.kind, d.ok ? 'Tersimpan.' : (d.error||'Gagal menyimpan'), !!d.ok);
+    });
+}
+function resetText(i){
+  var s = TEXT_SECTIONS[i];
+  if(!confirm('Kembalikan pesan "'+s.label+'" ke teks default?')) return;
+  fetch('/welcome-editor/reset-text',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({kind:s.kind})})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.ok){
+        document.getElementById('txt_'+s.kind).value = d.text;
+        updateText(i);
+        setStatus(s.kind, 'Dikembalikan ke default.', true);
+      } else { setStatus(s.kind, d.error||'Gagal reset', false); }
+    });
+}
 build();
+buildText();
 </script>"""
+    content = content.replace("TEXT_SECTIONS_JSON", text_sections_json)
     content = content.replace("SECTIONS_JSON", sections_json)
     return render_page(content)
 
