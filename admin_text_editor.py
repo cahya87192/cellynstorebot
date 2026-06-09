@@ -19,6 +19,7 @@ from utils.text_editor_render import (
     flat_sample_resolver,
     per_kind_sample_resolver,
 )
+from utils import text_audit
 
 __all__ = [
     "guard", "save_request", "reset_request", "render",
@@ -44,6 +45,9 @@ def save_request(specs, save_text):
     if text is None or not str(text).strip():
         return jsonify({"ok": False, "error": "Teks tidak boleh kosong."}), 400
     save_text(kind, text=text)
+    spec = specs[kind]
+    text_audit.record("save", key=spec.get("key"), kind=kind,
+                      label=spec.get("label"), detail=text)
     return jsonify({"ok": True})
 
 
@@ -54,6 +58,9 @@ def reset_request(specs, save_text, load_text):
     if kind not in specs:
         return jsonify({"ok": False, "error": "Jenis teks tidak dikenal."}), 400
     save_text(kind, text="")
+    spec = specs[kind]
+    text_audit.record("reset", key=spec.get("key"), kind=kind,
+                      label=spec.get("label"), detail="(ke default)")
     return jsonify({"ok": True, "text": load_text(kind)})
 
 

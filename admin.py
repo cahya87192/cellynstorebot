@@ -52,6 +52,7 @@ from admin_help import help_bp
 from admin_profile_text import profile_text_bp
 from admin_text_center import text_center_bp
 from admin_text_backup import text_backup_bp
+from admin_text_audit import text_audit_bp
 from admin_product_search import psearch_bp
 from admin_server_stats import server_stats_bp
 from functools import wraps
@@ -96,6 +97,7 @@ app.register_blueprint(help_bp)
 app.register_blueprint(profile_text_bp)
 app.register_blueprint(text_center_bp)
 app.register_blueprint(text_backup_bp)
+app.register_blueprint(text_audit_bp)
 app.register_blueprint(psearch_bp)
 app.register_blueprint(server_stats_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
@@ -419,6 +421,7 @@ var CMD_ITEMS=[
   {t:'Sticky Message',u:'/sticky-manager'},
   {t:'Pusat Teks Bot',u:'/text-center'},
   {t:'Backup Teks',u:'/text-backup'},
+  {t:'Riwayat Teks',u:'/text-audit'},
   {t:'Pesan Member',u:'/welcome-editor'},
   {t:'DM Sambutan',u:'/dm-editor'},
   {t:'DM Perpanjangan',u:'/subfollowup-editor'},
@@ -526,6 +529,7 @@ def render_page(content, **ctx):
     {_a("Sticky Message", "/sticky-manager", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9z"/><path d="M15 3v6h6"/></svg>', "sticky_bp.page_sticky")}
     {_a("Pusat Teks Bot", "/text-center", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>', "text_center_bp.page_text_center")}
     {_a("Backup Teks", "/text-backup", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>', "text_backup_bp.page_text_backup")}
+    {_a("Riwayat Teks", "/text-audit", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>', "text_audit_bp.page_text_audit")}
     {_a("Pesan Member", "/welcome-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "welcome_bp.page_welcome")}
     {_a("DM Sambutan", "/dm-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>', "welcome_bp.page_dm")}
     {_a("DM Perpanjangan", "/subfollowup-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>', "sub_followup_bp.page_sub_followup")}
