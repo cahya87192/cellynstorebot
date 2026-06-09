@@ -12,6 +12,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from utils.config import ADMIN_ROLE_ID, STORE_NAME, TOP_SPENDER_BADGE, TOP_SPENDER_ROLE_ID
 from utils.db import get_conn
+from utils import top_spender_text as tstext
 
 TOP_SPENDER_TOP_N   = 10
 LEADERBOARD_LIMIT   = 20
@@ -215,24 +216,20 @@ class TopSpender(commands.Cog):
     def _build_embed(self, spenders: list[dict], month_name: str,
                      guild: discord.Guild) -> discord.Embed:
         embed = discord.Embed(
-            title=f"🏆 Top Spender — {month_name}",
-            description=f"Apresiasi untuk pelanggan setia {STORE_NAME} 💛\n*(diperbarui otomatis tiap ada transaksi)*",
+            title=tstext.render_text("title", month=month_name),
+            description=tstext.render_text("description", store=STORE_NAME),
             color=0xF0A500,
             timestamp=datetime.datetime.now(datetime.timezone.utc),
         )
 
         if not spenders:
-            embed.add_field(name="\u200b", value="Belum ada data transaksi bulan ini.", inline=False)
+            embed.add_field(name="\u200b", value=tstext.load_text("empty"), inline=False)
             embed.add_field(
                 name="✨ Benefit Jadi Top Spender",
-                value=(
-                    "👑 Role eksklusif Top Spender (khusus Top 10)\n"
-                    "⚡ Prioritas antrean — pesananmu didahulukan di semua layanan\n"
-                    "🤝 Diutamakan admin saat tiket sedang ramai"
-                ),
+                value=tstext.load_text("benefit"),
                 inline=False,
             )
-            embed.set_footer(text=f"{STORE_NAME} • Reset tiap awal bulan")
+            embed.set_footer(text=tstext.render_text("footer", store=STORE_NAME))
             return embed
 
         top_lines, rest_lines = [], []
@@ -265,11 +262,7 @@ class TopSpender(commands.Cog):
         total_all = sum(s['total'] for s in spenders)
         embed.add_field(
             name="✨ Benefit Jadi Top Spender",
-            value=(
-                "👑 Role eksklusif Top Spender (khusus Top 10)\n"
-                "⚡ Prioritas antrean — pesananmu didahulukan di semua layanan\n"
-                "🤝 Diutamakan admin saat tiket sedang ramai"
-            ),
+            value=tstext.load_text("benefit"),
             inline=False,
         )
         embed.add_field(
@@ -277,7 +270,7 @@ class TopSpender(commands.Cog):
             value=f"────────────────────\n💰 **Total belanja Top {len(spenders)}** — {_rupiah(total_all)}",
             inline=False,
         )
-        embed.set_footer(text=f"{STORE_NAME} • Reset tiap awal bulan")
+        embed.set_footer(text=tstext.render_text("footer", store=STORE_NAME))
         return embed
 
     # ── Slash commands ────────────────────────
