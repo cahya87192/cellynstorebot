@@ -25,6 +25,7 @@ from discord.ext import commands, tasks
 from utils.config import STORE_NAME, GUILD_ID, SUB_FOLLOWUP_LEAD_DAYS, LAINNYA_CATALOG_CHANNEL_ID
 from utils.db import fetch_followup_candidates, mark_followup_sent
 from utils import subscription as sub
+from utils import sub_followup_text as sftext
 
 # Channel katalog "Layanan Lainnya" (dari config; bisa di-override via .env).
 COLOR_FOLLOWUP = 0x00BFFF
@@ -39,16 +40,11 @@ def build_followup_embed(item: str, sisa_hari: int) -> discord.Embed:
     else:
         waktu = f"dalam {sisa_hari} hari lagi"
     embed = discord.Embed(
-        title="🔔 Langgananmu Sebentar Lagi Habis",
-        description=(
-            f"Halo! Langgananmu di **{STORE_NAME}** akan berakhir **{waktu}**.\n\n"
-            f"**Produk:** {item}\n\n"
-            "Mau perpanjang biar nggak putus di tengah jalan? Tinggal klik tombol "
-            "di bawah ya. Makasih sudah jadi pelanggan setia kami 🤍"
-        ),
+        title=sftext.load_text("title"),
+        description=sftext.render_text("description", store=STORE_NAME, waktu=waktu, item=item),
         color=COLOR_FOLLOWUP,
     )
-    embed.set_footer(text=f"{STORE_NAME} · pengingat perpanjangan")
+    embed.set_footer(text=sftext.render_text("footer", store=STORE_NAME))
     return embed
 
 
@@ -56,7 +52,7 @@ def _order_again_view() -> discord.ui.View:
     view = discord.ui.View(timeout=None)
     url = f"https://discord.com/channels/{GUILD_ID}/{LAINNYA_CATALOG_CHANNEL_ID}"
     view.add_item(discord.ui.Button(
-        label="🛒 Perpanjang / Order Lagi",
+        label=sftext.load_text("button_label"),
         style=discord.ButtonStyle.link,
         url=url,
     ))
