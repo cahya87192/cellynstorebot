@@ -23,6 +23,7 @@ from collections import OrderedDict
 import discord
 from discord.ext import commands
 
+from utils import product_search_text as pstext
 from utils.config import (
     STORE_NAME,
     GUILD_ID,
@@ -308,7 +309,7 @@ def build_results_embed(results, query: str) -> discord.Embed:
         by_store.setdefault(e["store"], []).append(e)
 
     embed = discord.Embed(
-        title=f"{EM_TITLE}  Hasil pencarian \u201c{_clip(query)}\u201d",
+        title=pstext.render_text("results_title", query=_clip(query)),
         color=COLOR_RESULT,
     )
     for store, items in by_store.items():
@@ -327,7 +328,7 @@ def build_results_embed(results, query: str) -> discord.Embed:
             field_name += f"   {EM_STOCK} stok {items[0]['robux_stock']:,} R$"
         embed.add_field(name=field_name, value="\n".join(lines)[:1024], inline=False)
 
-    embed.set_footer(text=f"{EM_FOOT} {STORE_NAME} \u00b7 pilih produk di bawah untuk buka tiket / lihat katalog")
+    embed.set_footer(text=pstext.render_text("results_footer", store=STORE_NAME))
     return embed
 
 
@@ -335,11 +336,11 @@ def build_suggest_embed(suggestions, query: str) -> discord.Embed:
     names = list(dict.fromkeys(e["name"] for e in suggestions))[:MAX_SUGGEST]
     desc = "\n".join(f"{EM_SUGGEST}  {n}" for n in names)
     embed = discord.Embed(
-        title=f"{EM_TITLE}  Belum ketemu yang persis\u2026",
-        description=f"Mungkin maksud kamu:\n{desc}",
+        title=pstext.load_text("suggest_title"),
+        description=pstext.render_text("suggest_intro") + "\n" + desc,
         color=COLOR_SUGGEST,
     )
-    embed.set_footer(text=f"{EM_FOOT} Coba ketik nama produk yang lebih spesifik")
+    embed.set_footer(text=pstext.load_text("suggest_footer"))
     return embed
 
 
@@ -364,7 +365,7 @@ class LainnyaVariantSelect(discord.ui.Select):
                 label=label, description=desc, value=str(e["product_id"])
             ))
         super().__init__(
-            placeholder="Pilih produk untuk buka tiket…",
+            placeholder=pstext.load_text("select_placeholder"),
             min_values=1, max_values=1, options=options,
         )
 
@@ -377,7 +378,7 @@ class LainnyaVariantSelect(discord.ui.Select):
             print(f"[ProductSearch] open ticket error: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    "Maaf, gagal membuka tiket. Coba lewat katalog ya.", ephemeral=True
+                    pstext.load_text("ticket_error"), ephemeral=True
                 )
 
 
