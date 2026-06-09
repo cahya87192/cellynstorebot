@@ -159,6 +159,12 @@ def import_data(payload):
             lc.save_info(cat, description=desc, terms=terms)
             ncat += 1
 
+    try:
+        from utils import text_audit
+        text_audit.record("import", detail=f"{applied} teks, {ncat} kategori diterapkan")
+    except Exception:
+        pass
+
     return {"applied": applied, "skipped": skipped, "categories": ncat}
 
 
@@ -190,4 +196,9 @@ def reset_all():
         pass
     conn.commit()
     conn.close()
+    try:
+        from utils import text_audit
+        text_audit.record("reset_all", detail=f"{removed} teks, {categories_cleared} kategori")
+    except Exception:
+        pass
     return {"removed": removed, "categories_cleared": categories_cleared}
