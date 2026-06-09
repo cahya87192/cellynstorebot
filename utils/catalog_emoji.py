@@ -34,6 +34,22 @@ def is_custom_emoji(value) -> bool:
     )
 
 
+def safe_emoji(value, fallback=None, use_custom: bool = True):
+    """Emoji aman untuk komponen UI (SelectOption/Button) lintas-server.
+
+    Custom emoji server (mis. `<:Robux:123>`) akan DITOLAK Discord di server lain
+    yang tidak punya emoji itu, sehingga dropdown/tombol gagal tampil. Helper ini:
+      - use_custom=True  -> kembalikan emoji asli (perilaku server asal).
+      - use_custom=False -> custom emoji diganti `fallback` (unicode/None aman);
+        emoji yang sudah unicode atau None dibiarkan apa adanya.
+    """
+    if use_custom:
+        return value
+    if is_custom_emoji(value):
+        return fallback
+    return value
+
+
 def resolve_group_emoji(group, group_emoji_map, use_custom: bool = True):
     """Emoji untuk sebuah grup, aman lintas-server.
 
