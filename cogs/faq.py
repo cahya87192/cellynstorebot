@@ -22,6 +22,7 @@ from utils.config import (
 )
 from utils.db import get_conn
 from utils import faq as faqlib
+from utils import faq_text as fqtext
 
 COLOR_FAQ = 0x5865F2
 COLOR_CS = 0x2ECC71
@@ -56,23 +57,24 @@ def build_faq_embeds():
     entries = faqlib.load_faq()
     embeds = []
     embed = discord.Embed(
-        title=f"❓ FAQ — {STORE_NAME}",
-        description=faqlib.render_text(
-            "Pertanyaan umum seputar {store}. Masih bingung? Tanya di channel "
-            "bantuan atau kirim **/saran**.", STORE_NAME),
+        title=fqtext.render_text("faq_title", store=STORE_NAME),
+        description=fqtext.render_text("faq_desc", store=STORE_NAME),
         color=COLOR_FAQ,
     )
     count = 0
     for e in entries:
         if count >= 24:  # batas field per embed
             embeds.append(embed)
-            embed = discord.Embed(title=f"❓ FAQ — {STORE_NAME} (lanjutan)", color=COLOR_FAQ)
+            embed = discord.Embed(
+                title=fqtext.render_text("faq_title_cont", store=STORE_NAME),
+                color=COLOR_FAQ,
+            )
             count = 0
         q = faqlib.render_text(e["q"], STORE_NAME)
         a = faqlib.render_text(e["a"], STORE_NAME)
         embed.add_field(name=f"▸ {q}"[:256], value=a[:1024], inline=False)
         count += 1
-    embed.set_footer(text=f"{STORE_NAME} • diperbarui otomatis")
+    embed.set_footer(text=fqtext.render_text("faq_footer", store=STORE_NAME))
     embeds.append(embed)
     return embeds
 
@@ -159,11 +161,14 @@ class FAQ(commands.Cog):
             return
         self._cs_cooldown[message.author.id] = now
         embed = discord.Embed(
-            title=f"💬 {faqlib.render_text(entry['q'], STORE_NAME)}",
+            title=fqtext.render_text(
+                "autocs_title",
+                question=faqlib.render_text(entry["q"], STORE_NAME),
+            ),
             description=faqlib.render_text(entry["a"], STORE_NAME),
             color=COLOR_CS,
         )
-        embed.set_footer(text=f"{STORE_NAME} • jawaban otomatis • ketik /saran bila perlu bantuan admin")
+        embed.set_footer(text=fqtext.render_text("autocs_footer", store=STORE_NAME))
         try:
             await message.reply(embed=embed, mention_author=False)
         except Exception as e:
@@ -178,24 +183,24 @@ class FAQ(commands.Cog):
         channel = interaction.guild.get_channel(target_id) if interaction.guild else None
         if channel is None:
             await interaction.response.send_message(
-                "⚠️ Channel saran belum dikonfigurasi. Hubungi admin.", ephemeral=True)
+                fqtext.load_text("saran_no_channel"), ephemeral=True)
             return
         embed = discord.Embed(
-            title="📨 Saran / Masukan Baru",
+            title=fqtext.load_text("saran_title"),
             description=pesan[:4000],
             color=COLOR_SARAN,
             timestamp=discord.utils.utcnow(),
         )
         embed.add_field(name="Dari", value=f"{interaction.user.mention} (`{interaction.user.id}`)", inline=False)
-        embed.set_footer(text=STORE_NAME)
+        embed.set_footer(text=fqtext.render_text("saran_footer", store=STORE_NAME))
         try:
             await channel.send(embed=embed)
         except Exception as e:
             print(f"[FAQ] saran send error: {e}")
-            await interaction.response.send_message("❌ Gagal mengirim. Coba lagi nanti.", ephemeral=True)
+            await interaction.response.send_message(fqtext.load_text("saran_fail"), ephemeral=True)
             return
         await interaction.response.send_message(
-            "✅ Terima kasih! Saran/masukanmu sudah dikirim ke admin. 🙏", ephemeral=True)
+            fqtext.load_text("saran_success"), ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
