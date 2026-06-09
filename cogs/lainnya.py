@@ -30,6 +30,7 @@ from cogs import lainnya_catalog
 from cogs.lainnya_catalog import GROUP_ORDER, GROUP_EMOJI, CATEGORY_EMOJI, group_of, get_category_info
 from utils import catalog_emoji
 from utils import catalog_emoji_settings as emoji_settings
+from utils import lainnya_text as latext
 
 # Kunci bot_state untuk menandai katalog sudah di-seed sekali-jalan.
 SEED_GUARD_KEY = "lainnya_seed_catalog_v1"
@@ -478,7 +479,7 @@ def _build_autoreply_embed(kind: str, data) -> discord.Embed:
         info = load_category_info(category)
 
         embed = discord.Embed(
-            title=f"📦 {category} — {STORE_NAME}",
+            title=latext.render_text("autoreply_cat_title", category=category, store=STORE_NAME),
             color=COLOR_LAINNYA,
         )
         shown = items[:AUTOREPLY_MAX_PRODUCTS]
@@ -491,7 +492,7 @@ def _build_autoreply_embed(kind: str, data) -> discord.Embed:
             embed.add_field(name="📋 Deskripsi", value=info["description"][:1024], inline=False)
         if info.get("terms"):
             embed.add_field(name="📜 Syarat & Ketentuan", value=info["terms"][:1024], inline=False)
-        embed.set_footer(text="Ketik nama kategori/produk lain untuk info • atau buka tiket di katalog")
+        embed.set_footer(text=latext.load_text("autoreply_cat_footer"))
         return embed
 
     # kind == "products"
@@ -509,13 +510,13 @@ def _build_autoreply_embed(kind: str, data) -> discord.Embed:
 
     # hasil tersebar di beberapa kategori: tampilkan ringkas dengan label kategori
     embed = discord.Embed(
-        title=f"🔎 Hasil pencarian — {STORE_NAME}",
+        title=latext.render_text("autoreply_search_title", store=STORE_NAME),
         color=COLOR_LAINNYA,
     )
     for category, plist in by_cat.items():
         lines = "\n".join(f"• **{p['name']}** — Rp {p['harga']:,}" for p in plist)
         embed.add_field(name=category, value=lines[:1024], inline=False)
-    embed.set_footer(text="Ketik nama kategori spesifik untuk lihat deskripsi & S&K lengkap")
+    embed.set_footer(text=latext.load_text("autoreply_search_footer"))
     return embed
 
 
@@ -531,19 +532,9 @@ def build_catalog_embed(products):
 
     embed = discord.Embed(
 
-        title=f"🛒 LAYANAN — {STORE_NAME}",
+        title=latext.render_text("catalog_title", store=STORE_NAME),
 
-        description=(
-
-            "Pilih **grup layanan** di bawah, lalu pilih kategori & produk.\n"
-
-            "Atau klik **Custom Order** untuk pesanan khusus.\n\n"
-
-            f"**Grup tersedia:**\n{grp_list}\n\n"
-
-            "💳 Pembayaran: QRIS • DANA • Bank Transfer"
-
-        ),
+        description=latext.render_text("catalog_desc", groups=grp_list),
 
         color=COLOR_LAINNYA,
 
@@ -560,7 +551,7 @@ def build_catalog_embed(products):
     if _thumb:
         embed.set_thumbnail(url=_thumb)
 
-    embed.set_footer(text=f"{STORE_NAME}")
+    embed.set_footer(text=latext.render_text("catalog_footer", store=STORE_NAME))
 
     return embed
 
