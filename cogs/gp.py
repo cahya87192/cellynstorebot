@@ -21,6 +21,7 @@ from utils.store_hours import is_store_open
 from utils.counter import next_ticket_number
 from utils import ticket_ui
 from utils import reviews as reviews_data
+from utils import gp_text as gptext
 from utils.config import GP_CATALOG_CHANNEL_ID
 
 MIN_ROBUX = 300
@@ -74,13 +75,8 @@ def build_catalog_embed(rate: int) -> discord.Embed:
     stock_available = get_robux_stock_available()
     stock_out_total = get_robux_out_total()
     embed = discord.Embed(
-        title=f"TOPUP ROBUX VIA GAMEPASS — {STORE_NAME}",
-        description=(
-            f"Topup Robux aman tanpa perlu kasih password akun!\n"
-            f"Robux masuk dalam **3-7 hari kerja** setelah admin beli gamepass kamu.\n\n"
-            f"Minimal order: **{MIN_ROBUX} Robux**\n\n"
-            f"Klik tombol di bawah untuk mulai order."
-        ),
+        title=gptext.render_text("catalog_title", store=STORE_NAME),
+        description=gptext.render_text("catalog_desc", min=MIN_ROBUX),
         color=COLOR,
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
@@ -93,25 +89,12 @@ def build_catalog_embed(rate: int) -> discord.Embed:
     embed.add_field(name="Robux Keluar (Total)", value=f"**{stock_out_total:,} Robux**", inline=True)
     embed.add_field(
         name="Cara Order",
-        value=(
-            "1. Klik **Order Sekarang**\n"
-            "2. Input jumlah Robux yang diinginkan\n"
-            "3. Bot hitung harga gamepass + total bayar\n"
-            "4. Konfirmasi → tiket terbuka\n"
-            "5. Bayar tagihan ke admin\n"
-            "6. Buat gamepass sesuai harga yang ditentukan, kirim link ke tiket\n"
-            "7. Admin beli gamepass kamu\n"
-            "8. Tunggu Robux masuk 3-7 hari 🎉"
-        ),
+        value=gptext.load_text("catalog_howto"),
         inline=False
     )
     embed.add_field(
         name="Catatan",
-        value=(
-            "• Robux yang kamu terima adalah **after tax** (sudah dipotong 30% Roblox)\n"
-            "• Jangan hapus gamepass sebelum Robux masuk\n"
-            "• Harga gamepass dihitung otomatis oleh bot"
-        ),
+        value=gptext.load_text("catalog_note"),
         inline=False
     )
     _rating = reviews_data.rating_line("gp")
@@ -121,7 +104,7 @@ def build_catalog_embed(rate: int) -> discord.Embed:
     _thumb = catalog_settings.get_thumbnail("gp")
     if _thumb:
         embed.set_thumbnail(url=_thumb)
-    embed.set_footer(text=f"{STORE_NAME} • Rate dapat berubah sewaktu-waktu")
+    embed.set_footer(text=gptext.render_text("catalog_footer", store=STORE_NAME))
     return embed
 
 
@@ -453,8 +436,7 @@ class GPStore(commands.Cog):
             print(f"[GP] Gagal assign Royal Customer: {e}")
 
         await ctx.channel.send(embed=ticket_ui.ticket_success_embed(
-            f"Gamepass sudah dibeli! Robux kamu akan masuk dalam 3-7 hari kerja.\n"
-            f"Terima kasih telah berbelanja di {STORE_NAME}!",
+            gptext.render_text("done_success", store=STORE_NAME),
             countdown=10,
         ))
         delete_gp_ticket(channel_id)
