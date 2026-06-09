@@ -117,6 +117,10 @@ def build_catalog_embed(rate: int) -> discord.Embed:
     _rating = reviews_data.rating_line("gp")
     if _rating:
         embed.add_field(name="⭐ Rating Pembeli", value=_rating, inline=False)
+    from utils import catalog_settings
+    _thumb = catalog_settings.get_thumbnail("gp")
+    if _thumb:
+        embed.set_thumbnail(url=_thumb)
     embed.set_footer(text=f"{STORE_NAME} • Rate dapat berubah sewaktu-waktu")
     return embed
 

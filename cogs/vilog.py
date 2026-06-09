@@ -116,6 +116,10 @@ def build_catalog_embed(rate: int) -> discord.Embed:
     _rating = reviews_data.rating_line("vilog")
     if _rating:
         embed.add_field(name="⭐ Rating Pembeli", value=_rating, inline=False)
+    from utils import catalog_settings
+    _thumb = catalog_settings.get_thumbnail("vilog")
+    if _thumb:
+        embed.set_thumbnail(url=_thumb)
     embed.set_footer(text=f"{STORE_NAME} • Support kelipatan {STEP_ROBUX} (max {MAX_ROBUX})")
     return embed
 
