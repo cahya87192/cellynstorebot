@@ -412,6 +412,10 @@ class MLStore(commands.Cog):
             ),
             color=0x3498DB
         )
+        from utils import catalog_settings
+        _thumb = catalog_settings.get_thumbnail("ml")
+        if _thumb:
+            embed.set_thumbnail(url=_thumb)
         embed.set_footer(text=STORE_NAME)
         if self.catalog_message_id:
             try:
@@ -465,6 +469,10 @@ class MLStore(commands.Cog):
             ),
             color=0x3498DB
         )
+        from utils import catalog_settings
+        _thumb = catalog_settings.get_thumbnail("ml")
+        if _thumb:
+            embed.set_thumbnail(url=_thumb)
         embed.set_footer(text=STORE_NAME)
         await msg.edit(embed=embed, view=MLBuyView(store_open=is_store_open()))
 

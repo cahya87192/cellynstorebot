@@ -553,6 +553,11 @@ def build_catalog_embed(products):
 
         embed.add_field(name="⭐ Rating Pembeli", value=_rating, inline=False)
 
+    from utils import catalog_settings
+    _thumb = catalog_settings.get_thumbnail("lainnya")
+    if _thumb:
+        embed.set_thumbnail(url=_thumb)
+
     embed.set_footer(text=f"{STORE_NAME}")
 
     return embed

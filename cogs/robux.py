@@ -152,6 +152,10 @@ def build_catalog_embed(rate):
     _rating = reviews_data.rating_line("robux")
     if _rating:
         embed.add_field(name="⭐ Rating Pembeli", value=_rating, inline=False)
+    from utils import catalog_settings
+    _thumb = catalog_settings.get_thumbnail("robux")
+    if _thumb:
+        embed.set_thumbnail(url=_thumb)
     embed.set_footer(text=f"{STORE_NAME} • Harga dapat berubah sewaktu-waktu")
     return embed
 
