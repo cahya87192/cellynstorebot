@@ -22,6 +22,18 @@ if os.path.exists(_env_path):
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash
+from utils import member_names
+
+
+def _member_cell(uid, nm):
+    """Sel identitas untuk tabel panel: nama (kalau ada) + id kecil; fallback id."""
+    if not uid:
+        return "-"
+    name = nm.get(str(uid))
+    if name:
+        return (f"{html.escape(str(name))} <span class='text-muted' "
+                f"style='font-size:.72rem;'>#{uid}</span>")
+    return f"<code>{uid}</code>"
 from admin_embed import embed_bp
 from admin_insights import insights_bp
 from admin_profile_theme import theme_bp
@@ -1226,12 +1238,13 @@ def page_gp():
     ).execute("SELECT value FROM bot_state WHERE key='gp_rate'").fetchone()[0] or 0)
 
     rows = ""
+    _nm_gp = member_names.name_map([t["user_id"] for t in tickets])
     for t in tickets:
         paid = "✅ Lunas" if t["paid"] else "⏳ Belum bayar"
         link = f'<a href="{t["gp_link"]}" target="_blank">Link</a>' if t["gp_link"] else "-"
         rows += f"""<tr>
             <td><code>{t['channel_id']}</code></td>
-            <td><code>{t['user_id']}</code></td>
+            <td>{_member_cell(t['user_id'], _nm_gp)}</td>
             <td>{t['robux']} Robux</td>
             <td>{t['gp_price']} Robux</td>
             <td>Rp {t['total']:,}</td>
@@ -1276,7 +1289,7 @@ def page_gp():
   <div class="card-body" style="padding:0">
     <table>
       <thead><tr>
-        <th>Channel ID</th><th>User ID</th><th>Robux</th>
+        <th>Channel ID</th><th>User</th><th>Robux</th>
         <th>Harga GP</th><th>Total</th><th>Status</th><th>Link GP</th><th>Waktu</th>
       </tr></thead>
       <tbody>{rows}</tbody>
@@ -1314,6 +1327,9 @@ def page_reviews():
     stats = rv.get_stats()
     recent = rv.get_recent_reviews(limit=15)
     top = rv.get_top_reviewers(limit=10)
+    _nm_rv = member_names.name_map(
+        [r["user_id"] for r in recent] + [t["user_id"] for t in top]
+    )
 
     avg = stats["average"]
     total = stats["count"]
@@ -1358,7 +1374,7 @@ def page_reviews():
         review_rows += f"""
         <tr>
           <td style="color:var(--warning);white-space:nowrap;">{_stars(r['rating'])}</td>
-          <td><code>{r['user_id']}</code></td>
+          <td>{_member_cell(r['user_id'], _nm_rv)}</td>
           <td>{lay}</td>
           <td>{txt}</td>
           <td style="color:var(--muted);white-space:nowrap;">{when}</td>
@@ -1372,7 +1388,7 @@ def page_reviews():
         top_rows += f"""
         <tr>
           <td style="white-space:nowrap;">{medal}</td>
-          <td><code>{t['user_id']}</code></td>
+          <td>{_member_cell(t['user_id'], _nm_rv)}</td>
           <td>{t['count']}</td>
           <td style="color:var(--warning);">{t['avg_rating']:.1f}⭐</td>
         </tr>"""
@@ -1392,7 +1408,7 @@ def page_reviews():
       <div class="card-header"><span class="card-title">Top Reviewer</span></div>
       <div class="card-body" style="padding:0;">
         <table class="data-table">
-          <thead><tr><th>Peringkat</th><th>User ID</th><th>Jumlah</th><th>Rata-rata</th></tr></thead>
+          <thead><tr><th>Peringkat</th><th>User</th><th>Jumlah</th><th>Rata-rata</th></tr></thead>
           <tbody>{top_rows}</tbody>
         </table>
       </div>
@@ -1401,7 +1417,7 @@ def page_reviews():
       <div class="card-header"><span class="card-title">Ulasan Terbaru</span></div>
       <div class="card-body" style="padding:0;">
         <table class="data-table">
-          <thead><tr><th>Rating</th><th>User ID</th><th>Layanan</th><th>Ulasan</th><th>Tanggal</th></tr></thead>
+          <thead><tr><th>Rating</th><th>User</th><th>Layanan</th><th>Ulasan</th><th>Tanggal</th></tr></thead>
           <tbody>{review_rows}</tbody>
         </table>
       </div>

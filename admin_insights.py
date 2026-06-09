@@ -19,6 +19,8 @@ import datetime
 
 from flask import Blueprint, request, session, redirect, Response
 
+from utils import member_names
+
 insights_bp = Blueprint("insights_bp", __name__)
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
 
@@ -56,6 +58,17 @@ def _rupiah(n):
 
 def _esc(v):
     return html.escape(str(v if v is not None else ""))
+
+
+def _who(uid, nm):
+    """Render identitas: nama (kalau ada di cache) + id kecil; fallback id mentah."""
+    if not uid:
+        return "-"
+    name = nm.get(str(uid))
+    if name:
+        return (f"{_esc(name)} <span class='text-muted' style='font-size:.72rem;'>"
+                f"#{_esc(uid)}</span>")
+    return f"<code>{_esc(uid)}</code>"
 
 
 def _guard():
@@ -121,12 +134,15 @@ def page_transactions():
 
     total_pages = max(1, (total_rows + per_page - 1) // per_page)
 
+    nm = member_names.name_map(
+        [r["user_id"] for r in rows] + [r["admin_id"] for r in rows]
+    )
     body = ""
     for r in rows:
         tgl = (r["closed_at"] or "")[:16].replace("T", " ")
         lay = LAYANAN_LABEL.get(r["layanan"], (r["layanan"] or "-").title())
-        buyer = f'<code>{r["user_id"]}</code>' if r["user_id"] else "-"
-        admin = f'<code>{r["admin_id"]}</code>' if r["admin_id"] else "-"
+        buyer = _who(r["user_id"], nm)
+        admin = _who(r["admin_id"], nm)
         body += (
             f"<tr><td>{r['id']}</td><td>{_esc(tgl)}</td>"
             f"<td><span class='badge badge-ml'>{_esc(lay)}</span></td>"
@@ -243,11 +259,12 @@ def page_admins():
             return f"{secs // 60}m"
         return f"{secs}s"
 
+    nm = member_names.name_map([r["admin_id"] for r in rows])
     body = ""
     for i, r in enumerate(rows, 1):
         medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(i, f"#{i}")
         body += (
-            f"<tr><td>{medal}</td><td><code>{r['admin_id']}</code></td>"
+            f"<tr><td>{medal}</td><td>{_who(r['admin_id'], nm)}</td>"
             f"<td>{r['total']}</td><td>{_rupiah(r['omzet'])}</td>"
             f"<td>{_dur(r['avg_durasi'])}</td></tr>"
         )
@@ -261,7 +278,7 @@ def page_admins():
 <div class="card">
   <div class="table-wrapper">
     <table>
-      <thead><tr><th>#</th><th>Admin ID</th><th>Transaksi</th><th>Omzet</th><th>Rata-rata Durasi</th></tr></thead>
+      <thead><tr><th>#</th><th>Admin</th><th>Transaksi</th><th>Omzet</th><th>Rata-rata Durasi</th></tr></thead>
       <tbody>{body}</tbody>
     </table>
   </div>
@@ -336,15 +353,18 @@ def page_tickets():
     diproses = sum(1 for it in items if str(it["channel_id"]) in handling)
     menunggu = len(items) - diproses
 
+    nm = member_names.name_map(
+        [it["uid"] for it in items] + list(handling.values())
+    )
     body = ""
     for it in items:
         cid = str(it["channel_id"])
         is_proc = cid in handling
         status = ("<span class='badge badge-aktif'>Diproses</span>"
                   if is_proc else "<span class='badge badge-boost'>Menunggu</span>")
-        admin = f"<code>{handling[cid]}</code>" if is_proc and handling.get(cid) else "-"
+        admin = _who(handling[cid], nm) if is_proc and handling.get(cid) else "-"
         lay = LAYANAN_LABEL.get(it["layanan"], it["layanan"].title())
-        buyer = f"<code>{it['uid']}</code>" if it["uid"] else "-"
+        buyer = _who(it["uid"], nm)
         body += (
             f"<tr><td><span class='badge badge-ml'>{_esc(lay)}</span></td>"
             f"<td>{buyer}</td><td>{_age(it['opened_at'])}</td>"
