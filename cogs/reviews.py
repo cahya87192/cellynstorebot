@@ -33,6 +33,7 @@ from utils import invoice as invlib
 from utils import profile as profilelib
 from utils import achievements as achlib
 from utils import achievement_state as achstate
+from utils import review_text as rtext
 
 COLOR_REVIEW = 0xFFC107  # kuning/emas
 COLOR_INVOICE = 0x2ECC71  # hijau (struk lunas)
@@ -135,15 +136,12 @@ class ReviewModal(discord.ui.Modal):
         if self.rating == 5:
             # Auto-thank spesial untuk rating sempurna.
             await interaction.response.send_message(
-                f"🎉✨ WAH, RATING SEMPURNA {_stars(5)}! ✨🎉\n"
-                f"Makasih banyak udah kasih **5/5** — kamu the best! 💛\n"
-                f"Garansi transaksimu **aktif**, dan ditunggu next order-nya di {STORE_NAME}! 🛍️",
+                rtext.render_text("thankyou_5star", store=STORE_NAME, stars=_stars(5)),
                 ephemeral=True,
             )
         else:
             await interaction.response.send_message(
-                f"Makasih banyak! Rating **{self.rating}/5** {_stars(self.rating)} kamu sudah tercatat "
-                "dan jadi garansi transaksimu. 💛",
+                rtext.render_text("thankyou_normal", rating=self.rating, stars=_stars(self.rating)),
                 ephemeral=True,
             )
         cog = interaction.client.cogs.get("Reviews")
@@ -237,11 +235,8 @@ def build_invoice_embed(tx: dict, user: discord.abc.User | None = None) -> disco
     layanan = _pretty_layanan(tx.get("layanan"))
 
     embed = discord.Embed(
-        title="🧾 Struk Pembelian",
-        description=(
-            f"Terima kasih sudah berbelanja di **{STORE_NAME}**! 💚\n"
-            "Berikut bukti transaksimu — simpan baik-baik ya."
-        ),
+        title=rtext.load_text("invoice_title"),
+        description=rtext.render_text("invoice_desc", store=STORE_NAME),
         color=COLOR_INVOICE,
     )
     embed.add_field(name="No. Invoice", value=f"`{inv_no}`", inline=True)
@@ -256,7 +251,7 @@ def build_invoice_embed(tx: dict, user: discord.abc.User | None = None) -> disco
             embed.set_thumbnail(url=user.display_avatar.url)
         except Exception:
             pass
-    embed.set_footer(text=f"{STORE_NAME} • Struk Digital")
+    embed.set_footer(text=rtext.render_text("invoice_footer", store=STORE_NAME))
     return embed
 
 
@@ -272,15 +267,10 @@ def build_prompt_embed(review: dict, avatar_url: str = None) -> discord.Embed:
             deadline_txt = ""
 
     embed = discord.Embed(
-        title="⭐ Beri Rating Transaksimu",
+        title=rtext.load_text("prompt_title"),
         description=(
-            f"Terima kasih sudah berbelanja di **{STORE_NAME}**!\n\n"
-            "Beri rating untuk transaksi ini dengan menekan tombol bintang di bawah.\n\n"
-            f"⚠️ **PENTING: Rating = Garansi.**\n"
-            f"Kamu wajib memberi rating dalam **{rv.RATING_DEADLINE_HOURS} jam**. "
-            f"**Tanpa rating sebelum batas waktu, transaksimu TIDAK mendapat garansi.** "
-            f"Mohon beri rating sesegera mungkin ya! 💛"
-            f"{deadline_txt}"
+            rtext.render_text("prompt_desc", store=STORE_NAME, hours=rv.RATING_DEADLINE_HOURS)
+            + deadline_txt
         ),
         color=COLOR_REVIEW,
     )
@@ -291,25 +281,21 @@ def build_prompt_embed(review: dict, avatar_url: str = None) -> discord.Embed:
         embed.add_field(name="Item", value=str(review["item"])[:256], inline=True)
     if review.get("nominal"):
         embed.add_field(name="Nominal", value=f"Rp {review['nominal']:,}".replace(",", "."), inline=True)
-    embed.set_footer(text=f"{STORE_NAME} • Tanpa rating = tanpa garansi")
+    embed.set_footer(text=rtext.render_text("footer_warning", store=STORE_NAME))
     return embed
 
 
 def build_expired_embed(review: dict) -> discord.Embed:
     """Embed pemberitahuan saat 24 jam lewat tanpa rating (garansi hangus)."""
     embed = discord.Embed(
-        title="⌛ Waktu Rating Habis — Garansi Hangus",
-        description=(
-            f"Batas waktu **{rv.RATING_DEADLINE_HOURS} jam** untuk memberi rating sudah lewat, "
-            f"sehingga transaksi ini **tidak mendapat garansi**.\n\n"
-            f"Lain kali jangan lupa beri rating segera setelah transaksi ya, agar garansimu aktif. 🙏"
-        ),
+        title=rtext.load_text("expired_title"),
+        description=rtext.render_text("expired_desc", store=STORE_NAME, hours=rv.RATING_DEADLINE_HOURS),
         color=0xED4245,  # merah
     )
     embed.add_field(name="Layanan", value=_pretty_layanan(review.get("layanan")), inline=True)
     if review.get("item"):
         embed.add_field(name="Item", value=str(review["item"])[:256], inline=True)
-    embed.set_footer(text=f"{STORE_NAME} • Tanpa rating = tanpa garansi")
+    embed.set_footer(text=rtext.render_text("footer_warning", store=STORE_NAME))
     return embed
 
 
@@ -340,7 +326,7 @@ def build_published_embed(review: dict, member: discord.abc.User | None) -> disc
     layanan_str = _pretty_layanan(review.get("layanan"))
 
     embed = discord.Embed(
-        title="⟡ ULASAN PELANGGAN",
+        title=rtext.load_text("published_title"),
         description=f"**{star_line}**  ·  {rating}/5\n\n{quote}",
         color=COLOR_REVIEW,
         timestamp=discord.utils.utcnow(),
@@ -438,17 +424,15 @@ class Reviews(commands.Cog):
             except Exception:
                 deadline_txt = ""
         embed = discord.Embed(
-            title="⏰ Jangan Lupa Beri Rating!",
+            title=rtext.load_text("reminder_title"),
             description=(
-                f"Transaksimu di **{STORE_NAME}** belum kamu beri rating.\n"
-                f"**Rating = Garansi.** Beri rating sekarang agar garansimu aktif "
-                f"sebelum batas waktu habis. 💛{deadline_txt}"
+                rtext.render_text("reminder_desc", store=STORE_NAME) + deadline_txt
             ),
             color=COLOR_REVIEW,
         )
         if review.get("item"):
             embed.add_field(name="Item", value=str(review["item"])[:256], inline=True)
-        embed.set_footer(text=f"{STORE_NAME} • Tanpa rating = tanpa garansi")
+        embed.set_footer(text=rtext.render_text("footer_warning", store=STORE_NAME))
 
         view = build_rating_view(review["id"], layanan=review.get("layanan"))
         user = self.bot.get_user(review["user_id"])
