@@ -1,21 +1,20 @@
-"""Logika murni teks pesan Welcome (sambutan member baru di channel welcome).
+"""Logika murni teks pesan event member (welcome / boost / leave).
 
-Cog `cogs/welcome.py` membaca teks lewat `render_welcome()` sehingga admin bisa
-mengubah judul & isi sambutan dari panel TANPA edit kode. Bila belum dikustomisasi,
+Cog `cogs/welcome.py` membaca teks lewat fungsi render_* di sini sehingga admin
+bisa mengubah judul & isi dari panel TANPA edit kode. Bila belum dikustomisasi,
 dipakai teks default (sama persis dengan perilaku sebelumnya).
 
-Placeholder yang didukung (akan diganti otomatis saat dikirim):
-  {member} -> nama tampilan member
+Placeholder yang didukung (diganti otomatis saat dikirim):
+  {member} -> nama / mention member
   {store}  -> nama toko
-  {count}  -> nomor urut member (jumlah member non-bot)
+  {count}  -> nomor urut member (khusus welcome)
+  {durasi} -> lama keanggotaan (khusus leave)
 
 Semua fungsi murni / hanya menyentuh SQLite (bot_state) -> gampang diuji, tanpa
 butuh discord.
 """
 
-WELCOME_TITLE_KEY = "welcome_title"
-WELCOME_DESC_KEY = "welcome_desc"
-
+# ── Default teks (sama persis dgn versi hardcoded sebelumnya) ────────────────────
 DEFAULT_WELCOME_TITLE = "Halo {member}, selamat datang di {store}! "
 DEFAULT_WELCOME_DESC = (
     "Makasih ya udah mampir dan gabung bareng kami\n"
@@ -24,58 +23,101 @@ DEFAULT_WELCOME_DESC = (
     "butuh bantuan, jangan sungkan — kami siap bantu kapan pun. 🤝"
 )
 
-PLACEHOLDERS = ("{member}", "{store}", "{count}")
+DEFAULT_BOOST_TITLE = "Ada yang baik hati nih!"
+DEFAULT_BOOST_DESC = (
+    "{member} baru aja boost server 🚀 Makasih banyak ya, kamu keren! 🙏\n"
+    "Dukungan kecilmu bikin {store} makin hidup. Sehat & sukses selalu! 🤍"
+)
+
+DEFAULT_LEAVE_TITLE = "{member} pamit dulu 🥺"
+DEFAULT_LEAVE_DESC = (
+    "Terima kasih atas kebersamaannya selama **{durasi}**. "
+    "Semoga kita ketemu lagi ya — take care! "
+)
+
+# Registry tiap jenis pesan: kunci DB + default + placeholder yang relevan.
+MSG_SPECS = {
+    "welcome": {
+        "label": "Welcome (sambutan join)",
+        "title_key": "welcome_title",
+        "desc_key": "welcome_desc",
+        "default_title": DEFAULT_WELCOME_TITLE,
+        "default_desc": DEFAULT_WELCOME_DESC,
+        "placeholders": ("{member}", "{store}", "{count}"),
+    },
+    "boost": {
+        "label": "Boost (member nge-boost server)",
+        "title_key": "boost_title",
+        "desc_key": "boost_desc",
+        "default_title": DEFAULT_BOOST_TITLE,
+        "default_desc": DEFAULT_BOOST_DESC,
+        "placeholders": ("{member}", "{store}"),
+    },
+    "leave": {
+        "label": "Leave (member keluar server)",
+        "title_key": "leave_title",
+        "desc_key": "leave_desc",
+        "default_title": DEFAULT_LEAVE_TITLE,
+        "default_desc": DEFAULT_LEAVE_DESC,
+        "placeholders": ("{member}", "{store}", "{durasi}"),
+    },
+}
+
+# Placeholder welcome dipertahankan utk kompatibilitas import lama.
+PLACEHOLDERS = MSG_SPECS["welcome"]["placeholders"]
 
 
-def render_template(text, *, member="", store="", count=""):
+def render_template(text, **values):
     """Substitusi placeholder secara aman.
 
     Memakai str.replace (bukan str.format) supaya kurung kurawal lain di teks
-    tidak memicu error. None -> string kosong.
+    tidak memicu error. None -> string kosong. Hanya placeholder yang diberikan
+    yang diganti; sisanya dibiarkan apa adanya.
     """
     out = text if text is not None else ""
-    out = out.replace("{member}", str(member))
-    out = out.replace("{store}", str(store))
-    out = out.replace("{count}", str(count))
+    for key, val in values.items():
+        out = out.replace("{" + key + "}", str(val))
     return out
 
 
-def load_welcome_texts():
-    """Ambil (title_template, desc_template) dari DB; fallback ke default.
+def load_texts(kind):
+    """Ambil (title_template, desc_template) untuk `kind` dari DB; fallback default.
 
     Nilai kosong / whitespace dianggap belum diisi -> pakai default.
     """
+    spec = MSG_SPECS[kind]
     from utils.db import get_conn
     title = desc = None
     conn = get_conn()
     try:
         rows = conn.execute(
             "SELECT key, value FROM bot_state WHERE key IN (?,?)",
-            (WELCOME_TITLE_KEY, WELCOME_DESC_KEY),
+            (spec["title_key"], spec["desc_key"]),
         ).fetchall()
         data = {r["key"]: r["value"] for r in rows}
-        title = data.get(WELCOME_TITLE_KEY)
-        desc = data.get(WELCOME_DESC_KEY)
+        title = data.get(spec["title_key"])
+        desc = data.get(spec["desc_key"])
     except Exception:
         pass
     conn.close()
     if not (title and title.strip()):
-        title = DEFAULT_WELCOME_TITLE
+        title = spec["default_title"]
     if not (desc and desc.strip()):
-        desc = DEFAULT_WELCOME_DESC
+        desc = spec["default_desc"]
     return title, desc
 
 
-def save_welcome_texts(title=None, desc=None):
-    """Simpan template title/desc ke DB.
+def save_texts(kind, title=None, desc=None):
+    """Simpan template title/desc untuk `kind`.
 
     None -> field tidak diubah. String kosong/whitespace -> reset ke default
     (baris dihapus dari bot_state).
     """
+    spec = MSG_SPECS[kind]
     from utils.db import get_conn
     conn = get_conn()
     c = conn.cursor()
-    for key, val in ((WELCOME_TITLE_KEY, title), (WELCOME_DESC_KEY, desc)):
+    for key, val in ((spec["title_key"], title), (spec["desc_key"], desc)):
         if val is None:
             continue
         if val.strip() == "":
@@ -89,10 +131,32 @@ def save_welcome_texts(title=None, desc=None):
     conn.close()
 
 
+def render_pair(kind, **values):
+    """Kembalikan (title, description) untuk `kind` dengan placeholder tersubstitusi."""
+    title, desc = load_texts(kind)
+    return render_template(title, **values), render_template(desc, **values)
+
+
+# ── Wrapper khusus tiap jenis (dipakai cog) ─────────────────────────────────────
+
+def load_welcome_texts():
+    return load_texts("welcome")
+
+
+def save_welcome_texts(title=None, desc=None):
+    save_texts("welcome", title=title, desc=desc)
+
+
 def render_welcome(member, store, count):
-    """Kembalikan (title, description) siap pakai untuk embed welcome join."""
-    title, desc = load_welcome_texts()
-    return (
-        render_template(title, member=member, store=store, count=count),
-        render_template(desc, member=member, store=store, count=count),
-    )
+    """(title, description) untuk embed welcome join."""
+    return render_pair("welcome", member=member, store=store, count=count)
+
+
+def render_boost(member, store):
+    """(title, description) untuk embed boost server."""
+    return render_pair("boost", member=member, store=store)
+
+
+def render_leave(member, store, durasi):
+    """(title, description) untuk embed member keluar."""
+    return render_pair("leave", member=member, store=store, durasi=durasi)

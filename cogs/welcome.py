@@ -196,14 +196,9 @@ class WelcomeCog(commands.Cog):
                 durasi_str = f"{years} tahun {sisa} bulan" if sisa else f"{years} tahun"
         else:
             durasi_str = "tidak diketahui"
-        embed = discord.Embed(
-            title=f"{member.display_name} pamit dulu 🥺",
-            description=(
-                f"Terima kasih atas kebersamaannya selama **{durasi_str}**. "
-                f"Semoga kita ketemu lagi ya — take care! "
-            ),
-            color=0x808080,
-        )
+        leave_title, leave_desc = welcomelib.render_leave(
+            member.display_name, STORE_NAME, durasi_str)
+        embed = discord.Embed(title=leave_title, description=leave_desc, color=0x808080)
         try:
             embed.set_thumbnail(url=member.display_avatar.replace(size=256).url)
         except Exception:
@@ -272,14 +267,8 @@ class WelcomeCog(commands.Cog):
         channel = self.bot.get_channel(self._welcome_channel_id)
         if not channel:
             return
-        embed = discord.Embed(
-            title="Ada yang baik hati nih!",
-            description=(
-                f"{member.mention} baru aja boost server 🚀 Makasih banyak ya, kamu keren! 🙏\n"
-                f"Dukungan kecilmu bikin {STORE_NAME} makin hidup. Sehat & sukses selalu! 🤍"
-            ),
-            color=0xFF73FA,
-        )
+        boost_title, boost_desc = welcomelib.render_boost(member.mention, STORE_NAME)
+        embed = discord.Embed(title=boost_title, description=boost_desc, color=0xFF73FA)
         try:
             embed.set_thumbnail(url=member.display_avatar.replace(size=256).url)
         except Exception:
