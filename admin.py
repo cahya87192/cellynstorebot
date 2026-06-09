@@ -46,6 +46,7 @@ from admin_ml import ml_bp
 from admin_lainnya import lainnya_text_bp
 from admin_lainnya_info import lainnya_info_bp
 from admin_faq_text import faq_text_bp
+from admin_sub_followup import sub_followup_bp
 from functools import wraps
 
 # Brand panel: ikut STORE_NAME (.env) supaya tidak ada "Cellyn" yang nyangkut
@@ -82,6 +83,7 @@ app.register_blueprint(ml_bp)
 app.register_blueprint(lainnya_text_bp)
 app.register_blueprint(lainnya_info_bp)
 app.register_blueprint(faq_text_bp)
+app.register_blueprint(sub_followup_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
 
@@ -403,6 +405,7 @@ var CMD_ITEMS=[
   {t:'Sticky Message',u:'/sticky-manager'},
   {t:'Pesan Member',u:'/welcome-editor'},
   {t:'DM Sambutan',u:'/dm-editor'},
+  {t:'DM Perpanjangan',u:'/subfollowup-editor'},
   {t:'Pesan AFK',u:'/afk-editor'},
   {t:'Status Toko',u:'/store-status-editor'},
   {t:'Pesan Garansi',u:'/warranty-editor'},
@@ -502,6 +505,7 @@ def render_page(content, **ctx):
     {_a("Sticky Message", "/sticky-manager", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9z"/><path d="M15 3v6h6"/></svg>', "sticky_bp.page_sticky")}
     {_a("Pesan Member", "/welcome-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "welcome_bp.page_welcome")}
     {_a("DM Sambutan", "/dm-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>', "welcome_bp.page_dm")}
+    {_a("DM Perpanjangan", "/subfollowup-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>', "sub_followup_bp.page_sub_followup")}
     {_a("Pesan AFK", "/afk-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', "afk_bp.page_afk")}
     {_a("Status Toko", "/store-status-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l1-5h16l1 5"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></svg>', "store_status_bp.page_store_status")}
     {_a("Pesan Garansi", "/warranty-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', "warranty_bp.page_warranty")}
