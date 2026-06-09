@@ -295,7 +295,8 @@ class WelcomeCog(commands.Cog):
             return
         try:
             await channel.send(
-                f"👋 𝗛𝗔𝗟𝗢, 𝗦𝗔𝗬𝗔 {member.mention} 𝗠𝗘𝗠𝗕𝗘𝗥 𝗕𝗔𝗥𝗨 𝗗𝗜 {STORE_NAME}!"
+                welcomelib.render_text("general_greeting",
+                                       member=member.mention, store=STORE_NAME)
             )
         except Exception as e:
             print(f"[Welcome] General greeting error: {e}")

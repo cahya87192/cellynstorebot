@@ -181,3 +181,33 @@ def test_reset_dm_config(db):
     assert cfg["title"] == w.DEFAULT_DM_TITLE
     assert cfg["banner"] == ""
     assert len(cfg["fields"]) == len(w.DEFAULT_DM_FIELDS)
+
+
+
+# ── Pesan teks tunggal (sapaan publik / general greeting) ────────────────────────
+
+def test_text_specs_has_general_greeting():
+    assert "general_greeting" in w.TEXT_SPECS
+    spec = w.TEXT_SPECS["general_greeting"]
+    assert spec["key"] and spec["default"]
+
+
+def test_load_text_default(db):
+    assert w.load_text("general_greeting") == w.DEFAULT_GENERAL_GREETING
+
+
+def test_save_and_load_text(db):
+    w.save_text("general_greeting", text="Halo {member} di {store}")
+    assert w.load_text("general_greeting") == "Halo {member} di {store}"
+
+
+def test_save_text_empty_resets_to_default(db):
+    w.save_text("general_greeting", text="custom")
+    w.save_text("general_greeting", text="")
+    assert w.load_text("general_greeting") == w.DEFAULT_GENERAL_GREETING
+
+
+def test_render_text_substitutes(db):
+    w.save_text("general_greeting", text="Hai {member}, selamat datang di {store}!")
+    out = w.render_text("general_greeting", member="@Andi", store="CellynStore")
+    assert out == "Hai @Andi, selamat datang di CellynStore!"

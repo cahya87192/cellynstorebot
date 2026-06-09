@@ -64,6 +64,20 @@ MSG_SPECS = {
     },
 }
 
+# Pesan teks tunggal (bukan embed) — mis. sapaan publik di channel general.
+DEFAULT_GENERAL_GREETING = (
+    "👋 𝗛𝗔𝗟𝗢, 𝗦𝗔𝗬𝗔 {member} 𝗠𝗘𝗠𝗕𝗘𝗥 𝗕𝗔𝗥𝗨 𝗗𝗜 {store}!"
+)
+
+TEXT_SPECS = {
+    "general_greeting": {
+        "label": "Sapaan publik di channel general (saat join)",
+        "key": "general_greeting",
+        "default": DEFAULT_GENERAL_GREETING,
+        "placeholders": ("{member}", "{store}"),
+    },
+}
+
 # Placeholder welcome dipertahankan utk kompatibilitas import lama.
 PLACEHOLDERS = MSG_SPECS["welcome"]["placeholders"]
 
@@ -136,6 +150,55 @@ def render_pair(kind, **values):
     """Kembalikan (title, description) untuk `kind` dengan placeholder tersubstitusi."""
     title, desc = load_texts(kind)
     return render_template(title, **values), render_template(desc, **values)
+
+
+def load_text(kind):
+    """Ambil teks tunggal untuk `kind` (TEXT_SPECS) dari DB; fallback default.
+
+    Nilai kosong / whitespace dianggap belum diisi -> pakai default.
+    """
+    spec = TEXT_SPECS[kind]
+    from utils.db import get_conn
+    value = None
+    conn = get_conn()
+    try:
+        row = conn.execute(
+            "SELECT value FROM bot_state WHERE key=?", (spec["key"],)
+        ).fetchone()
+        value = row["value"] if row else None
+    except Exception:
+        pass
+    conn.close()
+    if not (value and value.strip()):
+        value = spec["default"]
+    return value
+
+
+def save_text(kind, text=None):
+    """Simpan teks tunggal untuk `kind`.
+
+    None -> tidak diubah. String kosong/whitespace -> reset ke default (dihapus).
+    """
+    spec = TEXT_SPECS[kind]
+    if text is None:
+        return
+    from utils.db import get_conn
+    conn = get_conn()
+    c = conn.cursor()
+    if text.strip() == "":
+        c.execute("DELETE FROM bot_state WHERE key=?", (spec["key"],))
+    else:
+        c.execute(
+            "INSERT OR REPLACE INTO bot_state (key, value) VALUES (?,?)",
+            (spec["key"], text),
+        )
+    conn.commit()
+    conn.close()
+
+
+def render_text(kind, **values):
+    """Teks tunggal `kind` dengan placeholder tersubstitusi."""
+    return render_template(load_text(kind), **values)
 
 
 # ── Wrapper khusus tiap jenis (dipakai cog) ─────────────────────────────────────
