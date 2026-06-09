@@ -15,6 +15,7 @@ from discord.ext import tasks
 from utils.db import get_conn
 from utils.store_hours import is_store_open
 from utils import ticket_ui
+from utils import midman_text as mtext
 
 
 def _get_setting(key: str) -> str | None:
@@ -106,14 +107,8 @@ class Midman(commands.Cog):
                     pass
 
         embed = discord.Embed(
-            title=f"MIDMAN TRADE — {STORE_NAME}",
-            description=(
-                f"Jasa perantara transaksi item game dengan aman bersama {STORE_NAME}.\n\n"
-                "⚔️ **Midman Trade** — Tukar item/akun antar dua pihak\n"
-                "Cara pakai: Klik tombol **Midman Trade** → isi form → tunggu admin bergabung\n\n"
-                "🛒 **Midman Jual Beli** — Jual/beli item dengan admin sebagai perantara dana\n"
-                "Cara pakai: Klik tombol **Midman Jual Beli** → isi form → tunggu admin setup"
-            ),
+            title=mtext.render_text("catalog_title", store=STORE_NAME),
+            description=mtext.render_text("catalog_desc", store=STORE_NAME),
             color=0x2ECC71
         )
         embed.add_field(
@@ -208,7 +203,7 @@ class Midman(commands.Cog):
         ticket.get("verified_by")
         _midman_item = f"{ticket.get('item_p1', '-')} ↔ {ticket.get('item_p2', '-')}"
         await ctx.send(embed=ticket_ui.ticket_success_embed(
-            "Admin telah mengkonfirmasi trade selesai & kedua pihak menerima item masing-masing."
+            mtext.load_text("acc_success")
         ))
         await asyncio.sleep(5)
         transcript_file = await generate_transcript(ctx.channel, STORE_NAME)
