@@ -41,6 +41,16 @@ def _tiers_with_bg():
     return [t for t in VALID_TIERS if _bg_path(t)]
 
 
+def _icon_path():
+    """Path ikon/thumbnail kartu badge (atau None). Satu ikon global:
+    data/badge_icon.<ext>. Sama dgn cogs/profile._badge_icon_path."""
+    for ext in ALLOWED_IMAGE_EXTS:
+        p = os.path.join(DATA_DIR, "badge_icon" + ext)
+        if os.path.exists(p):
+            return p
+    return None
+
+
 def _guard():
     if not session.get("logged_in"):
         return redirect("/login")
@@ -64,7 +74,8 @@ def preview_png():
     try:
         from cogs.profile import render_achievement_card
         buf = render_achievement_card("ContohMember", None, _sample_badges(),
-                                      tier="Gold", theme=theme, bg_path=bg_path)
+                                      tier="Gold", theme=theme, bg_path=bg_path,
+                                      icon_path=_icon_path())
         return Response(buf.getvalue(), mimetype="image/png")
     except Exception as e:
         # Pillow tak tersedia / error -> PNG 1x1 transparan + pesan di header.
@@ -172,6 +183,46 @@ def delete_bg():
     return jsonify({"ok": True, "removed": removed, "tiers_with_bg": _tiers_with_bg()})
 
 
+@badge_theme_bp.route("/badge-theme/icon", methods=["POST"])
+def upload_icon():
+    g = _guard()
+    if g:
+        return g
+    f = request.files.get("icon")
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "Tidak ada file."}), 400
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in ALLOWED_IMAGE_EXTS:
+        return jsonify({"ok": False, "error": "Format harus PNG/JPG/WEBP."}), 400
+    os.makedirs(DATA_DIR, exist_ok=True)
+    for e in ALLOWED_IMAGE_EXTS:
+        old = os.path.join(DATA_DIR, "badge_icon" + e)
+        if os.path.exists(old):
+            try:
+                os.remove(old)
+            except Exception:
+                pass
+    f.save(os.path.join(DATA_DIR, "badge_icon" + ext))
+    return jsonify({"ok": True, "has_icon": True})
+
+
+@badge_theme_bp.route("/badge-theme/icon/delete", methods=["POST"])
+def delete_icon():
+    g = _guard()
+    if g:
+        return g
+    removed = False
+    for e in ALLOWED_IMAGE_EXTS:
+        p = os.path.join(DATA_DIR, "badge_icon" + e)
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+                removed = True
+            except Exception:
+                pass
+    return jsonify({"ok": True, "removed": removed, "has_icon": False})
+
+
 @badge_theme_bp.route("/badge-theme")
 def page_theme():
     g = _guard()
@@ -186,6 +237,7 @@ def page_theme():
     cur_font = theme.get("font_file") or "(default sistem)"
     bg_tiers_json = json.dumps(_tiers_with_bg())
     tiers_json = json.dumps(VALID_TIERS)
+    has_icon_json = json.dumps(_icon_path() is not None)
 
     content = f"""
 <div class="page-header">
@@ -226,6 +278,15 @@ def page_theme():
       </div>
       <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem;">Pratinjau memakai background tier yang dipilih. Tanpa BG = gradien default per tier.</div>
     </div>
+    <div class="form-group">
+      <label>Ikon/Thumbnail (sisi kanan) <small style="color:var(--muted)" id="iconInfo"></small></label>
+      <input type="file" id="iconFile" accept=".png,.jpg,.jpeg,.webp">
+      <div style="display:flex;gap:.5rem;margin-top:.4rem;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="uploadIcon()">⬆️ Upload Ikon</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteIcon()">🗑️ Hapus Ikon</button>
+      </div>
+      <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem;">Gambar dekoratif untuk mengisi sisi kanan kartu. Atur posisi &amp; ukuran lewat elemen <b>Ikon/Thumbnail</b> di bawah.</div>
+    </div>
     <hr style="border-color:var(--border);margin:1rem 0;">
     <label style="font-weight:600;">Elemen</label>
     <select id="elemSel" onchange="renderControls()" style="width:100%;margin:.4rem 0 .8rem;"></select>
@@ -239,6 +300,7 @@ var LABELS = {labels_json};
 var ORDER = {order_json};
 var BG_TIERS = {bg_tiers_json};
 var TIERS = {tiers_json};
+var HAS_ICON = {has_icon_json};
 var theme = JSON.parse(JSON.stringify(THEME));
 var CARD_W={achthemelib.ACH_W}, CARD_H={achthemelib.ACH_H};
 
@@ -304,7 +366,7 @@ function renderControls(){{
     h+='<div class="form-group"><label>Ukuran Font: '+el.size+'</label><input type="range" min="8" max="120" value="'+el.size+'" oninput="theme.elements[\\''+k+'\\'].size=+this.value;markDirty();"></div>';
     h+='<div class="form-group"><label>Warna</label><input type="color" value="'+el.color+'" oninput="theme.elements[\\''+k+'\\'].color=this.value;markDirty();"></div>';
     h+='<div class="form-group"><label>Tebal</label><select onchange="theme.elements[\\''+k+'\\'].bold=(this.value==\\'1\\');markDirty();"><option value="1"'+(el.bold?' selected':'')+'>Bold</option><option value="0"'+(!el.bold?' selected':'')+'>Normal</option></select></div>';
-  }} else if(el.type==='avatar'){{
+  }} else if(el.type==='avatar' || el.type==='image'){{
     h+='<div class="form-group"><label>Ukuran: '+el.size+'</label><input type="range" min="32" max="300" value="'+el.size+'" oninput="theme.elements[\\''+k+'\\'].size=+this.value;renderBoxes();markDirty();"></div>';
   }}
   document.getElementById('elemControls').innerHTML=h;
@@ -326,6 +388,23 @@ function initBgUI(){{
   sel.value=BG_TIERS.length?BG_TIERS[0]:'Gold';
   document.getElementById('bgInfo').textContent = BG_TIERS.length
     ? '— punya BG: '+BG_TIERS.join(', ') : '— belum ada BG kustom';
+}}
+function initIconUI(){{
+  document.getElementById('iconInfo').textContent = HAS_ICON ? '— ikon terpasang ✓' : '— belum ada ikon';
+}}
+function uploadIcon(){{
+  var f=document.getElementById('iconFile').files[0];
+  if(!f){{alert('Pilih file gambar dulu.');return;}}
+  var fd=new FormData(); fd.append('icon',f);
+  fetch('/badge-theme/icon',{{method:'POST',body:fd}}).then(r=>r.json()).then(function(d){{
+    if(d.ok){{ HAS_ICON=true; initIconUI(); setOk('Ikon diupload & diterapkan. Atur posisi/ukuran via elemen Ikon/Thumbnail.'); refreshPreview(); }}
+    else {{ alert(d.error||'Gagal upload ikon.'); }}
+  }});
+}}
+function deleteIcon(){{
+  if(!confirm('Hapus ikon/thumbnail kartu badge?')) return;
+  fetch('/badge-theme/icon/delete',{{method:'POST'}}).then(r=>r.json()).then(function(d){{
+    HAS_ICON=false; initIconUI(); setOk('Ikon dihapus.'); refreshPreview(); }});
 }}
 function uploadBg(){{
   var f=document.getElementById('bgFile').files[0];
@@ -365,7 +444,7 @@ function uploadFont(){{
 }}
 
 window.addEventListener('resize', renderBoxes);
-renderBoxes(); renderControls(); initBgUI();
+renderBoxes(); renderControls(); initBgUI(); initIconUI();
 </script>"""
     content = content.replace("{{op}}", str(theme["panel_opacity"]))
     return render_page(content)

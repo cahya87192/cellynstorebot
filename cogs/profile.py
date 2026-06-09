@@ -299,15 +299,26 @@ def _badge_bg_path_for(tier: str):
     return None
 
 
+def _badge_icon_path():
+    """Path ikon/thumbnail kartu badge (atau None). Di-upload via panel:
+    data/badge_icon.<ext>. Satu ikon global (bukan per tier)."""
+    for ext in ALLOWED_IMAGE_EXTS:
+        path = os.path.join(DATA_DIR, "badge_icon" + ext)
+        if os.path.exists(path):
+            return path
+    return None
+
+
 def render_achievement_card(name: str, avatar_bytes, badge_names, tier: str = "Bronze",
-                            *, theme=None, bg_path=None) -> io.BytesIO:
+                            *, theme=None, bg_path=None, icon_path=None) -> io.BytesIO:
     """Render kartu 'Achievement Unlocked' -> PNG BytesIO. Murni Pillow.
 
     Dipakai notifikasi badge baru (cogs/reviews.py). Posisi, warna, ukuran font,
     teks judul, visibilitas, opacity panel & font kustom diambil dari `theme`
     (utils.achievement_theme). `bg_path` = background kustom per tier (cover-fit
-    ACH_W×ACH_H); bila None pakai gradien tema tier. Teks polos (font bundel tak
-    render emoji warna).
+    ACH_W×ACH_H); bila None pakai gradien tema tier. `icon_path` = gambar
+    ikon/thumbnail dekoratif (elemen 'icon', sisi kanan); bila None elemen ikon
+    tidak digambar. Teks polos (font bundel tak render emoji warna).
     """
     dark, mid, accent = TIER_THEME.get(tier, TIER_THEME["Bronze"])
     badge_names = [str(b) for b in (badge_names or []) if str(b)][:4]
@@ -386,6 +397,24 @@ def render_achievement_card(name: str, avatar_bytes, badge_names, tier: str = "B
             d.text((bx, by), f"\u2022  {bn}", font=fnt(e["size"], e.get("bold", True)),
                    fill=rgb("badges", (255, 255, 255)))
             by += int(e["size"]) + 8
+
+    # Ikon/thumbnail dekoratif (sisi kanan). Hanya digambar bila gambar tersedia.
+    ic = el.get("icon")
+    if ic and ic.get("show", True) and icon_path:
+        try:
+            isz = int(ic["size"])
+            ix, iy = int(ic["x"]), int(ic["y"])
+            src = Image.open(icon_path).convert("RGBA")
+            # contain-fit ke kotak isz x isz (jaga rasio, tengah).
+            src.thumbnail((isz, isz))
+            iw, ih = src.size
+            ox, oy = ix + (isz - iw) // 2, iy + (isz - ih) // 2
+            # masker sudut membulat agar rapi.
+            mask = Image.new("L", (iw, ih), 0)
+            ImageDraw.Draw(mask).rounded_rectangle((0, 0, iw, ih), radius=max(8, isz // 8), fill=255)
+            card.paste(src, (ox, oy), mask)
+        except Exception:
+            pass
 
     buf = io.BytesIO()
     card.convert("RGB").save(buf, format="PNG")
