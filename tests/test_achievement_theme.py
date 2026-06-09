@@ -64,6 +64,26 @@ def test_bad_json_string_returns_default():
     assert m["panel_opacity"] == 150
 
 
+def test_icon_element_default_and_merge():
+    th = t.merge_theme(None)
+    icon = th["elements"]["icon"]
+    assert icon["type"] == "image"
+    assert icon["show"] is True
+    # default di sisi kanan kanvas
+    assert icon["x"] > t.ACH_W // 2
+    # merge: clamp ukuran seperti avatar (32..300) & posisi dalam kanvas
+    m = t.merge_theme({"elements": {"icon": {"x": 99999, "y": -5, "size": 9999, "show": False}}})
+    assert m["elements"]["icon"]["x"] == t.ACH_W
+    assert m["elements"]["icon"]["y"] == 0
+    assert m["elements"]["icon"]["size"] == 300
+    assert m["elements"]["icon"]["show"] is False
+
+
+def test_icon_in_element_labels():
+    keys = [k for k, _ in t.ELEMENT_LABELS]
+    assert "icon" in keys
+
+
 def test_save_and_load_round_trip(db):
     custom = t.default_theme()
     custom["elements"]["name"]["x"] = 123

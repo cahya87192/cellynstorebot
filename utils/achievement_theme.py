@@ -38,6 +38,10 @@ DEFAULT_THEME = {
         "title":  {"type": "text",   "x": 246, "y": 52,  "size": 26, "color": "#F0C85A", "bold": True,  "show": True, "text": DEFAULT_TITLE},
         "name":   {"type": "text",   "x": 246, "y": 92,  "size": 34, "color": "#FFFFFF", "bold": True,  "show": True},
         "badges": {"type": "text",   "x": 246, "y": 150, "size": 22, "color": "#FFFFFF", "bold": True,  "show": True},
+        # Ikon/thumbnail dekoratif di sisi KANAN kartu (di-upload via panel:
+        # data/badge_icon.<ext>). show=True tapi hanya tampil bila gambar ada,
+        # jadi kartu lama tidak berubah sampai owner meng-upload ikon.
+        "icon":   {"type": "image",  "x": 690, "y": 80,  "size": 140, "show": True},
     },
 }
 
@@ -47,6 +51,7 @@ ELEMENT_LABELS = [
     ("title", "Judul"),
     ("name", "Nama Member"),
     ("badges", "Daftar Badge"),
+    ("icon", "Ikon/Thumbnail (kanan)"),
 ]
 
 
@@ -115,6 +120,8 @@ def merge_theme(raw) -> dict:
             base["color"] = _valid_hex(incoming.get("color", base["color"]), base["color"])
             base["bold"] = bool(incoming.get("bold", base["bold"]))
         elif base["type"] == "avatar":
+            base["size"] = _clampi(incoming.get("size", base["size"]), 32, 300, base["size"])
+        elif base["type"] == "image":
             base["size"] = _clampi(incoming.get("size", base["size"]), 32, 300, base["size"])
         # Judul: teks bisa diganti (string non-kosong, dipangkas panjangnya).
         if "text" in base:
