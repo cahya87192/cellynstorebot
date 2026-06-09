@@ -28,6 +28,7 @@ from utils.store_hours import is_store_open
 from utils.counter import next_ticket_number
 from utils import ticket_ui
 from utils import reviews as reviews_data
+from utils import vilog_text as vtext
 
 COLOR = 0xF1C40F
 
@@ -91,11 +92,8 @@ def build_catalog_embed(rate: int) -> discord.Embed:
     stock_available = get_robux_stock_available()
     stock_out_total = get_robux_out_total()
     embed = discord.Embed(
-        title=f"TOPUP ROBUX VIA LOGIN (VILOG) — {STORE_NAME}",
-        description=(
-            "Topup Robux via login akun Roblox.\n"
-            f"Order tersedia dalam kelipatan **{STEP_ROBUX} Robux**"
-        ),
+        title=vtext.render_text("catalog_title", store=STORE_NAME),
+        description=vtext.render_text("catalog_desc", step=STEP_ROBUX),
         color=COLOR,
         timestamp=datetime.datetime.now(datetime.timezone.utc),
     )
@@ -104,13 +102,7 @@ def build_catalog_embed(rate: int) -> discord.Embed:
     embed.add_field(name="Robux Keluar (Total)", value=f"**{stock_out_total:,} Robux**", inline=True)
     embed.add_field(
         name="Catatan",
-        value=(
-            "- Premium hanya bisa 1x per bulan\n"
-            "- Proses 15–30 menit (maks. 3 jam tergantung antrian)\n"
-            "- Wajib menyertakan kode backup terbaru (min. 3)\n"
-            "- Pastikan email & password benar agar proses lancar\n"
-            "- Akun roblox wajib memiliki email aktif"
-        ),
+        value=vtext.load_text("catalog_note"),
         inline=False,
     )
     _rating = reviews_data.rating_line("vilog")
@@ -120,7 +112,7 @@ def build_catalog_embed(rate: int) -> discord.Embed:
     _thumb = catalog_settings.get_thumbnail("vilog")
     if _thumb:
         embed.set_thumbnail(url=_thumb)
-    embed.set_footer(text=f"{STORE_NAME} • Support kelipatan {STEP_ROBUX} (max {MAX_ROBUX})")
+    embed.set_footer(text=vtext.render_text("catalog_footer", store=STORE_NAME, step=STEP_ROBUX, max=MAX_ROBUX))
     return embed
 
 
@@ -512,7 +504,7 @@ class Vilog(commands.Cog):
             pass
 
         await ctx.channel.send(embed=ticket_ui.ticket_success_embed(
-            f"Topup Vilog selesai diproses. Terima kasih telah berbelanja di {STORE_NAME}!",
+            vtext.render_text("done_success", store=STORE_NAME),
             countdown=10,
         ))
         delete_vilog_ticket(channel_id)
@@ -533,7 +525,7 @@ class Vilog(commands.Cog):
             await ctx.send("Channel ini bukan tiket Vilog aktif.", delete_after=5)
             return
         await ctx.channel.send(embed=ticket_ui.ticket_cancel_embed(
-            by_mention=ctx.author.mention, reason=alasan, title="❌ Tiket Vilog Dibatalkan"
+            by_mention=ctx.author.mention, reason=alasan, title=vtext.load_text("cancel_title")
         ))
         delete_vilog_ticket(channel_id)
         del self.active_tickets[channel_id]
