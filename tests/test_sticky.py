@@ -56,3 +56,85 @@ def test_has_payload():
     assert s.has_payload("   ", None) is False
     assert s.has_payload(None, None) is False
     assert s.has_payload("", {}) is False
+
+
+
+# ── Kelola map sticky (helper admin panel) ──────────────────────────────────────
+
+def test_parse_sticky_map_ok_and_tolerant():
+    raw = s.serialize_sticky_map({123: {"content": "hi", "embed": None, "message_id": 9}})
+    m = s.parse_sticky_map(raw)
+    assert m == {123: {"content": "hi", "embed": None, "message_id": 9}}
+    # toleran: input rusak / bukan dict -> {}
+    assert s.parse_sticky_map("") == {}
+    assert s.parse_sticky_map("not-json") == {}
+    assert s.parse_sticky_map("[1,2]") == {}
+    # key non-int & value non-dict diabaikan
+    assert s.parse_sticky_map('{"abc": {"content":"x"}, "5": 7}') == {}
+
+
+def test_color_hex_round_trip():
+    assert s.parse_color_hex("#5865F2") == 0x5865F2
+    assert s.parse_color_hex("5865F2") == 0x5865F2
+    assert s.parse_color_hex(None) == s.COLOR_DEFAULT
+    assert s.parse_color_hex("zzz") == s.COLOR_DEFAULT
+    assert s.color_to_hex(0x5865F2) == "#5865F2"
+    assert s.color_to_hex("bad") == s.color_to_hex(s.COLOR_DEFAULT)
+
+
+def test_make_entry_text_and_embed():
+    entry, ok = s.make_entry("Halo", message_id=10)
+    assert ok and entry["content"] == "Halo" and entry["embed"] is None
+    assert entry["message_id"] == 10
+
+    entry, ok = s.make_entry(None, title="Judul", description="Isi",
+                             color_hex="#FF0000", footer="Toko")
+    assert ok and entry["content"] is None
+    assert entry["embed"]["title"] == "Judul"
+    assert entry["embed"]["color"] == 0xFF0000
+    assert entry["embed"]["footer"] == {"text": "Toko"}
+
+    # tanpa payload apa pun -> ok=False
+    entry, ok = s.make_entry("   ", title="", description="")
+    assert ok is False and entry is None
+
+
+def test_entry_fields_round_trip():
+    entry, _ = s.make_entry(None, title="J", description="D", color_hex="#00FF00",
+                            footer="Toko", message_id=42)
+    f = s.entry_fields(entry)
+    assert f["title"] == "J" and f["description"] == "D"
+    assert f["color_hex"] == "#00FF00" and f["message_id"] == 42
+    assert f["has_embed"] is True
+    # entry teks biasa
+    f2 = s.entry_fields({"content": "teks", "embed": None})
+    assert f2["content"] == "teks" and f2["has_embed"] is False
+
+
+def test_entry_summary_truncates():
+    assert s.entry_summary({"content": "halo dunia"}) == "halo dunia"
+    long = {"content": "x" * 200}
+    out = s.entry_summary(long, limit=20)
+    assert len(out) == 20 and out.endswith("…")
+    # fallback ke judul embed bila tak ada teks
+    assert s.entry_summary({"content": "", "embed": {"title": "Aturan"}}) == "Aturan"
+
+
+def test_update_entry_content_preserves_message_id():
+    m = {7: {"content": "lama", "embed": None, "message_id": 99}}
+    m, ok = s.update_entry_content(m, 7, content="baru")
+    assert ok and m[7]["content"] == "baru" and m[7]["message_id"] == 99
+    # channel tak ada -> ok False, map tak berubah
+    m, ok = s.update_entry_content(m, 12345, content="x")
+    assert ok is False and 12345 not in m
+    # payload kosong -> ok False
+    m, ok = s.update_entry_content(m, 7, content="   ")
+    assert ok is False and m[7]["content"] == "baru"
+
+
+def test_remove_entry():
+    m = {1: {"content": "a"}, 2: {"content": "b"}}
+    m, removed = s.remove_entry(m, "1")
+    assert removed == {"content": "a"} and 1 not in m and 2 in m
+    m, removed = s.remove_entry(m, 999)
+    assert removed is None
