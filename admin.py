@@ -31,6 +31,7 @@ from admin_lainnya_emoji import lainnya_emoji_bp
 from admin_selfhost import selfhost_bp
 from admin_faq import faq_bp
 from admin_sticky import sticky_bp
+from admin_welcome import welcome_bp
 from functools import wraps
 
 # Brand panel: ikut STORE_NAME (.env) supaya tidak ada "Cellyn" yang nyangkut
@@ -52,6 +53,7 @@ app.register_blueprint(lainnya_emoji_bp)
 app.register_blueprint(selfhost_bp)
 app.register_blueprint(faq_bp)
 app.register_blueprint(sticky_bp)
+app.register_blueprint(welcome_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
 
@@ -371,6 +373,7 @@ var CMD_ITEMS=[
   {t:'Cek Self-Host',u:'/self-host-check'},
   {t:'Editor FAQ',u:'/faq-editor'},
   {t:'Sticky Message',u:'/sticky-manager'},
+  {t:'Pesan Welcome',u:'/welcome-editor'},
   {t:'Rating & Ulasan',u:'/reviews'},{t:'Info Layanan',u:'/service-info'},
   {t:'Embed Builder',u:'/embeds'},{t:'AutoPost',u:'/autopost'}
 ];
@@ -453,6 +456,7 @@ def render_page(content, **ctx):
     {_a("Cek Self-Host", "/self-host-check", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.66 0 3.22.45 4.56 1.24"/></svg>', "selfhost_bp.page")}
     {_a("Editor FAQ", "/faq-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19l-7 3V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v9"/><path d="M9.5 8.5a2.5 2.5 0 1 1 3 2.45V13"/><line x1="12.5" y1="16" x2="12.5" y2="16"/></svg>', "faq_bp.page_faq")}
     {_a("Sticky Message", "/sticky-manager", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9z"/><path d="M15 3v6h6"/></svg>', "sticky_bp.page_sticky")}
+    {_a("Pesan Welcome", "/welcome-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "welcome_bp.page_welcome")}
     {_a("Rating &amp; Ulasan", "/reviews", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', "page_reviews")}
     {_a("Info Layanan", "/service-info", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', "page_service_info")}
     {_a("Embed Builder", "/embeds", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>', "page_embeds")}

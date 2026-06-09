@@ -9,6 +9,7 @@ from utils.config import (
     BOOST_ROLE_ID, CUSTOMER_ROLE_ID, GENERAL_CHANNEL_ID,
 )
 from utils.db import get_conn
+from utils import welcome as welcomelib
 
 THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
 # Gambar khusus untuk DM sambutan member baru.
@@ -242,16 +243,8 @@ class WelcomeCog(commands.Cog):
             return
         guild = member.guild
         member_count = sum(1 for m in guild.members if not m.bot)
-        embed = discord.Embed(
-            title=f"Halo {member.display_name}, selamat datang di {STORE_NAME}! ",
-            description=(
-                f"Makasih ya udah mampir dan gabung bareng kami\n"
-                f"Sekarang kamu jadi bagian ke-**{member_count}** dari keluarga kecil ini.\n\n"
-                f"Santai aja, anggap rumah sendiri. Kalau mau tanya-tanya produk atau "
-                f"butuh bantuan, jangan sungkan — kami siap bantu kapan pun. 🤝"
-            ),
-            color=0x00BFFF,
-        )
+        title, desc = welcomelib.render_welcome(member.display_name, STORE_NAME, member_count)
+        embed = discord.Embed(title=title, description=desc, color=0x00BFFF)
         try:
             embed.set_thumbnail(url=member.display_avatar.replace(size=256).url)
         except Exception:
