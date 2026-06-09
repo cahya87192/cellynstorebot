@@ -181,3 +181,197 @@ build();
 </script>"""
     content = content.replace("SECTIONS_JSON", sections_json)
     return render_page(content)
+
+
+
+# ── DM Sambutan (embed multi-field + thumbnail + banner di atas) ─────────────────
+
+@welcome_bp.route("/dm-editor/save", methods=["POST"])
+def save_dm_route():
+    g = _guard()
+    if g:
+        return g
+    payload = request.get_json(force=True, silent=True) or {}
+    title = payload.get("title")
+    desc = payload.get("desc")
+    if (title is None or not str(title).strip()) and (desc is None or not str(desc).strip()):
+        return jsonify({"ok": False, "error": "Judul & isi tidak boleh kosong keduanya."}), 400
+    fields = payload.get("fields")
+    if fields is not None and not isinstance(fields, list):
+        fields = None
+    welcomelib.save_dm_config(
+        title=title,
+        desc=desc,
+        footer=payload.get("footer"),
+        thumbnail=payload.get("thumbnail"),
+        banner=payload.get("banner"),
+        fields=fields,
+    )
+    return jsonify({"ok": True})
+
+
+@welcome_bp.route("/dm-editor/reset", methods=["POST"])
+def reset_dm_route():
+    g = _guard()
+    if g:
+        return g
+    welcomelib.reset_dm_config()
+    return jsonify({"ok": True, "config": welcomelib.load_dm_config()})
+
+
+@welcome_bp.route("/dm-editor")
+def page_dm():
+    g = _guard()
+    if g:
+        return g
+    from admin import render_page
+
+    cfg = welcomelib.load_dm_config()
+    cfg["store"] = _STORE_NAME
+    cfg_json = json.dumps(cfg)
+
+    content = """
+<div class="page-header">
+  <div class="page-title">DM Sambutan <small>Pesan privat ke member baru (embed + banner)</small></div>
+</div>
+<div class="card"><div class="card-body">
+  <div class="note" style="margin-bottom:1rem;">
+    DM ini dikirim otomatis ke member baru. Placeholder: <code>{member}</code>, <code>{store}</code>.
+    Mendukung <b>**bold**</b> ala Discord. Banner (gambar lebar) tampil di <b>ATAS</b> teks,
+    thumbnail (gambar kecil) di pojok kanan atas. Kosongkan banner kalau tak mau pakai.
+  </div>
+
+  <div class="form-group"><label>Judul</label>
+    <input type="text" id="dmTitle" maxlength="256" style="width:100%;" oninput="upd();dirty();"></div>
+  <div class="form-group"><label>Isi / sambutan</label>
+    <textarea id="dmDesc" rows="4" style="width:100%;" oninput="upd();dirty();"></textarea></div>
+
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+    <div class="form-group" style="flex:1 1 320px;"><label>URL Banner (di atas, gambar lebar)</label>
+      <input type="text" id="dmBanner" placeholder="https://... (kosongkan = tanpa banner)" style="width:100%;" oninput="upd();dirty();"></div>
+    <div class="form-group" style="flex:1 1 320px;"><label>URL Thumbnail (pojok kanan atas)</label>
+      <input type="text" id="dmThumb" placeholder="https://..." style="width:100%;" oninput="upd();dirty();"></div>
+  </div>
+
+  <div class="form-group"><label>Field (kotak info, urut dari atas ke bawah)</label>
+    <div id="fieldList"></div>
+    <button class="btn btn-ghost btn-sm" onclick="addField()">+ Tambah field</button>
+  </div>
+
+  <div class="form-group"><label>Footer</label>
+    <input type="text" id="dmFooter" maxlength="2048" style="width:100%;" oninput="upd();dirty();"></div>
+
+  <button class="btn btn-primary btn-sm" onclick="saveDm()">💾 Simpan</button>
+  <button class="btn btn-ghost btn-sm" onclick="resetDm()">↺ Kembalikan default</button>
+  <span id="status" style="margin-left:.6rem;font-size:.85rem;"></span>
+
+  <div style="margin-top:1.2rem;">
+    <label style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">Pratinjau DM</label>
+    <div id="pvWrap" style="max-width:460px;margin-top:.4rem;">
+      <img id="pvBanner" style="width:100%;border-radius:8px 8px 0 0;display:none;" alt="banner">
+      <div style="border-left:4px solid #00BFFF;background:var(--surface3);border-radius:6px;padding:.85rem 1rem;position:relative;">
+        <img id="pvThumb" style="position:absolute;top:.85rem;right:1rem;width:64px;height:64px;border-radius:8px;object-fit:cover;display:none;" alt="thumb">
+        <div id="pvTitle" style="font-weight:700;margin-bottom:.4rem;padding-right:72px;"></div>
+        <div id="pvDesc" style="margin-bottom:.5rem;"></div>
+        <div id="pvFields"></div>
+        <div id="pvFooter" style="font-size:.75rem;color:var(--muted);margin-top:.6rem;"></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+var CFG = CFG_JSON;
+var SAMPLE = {member:"Andi", store:CFG.store || "Store"};
+var FIELDS = (CFG.fields || []).map(function(f){ return {name:f.name||"", value:f.value||""}; });
+
+function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function render(tpl){
+  var out = esc(tpl);
+  Object.keys(SAMPLE).forEach(function(k){ out = out.split("{"+k+"}").join(esc(String(SAMPLE[k]))); });
+  return out.replace(/\\*\\*([^*]+)\\*\\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+}
+function setStatus(msg, ok){
+  document.getElementById('status').innerHTML =
+    '<span style="color:var(--'+(ok?'success':'warning')+')">'+(ok?'✓ ':'● ')+msg+'</span>';
+}
+function dirty(){ setStatus('Perubahan belum disimpan', false); }
+
+function renderFieldEditor(){
+  var html = '';
+  FIELDS.forEach(function(f, i){
+    html += '<div style="border:1px solid var(--border);border-radius:8px;padding:.6rem;margin-bottom:.5rem;">'
+      + '<input type="text" value="'+esc(f.name)+'" placeholder="Judul field" style="width:100%;margin-bottom:.4rem;" '
+      + 'oninput="FIELDS['+i+'].name=this.value;upd();dirty();">'
+      + '<textarea rows="3" placeholder="Isi field" style="width:100%;" '
+      + 'oninput="FIELDS['+i+'].value=this.value;upd();dirty();">'+esc(f.value)+'</textarea>'
+      + '<div style="text-align:right;margin-top:.3rem;">'
+      + '<button class="btn btn-ghost btn-sm" onclick="moveField('+i+',-1)">↑</button> '
+      + '<button class="btn btn-ghost btn-sm" onclick="moveField('+i+',1)">↓</button> '
+      + '<button class="btn btn-ghost btn-sm" onclick="delField('+i+')">🗑️</button></div>'
+      + '</div>';
+  });
+  document.getElementById('fieldList').innerHTML = html;
+}
+function addField(){ FIELDS.push({name:"", value:""}); renderFieldEditor(); upd(); dirty(); }
+function delField(i){ FIELDS.splice(i,1); renderFieldEditor(); upd(); dirty(); }
+function moveField(i, d){
+  var j = i + d;
+  if(j < 0 || j >= FIELDS.length) return;
+  var tmp = FIELDS[i]; FIELDS[i] = FIELDS[j]; FIELDS[j] = tmp;
+  renderFieldEditor(); upd(); dirty();
+}
+
+function upd(){
+  var banner = document.getElementById('dmBanner').value.trim();
+  var thumb = document.getElementById('dmThumb').value.trim();
+  var b = document.getElementById('pvBanner'), t = document.getElementById('pvThumb');
+  if(banner){ b.src = banner; b.style.display='block'; } else { b.style.display='none'; }
+  if(thumb){ t.src = thumb; t.style.display='block'; } else { t.style.display='none'; }
+  document.getElementById('pvTitle').innerHTML = render(document.getElementById('dmTitle').value);
+  document.getElementById('pvDesc').innerHTML = render(document.getElementById('dmDesc').value);
+  document.getElementById('pvFooter').innerHTML = render(document.getElementById('dmFooter').value);
+  var fh = '';
+  FIELDS.forEach(function(f){
+    if(!f.name && !f.value) return;
+    fh += '<div style="margin-bottom:.5rem;"><div style="font-weight:600;">'+render(f.name)+'</div>'
+       + '<div style="color:var(--text);">'+render(f.value)+'</div></div>';
+  });
+  document.getElementById('pvFields').innerHTML = fh;
+}
+
+function saveDm(){
+  fetch('/dm-editor/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({title:document.getElementById('dmTitle').value,
+      desc:document.getElementById('dmDesc').value,
+      footer:document.getElementById('dmFooter').value,
+      thumbnail:document.getElementById('dmThumb').value,
+      banner:document.getElementById('dmBanner').value,
+      fields:FIELDS})})
+    .then(function(r){return r.json();}).then(function(d){
+      setStatus(d.ok ? 'Tersimpan.' : (d.error||'Gagal menyimpan'), !!d.ok);
+    });
+}
+function resetDm(){
+  if(!confirm('Kembalikan DM sambutan ke teks & gambar default?')) return;
+  fetch('/dm-editor/reset',{method:'POST'})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.ok){ CFG = d.config; CFG.store = SAMPLE.store; loadInto(); setStatus('Dikembalikan ke default.', true); }
+      else { setStatus('Gagal reset', false); }
+    });
+}
+
+function loadInto(){
+  document.getElementById('dmTitle').value = CFG.title || "";
+  document.getElementById('dmDesc').value = CFG.desc || "";
+  document.getElementById('dmFooter').value = CFG.footer || "";
+  document.getElementById('dmThumb').value = CFG.thumbnail || "";
+  document.getElementById('dmBanner').value = CFG.banner || "";
+  FIELDS = (CFG.fields || []).map(function(f){ return {name:f.name||"", value:f.value||""}; });
+  renderFieldEditor();
+  upd();
+}
+loadInto();
+</script>"""
+    content = content.replace("CFG_JSON", cfg_json)
+    return render_page(content)

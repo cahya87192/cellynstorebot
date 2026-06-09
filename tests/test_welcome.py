@@ -118,3 +118,66 @@ def test_reset_kind_to_default(db):
     w.save_texts("leave", title="", desc="")
     title, desc = w.load_texts("leave")
     assert title == w.DEFAULT_LEAVE_TITLE and desc == w.DEFAULT_LEAVE_DESC
+
+
+
+# ── DM sambutan (config multi-field + thumbnail + banner) ────────────────────────
+
+def test_parse_dm_fields_tolerant():
+    raw = '[{"name":"A","value":"x"},{"name":"","value":""},{"bad":1},"oops"]'
+    out = w.parse_dm_fields(raw)
+    # entry kosong & non-dict dibuang
+    assert out == [{"name": "A", "value": "x"}]
+    assert w.parse_dm_fields(None) is None
+    assert w.parse_dm_fields("not-json") is None
+    assert w.parse_dm_fields("{}") is None
+
+
+def test_load_dm_config_defaults(db):
+    cfg = w.load_dm_config()
+    assert cfg["title"] == w.DEFAULT_DM_TITLE
+    assert cfg["thumbnail"] == w.DEFAULT_DM_THUMBNAIL
+    assert cfg["banner"] == ""  # default: tanpa banner
+    assert len(cfg["fields"]) == len(w.DEFAULT_DM_FIELDS)
+
+
+def test_save_and_load_dm_config(db):
+    w.save_dm_config(title="Hai {member}", banner="https://x/banner.png",
+                     fields=[{"name": "Info", "value": "halo {store}"}])
+    cfg = w.load_dm_config()
+    assert cfg["title"] == "Hai {member}"
+    assert cfg["banner"] == "https://x/banner.png"
+    assert cfg["fields"] == [{"name": "Info", "value": "halo {store}"}]
+    # field teks lain tetap default
+    assert cfg["desc"] == w.DEFAULT_DM_DESC
+
+
+def test_save_dm_empty_fields_list_persists(db):
+    w.save_dm_config(fields=[])
+    assert w.load_dm_config()["fields"] == []
+
+
+def test_render_dm_substitutes_placeholders(db):
+    w.save_dm_config(title="Hai {member}", desc="Selamat datang di {store}",
+                     banner="", thumbnail="https://x/t.png",
+                     fields=[{"name": "Toko {store}", "value": "by {member}"}])
+    out = w.render_dm("Andi", "CellynStore")
+    assert out["title"] == "Hai Andi"
+    assert out["desc"] == "Selamat datang di CellynStore"
+    assert out["thumbnail"] == "https://x/t.png"
+    assert out["banner"] is None  # kosong -> None (tanpa banner)
+    assert out["fields"][0] == {"name": "Toko CellynStore", "value": "by Andi"}
+
+
+def test_render_dm_banner_present(db):
+    w.save_dm_config(banner="https://x/b.png")
+    assert w.render_dm("A", "S")["banner"] == "https://x/b.png"
+
+
+def test_reset_dm_config(db):
+    w.save_dm_config(title="custom", banner="https://x/b.png", fields=[{"name": "n", "value": "v"}])
+    w.reset_dm_config()
+    cfg = w.load_dm_config()
+    assert cfg["title"] == w.DEFAULT_DM_TITLE
+    assert cfg["banner"] == ""
+    assert len(cfg["fields"]) == len(w.DEFAULT_DM_FIELDS)
