@@ -32,6 +32,7 @@ from admin_selfhost import selfhost_bp
 from admin_faq import faq_bp
 from admin_sticky import sticky_bp
 from admin_welcome import welcome_bp
+from admin_afk import afk_bp
 from functools import wraps
 
 # Brand panel: ikut STORE_NAME (.env) supaya tidak ada "Cellyn" yang nyangkut
@@ -54,6 +55,7 @@ app.register_blueprint(selfhost_bp)
 app.register_blueprint(faq_bp)
 app.register_blueprint(sticky_bp)
 app.register_blueprint(welcome_bp)
+app.register_blueprint(afk_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
 
@@ -375,6 +377,7 @@ var CMD_ITEMS=[
   {t:'Sticky Message',u:'/sticky-manager'},
   {t:'Pesan Member',u:'/welcome-editor'},
   {t:'DM Sambutan',u:'/dm-editor'},
+  {t:'Pesan AFK',u:'/afk-editor'},
   {t:'Rating & Ulasan',u:'/reviews'},{t:'Info Layanan',u:'/service-info'},
   {t:'Embed Builder',u:'/embeds'},{t:'AutoPost',u:'/autopost'}
 ];
@@ -459,6 +462,7 @@ def render_page(content, **ctx):
     {_a("Sticky Message", "/sticky-manager", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9z"/><path d="M15 3v6h6"/></svg>', "sticky_bp.page_sticky")}
     {_a("Pesan Member", "/welcome-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "welcome_bp.page_welcome")}
     {_a("DM Sambutan", "/dm-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>', "welcome_bp.page_dm")}
+    {_a("Pesan AFK", "/afk-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', "afk_bp.page_afk")}
     {_a("Rating &amp; Ulasan", "/reviews", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', "page_reviews")}
     {_a("Info Layanan", "/service-info", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', "page_service_info")}
     {_a("Embed Builder", "/embeds", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>', "page_embeds")}
