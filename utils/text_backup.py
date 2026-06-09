@@ -157,3 +157,34 @@ def import_data(payload):
             ncat += 1
 
     return {"applied": applied, "skipped": skipped, "categories": ncat}
+
+
+
+def reset_all():
+    """Hapus SEMUA kustomisasi teks -> kembali ke default bawaan.
+
+    Menghapus semua kunci bot_state yang dikelola editor + seluruh baris tabel
+    `lainnya_category_info` (cog kembali memakai default statis CATEGORY_INFO).
+    Return ringkasan: {removed, categories_cleared}.
+    """
+    from utils.db import get_conn
+    keys = collect_keys()
+    conn = get_conn()
+    c = conn.cursor()
+    removed = 0
+    for k in keys:
+        cur = c.execute("DELETE FROM bot_state WHERE key=?", (k,))
+        rc = cur.rowcount
+        if rc and rc > 0:
+            removed += rc
+    categories_cleared = 0
+    try:
+        cur = c.execute("DELETE FROM lainnya_category_info")
+        rc = cur.rowcount
+        if rc and rc > 0:
+            categories_cleared = rc
+    except Exception:
+        pass
+    conn.commit()
+    conn.close()
+    return {"removed": removed, "categories_cleared": categories_cleared}

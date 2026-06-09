@@ -91,3 +91,28 @@ def test_lainnya_category_export_import(db):
     res = tb.import_data(data)
     assert res["categories"] >= 1
     assert lc.load_info(cat)["description"] == "desk custom"
+
+
+
+def test_reset_all_clears_customizations(db):
+    afklib.save_text("set", text="custom set")
+    sslib.set_open_label("OPEN!")
+    cat = next(iter(lainnya_catalog.CATEGORY_INFO.keys()))
+    lc.save_info(cat, description="d", terms="t")
+
+    res = tb.reset_all()
+    assert res["removed"] >= 2
+    assert res["categories_cleared"] >= 1
+
+    # semua balik ke default
+    assert afklib.load_text("set") == afklib.AFK_SPECS["set"]["default"]
+    assert sslib.get_open_label() == sslib.DEFAULT_OPEN_LABEL
+    assert lc.load_info(cat) == lc.default_info(cat)
+    # export jadi kosong lagi
+    data = tb.export_data()
+    assert data["bot_state"] == {} and data["lainnya_category"] == []
+
+
+def test_reset_all_empty_is_safe(db):
+    res = tb.reset_all()
+    assert res["removed"] == 0 and res["categories_cleared"] == 0
