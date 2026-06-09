@@ -182,3 +182,72 @@ def get_member_profile(user_id: int, when=None) -> dict:
     data["next_tier"] = nt_name
     data["next_tier_level"] = nt_level
     return data
+
+
+
+# ── Data contoh untuk pratinjau editor (panel admin) ────────────────────────────
+# Nama/avatar member asli TIDAK tersimpan di DB (butuh Discord), jadi editor
+# preview memakai data contoh realistis per-tier. Fungsi murni, tanpa DB/Discord.
+
+SAMPLE_TIERS = ["Bronze", "Silver", "Gold", "Diamond"]
+
+_SAMPLE_PRESETS = {
+    "Bronze": {
+        "name": "BudiContoh", "level": 3, "progress": 0.40,
+        "total_orders": 4, "total_reviews": 1,
+        "spent_month": 180000, "total_spent": 320000,
+        "first_order": "2025-09-18T00:00:00+00:00",
+    },
+    "Silver": {
+        "name": "SitiContoh", "level": 7, "progress": 0.55,
+        "total_orders": 12, "total_reviews": 3,
+        "spent_month": 540000, "total_spent": 1450000,
+        "first_order": "2025-05-22T00:00:00+00:00",
+    },
+    "Gold": {
+        "name": "RizkyContoh", "level": 12, "progress": 0.72,
+        "total_orders": 24, "total_reviews": 8,
+        "spent_month": 1250000, "total_spent": 4800000,
+        "first_order": "2025-01-12T00:00:00+00:00",
+    },
+    "Diamond": {
+        "name": "DewiContoh", "level": 23, "progress": 0.35,
+        "total_orders": 60, "total_reviews": 20,
+        "spent_month": 3200000, "total_spent": 18750000,
+        "first_order": "2024-06-08T00:00:00+00:00",
+    },
+}
+
+
+def sample_member_data(tier: str) -> dict:
+    """Data contoh realistis untuk pratinjau kartu profil per-tier.
+
+    Murni (tanpa DB/Discord). Dipakai editor panel admin karena nama/avatar
+    member asli tidak tersimpan di DB. `tier` di luar daftar -> fallback Gold.
+    Bentuk dict kompatibel dengan render_profile_card (plus key `name`).
+    """
+    key = (tier or "").strip().title()
+    if key not in _SAMPLE_PRESETS:
+        key = "Gold"
+    preset = _SAMPLE_PRESETS[key]
+    level = preset["level"]
+    cost_next = _level_cost(level)
+    xp_into = int(cost_next * preset["progress"])
+    data = {
+        "name": preset["name"],
+        "user_id": 0,
+        "level": level,
+        "tier": tier_for_level(level),
+        "xp_into_level": xp_into,
+        "xp_for_next": cost_next,
+        "xp_remaining": max(0, cost_next - xp_into),
+        "total_orders": preset["total_orders"],
+        "total_reviews": preset["total_reviews"],
+        "spent_month": preset["spent_month"],
+        "total_spent": preset["total_spent"],
+        "first_order": preset["first_order"],
+    }
+    nt_name, nt_level = next_tier_info(level)
+    data["next_tier"] = nt_name
+    data["next_tier_level"] = nt_level
+    return data
