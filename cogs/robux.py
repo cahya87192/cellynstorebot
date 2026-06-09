@@ -2,7 +2,7 @@ import asyncio
 import discord
 import datetime
 from discord.ext import commands
-from utils.config import ADMIN_ROLE_ID, ROBUX_CATALOG_CHANNEL_ID, LOG_CHANNEL_ID, STORE_NAME, TICKET_CATEGORY_ID, GUILD_ID, ROBUX_EMOJI
+from utils.config import ADMIN_ROLE_ID, ROBUX_CATALOG_CHANNEL_ID, LOG_CHANNEL_ID, STORE_NAME, TICKET_CATEGORY_ID, GUILD_ID, ROBUX_EMOJI, USE_CUSTOM_EMOJI
 from utils.db import get_conn
 from utils.robux_db import load_robux_tickets, save_robux_ticket, delete_robux_ticket
 from utils.robux_stock import (
@@ -18,6 +18,11 @@ from utils.paginator import PaginatedSelectView, with_price
 from utils.counter import next_ticket_number
 from utils import ticket_ui
 from utils import reviews as reviews_data
+from utils import catalog_emoji
+
+# Emoji Robux yang aman lintas-server: di server self-host tanpa custom emoji
+# (USE_CUSTOM_EMOJI=false) jatuh ke unicode koin agar dropdown/tombol tak ditolak.
+ROBUX_EMOJI_SAFE = catalog_emoji.safe_emoji(ROBUX_EMOJI, "\U0001FA99", USE_CUSTOM_EMOJI)
 
 THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
 
@@ -135,9 +140,9 @@ def build_catalog_embed(rate):
     stock_available = get_robux_stock_available()
     stock_out_total = get_robux_out_total()
     categories = load_categories()
-    cat_list = "\n".join(f"{ROBUX_EMOJI} **{cat}**" for cat in categories) if categories else "Belum ada produk aktif."
+    cat_list = "\n".join(f"{ROBUX_EMOJI_SAFE} **{cat}**" for cat in categories) if categories else "Belum ada produk aktif."
     embed = discord.Embed(
-        title=f"{ROBUX_EMOJI} ROBUX STORE — {STORE_NAME}",
+        title=f"{ROBUX_EMOJI_SAFE} ROBUX STORE — {STORE_NAME}",
         description=(
             f"Harga dihitung otomatis berdasarkan rate Robux terkini.\n"
             f"Rate: **{rate_str}**\n\n"
@@ -176,7 +181,7 @@ class CategoryButton(discord.ui.Button):
     def __init__(self, category, color):
         super().__init__(
             label=category,
-            emoji=ROBUX_EMOJI,
+            emoji=ROBUX_EMOJI_SAFE,
             style=discord.ButtonStyle.secondary,
             custom_id=f"robux_cat_{category}"
         )
@@ -191,7 +196,7 @@ class CategoryButton(discord.ui.Button):
             harga_str = harga(item["robux"], rate)
             options.append(discord.SelectOption(
                 label=with_price(item["name"], harga_str),
-                emoji=ROBUX_EMOJI,
+                emoji=ROBUX_EMOJI_SAFE,
                 description=f"{item['robux']} Robux",
                 value=str(item["id"]),
             ))

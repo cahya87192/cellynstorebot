@@ -2,13 +2,14 @@ import discord
 import datetime
 import asyncio
 from discord.ext import commands
-from utils.config import ADMIN_ROLE_ID, LOG_CHANNEL_ID, STORE_NAME, TICKET_CATEGORY_ID, TRANSCRIPT_CHANNEL_ID, GUILD_ID, DIAMOND_EMOJI
+from utils.config import ADMIN_ROLE_ID, LOG_CHANNEL_ID, STORE_NAME, TICKET_CATEGORY_ID, TRANSCRIPT_CHANNEL_ID, GUILD_ID, DIAMOND_EMOJI, USE_CUSTOM_EMOJI
 from utils.counter import next_ticket_number
 from utils.transcript import generate as generate_transcript
 from utils.db import get_conn
 from utils.store_hours import is_store_open
 from utils.paginator import PaginatedSelectView, with_price
 from utils import ticket_ui
+from utils import catalog_emoji
 
 THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
 
@@ -287,6 +288,29 @@ GAME_EMOJI = {
 }
 # DIAMOND_EMOJI diimpor dari utils.config (bisa diatur via .env).
 
+# Fallback unicode saat custom emoji server tidak tersedia (USE_CUSTOM_EMOJI=false),
+# agar opsi dropdown tidak ditolak Discord di server self-host lain.
+DIAMOND_EMOJI_FALLBACK = "\U0001F48E"  # 💎
+GAME_EMOJI_FALLBACK = {
+    "ML": "\U0001F3AE",   # 🎮
+    "WDP": "\U0001F3AE",  # 🎮
+    "FF": "\U0001F525",   # 🔥
+}
+
+
+def _diamond_emoji():
+    """Emoji diamond yang aman lintas-server untuk komponen UI."""
+    return catalog_emoji.safe_emoji(DIAMOND_EMOJI, DIAMOND_EMOJI_FALLBACK, USE_CUSTOM_EMOJI)
+
+
+def _game_emoji(code):
+    """Emoji game (ML/WDP/FF) yang aman lintas-server untuk dropdown."""
+    return catalog_emoji.safe_emoji(
+        GAME_EMOJI.get(code),
+        GAME_EMOJI_FALLBACK.get(code, DIAMOND_EMOJI_FALLBACK),
+        USE_CUSTOM_EMOJI,
+    )
+
 
 def _build_product_options(game: dict) -> list:
     """Bangun daftar lengkap SelectOption produk untuk sebuah game (tanpa batas 25)."""
@@ -294,7 +318,7 @@ def _build_product_options(game: dict) -> list:
     return [
         discord.SelectOption(
             label=with_price(p["label"], f"Rp {p['harga']:,}"),
-            emoji=DIAMOND_EMOJI,
+            emoji=_diamond_emoji(),
             description=game["name"],
             value=str(p["id"]),
         ) for p in products
@@ -336,7 +360,7 @@ class GameSelect(discord.ui.Select):
         options = [
             discord.SelectOption(
                 label=g["name"], value=g["code"],
-                emoji=GAME_EMOJI.get(g["code"], DIAMOND_EMOJI),
+                emoji=_game_emoji(g["code"]),
                 description=f"Topup {g['name']}",
             )
             for g in games[:25]

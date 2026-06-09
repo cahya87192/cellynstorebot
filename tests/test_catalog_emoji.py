@@ -70,3 +70,27 @@ def test_category_emoji_no_group():
     # Tanpa grup & kategori tak dikenal -> None.
     assert ce.resolve_category_emoji(
         "UNKNOWN", None, CATEGORY_EMOJI, GROUP_EMOJI, use_custom=True) is None
+
+
+
+def test_safe_emoji_enabled_returns_original():
+    # use_custom=True -> emoji asli (custom maupun unicode) tidak diubah.
+    assert ce.safe_emoji("<:Robux:123>", "\U0001FA99", use_custom=True) == "<:Robux:123>"
+    assert ce.safe_emoji("\U0001F48E", "\U0001FA99", use_custom=True) == "\U0001F48E"
+
+
+def test_safe_emoji_disabled_custom_uses_fallback():
+    # Custom emoji -> fallback saat custom dimatikan.
+    assert ce.safe_emoji("<:Robux:123>", "\U0001FA99", use_custom=False) == "\U0001FA99"
+    assert ce.safe_emoji("<a:diamond:9>", "\U0001F48E", use_custom=False) == "\U0001F48E"
+
+
+def test_safe_emoji_disabled_unicode_left_alone():
+    # Emoji unicode/None dibiarkan apa adanya walau custom dimatikan.
+    assert ce.safe_emoji("\U0001F3AE", "\U0001F525", use_custom=False) == "\U0001F3AE"
+    assert ce.safe_emoji(None, "\U0001F48E", use_custom=False) is None
+
+
+def test_safe_emoji_default_fallback_none():
+    # Tanpa fallback eksplisit -> custom emoji jadi None saat dimatikan.
+    assert ce.safe_emoji("<:x:1>", use_custom=False) is None

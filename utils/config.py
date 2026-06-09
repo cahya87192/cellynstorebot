@@ -140,12 +140,19 @@ DIAMOND_EMOJI = _str("DIAMOND_EMOJI", "<:diamond:1510720539403096267>")
 QUEUE_SERVICE_EMOJI = _str("QUEUE_SERVICE_EMOJI", "<:symbolcheck:1480599052109217892>")
 QUEUE_HANDLED_EMOJI = _str("QUEUE_HANDLED_EMOJI", "<:emoji:1480573101753503896>")
 
+# Saklar GLOBAL custom emoji server. Semua emoji custom (Robux, Diamond, game ML/
+# FF, katalog lainnya, dll) hanya ada di server asal. Set false di server self-host
+# lain agar SEMUA custom emoji otomatis fallback ke unicode netral — supaya dropdown/
+# tombol tidak ditolak Discord & embed tidak menampilkan teks mentah.
+# Default true = perilaku server Cellyn tidak berubah.
+USE_CUSTOM_EMOJI = _bool("USE_CUSTOM_EMOJI", True)
+
 # Katalog "lainnya" memakai banyak custom emoji server (grup & kategori). Di
 # server self-host lain emoji itu TIDAK ada -> akan tampil sebagai teks mentah
 # (mis. "<:NewChatGPTlogo:123>") atau menolak opsi dropdown. Set false di server
 # lain agar emoji grup/kategori otomatis fallback ke unicode netral yang aman.
-# Default true = perilaku server Cellyn tidak berubah.
-LAINNYA_USE_CUSTOM_EMOJI = _bool("LAINNYA_USE_CUSTOM_EMOJI", True)
+# Default = mengikuti USE_CUSTOM_EMOJI (saklar global) bila tidak diset eksplisit.
+LAINNYA_USE_CUSTOM_EMOJI = _bool("LAINNYA_USE_CUSTOM_EMOJI", USE_CUSTOM_EMOJI)
 
 
 
