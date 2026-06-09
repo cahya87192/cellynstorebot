@@ -57,9 +57,16 @@ def _guard():
     return None
 
 
-def _sample_badges():
-    """Data contoh untuk preview kartu (tanpa akses DB)."""
-    return ["Belanja 10x", "Pelanggan Setia", "Reviewer Aktif"]
+def _sample_badges(tier="Gold"):
+    """Data badge contoh untuk preview kartu (tanpa akses DB), per-tier."""
+    presets = {
+        "Bronze": ["Pembeli Baru"],
+        "Silver": ["Belanja 10x", "Reviewer Aktif"],
+        "Gold": ["Belanja 10x", "Pelanggan Setia", "Reviewer Aktif"],
+        "Diamond": ["VIP Member", "Belanja 50x", "Pelanggan Setia", "Reviewer Aktif"],
+    }
+    key = (tier or "").strip().title()
+    return presets.get(key, presets["Gold"])
 
 
 @badge_theme_bp.route("/badge-theme/preview.png")
@@ -70,11 +77,19 @@ def preview_png():
     # Render pakai theme yang dikirim via query (?t=<json>) bila ada, else tersimpan.
     raw = request.args.get("t")
     theme = achthemelib.merge_theme(raw) if raw else achthemelib.load_theme()
+    tier = request.args.get("tier") or "Gold"
     bg_path = _bg_path(request.args.get("bg"))
+    name = (request.args.get("name") or "").strip() or "ContohMember"
+    badges = []
+    raw_badges = request.args.get("badges")
+    if raw_badges:
+        badges = [b.strip() for b in raw_badges.split(",") if b.strip()]
+    if not badges:
+        badges = _sample_badges(tier)
     try:
         from cogs.profile import render_achievement_card
-        buf = render_achievement_card("ContohMember", None, _sample_badges(),
-                                      tier="Gold", theme=theme, bg_path=bg_path,
+        buf = render_achievement_card(name, None, badges,
+                                      tier=tier, theme=theme, bg_path=bg_path,
                                       icon_path=_icon_path())
         return Response(buf.getvalue(), mimetype="image/png")
     except Exception as e:
@@ -244,10 +259,10 @@ def page_theme():
   <div class="page-title">Editor Kartu Badge <small>Geser elemen, atur judul, font, warna & ukuran — lalu Simpan</small></div>
 </div>
 <div class="card"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:1.5rem;align-items:flex-start;">
-  <div style="flex:1 1 480px;min-width:320px;">
+  <div style="flex:1 1 560px;min-width:280px;">
     <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem;">
       Seret kotak elemen untuk memindah posisi. Kanvas {achthemelib.ACH_W}×{achthemelib.ACH_H} (skala mengikuti lebar).</div>
-    <div id="stage" style="position:relative;width:100%;max-width:600px;aspect-ratio:{achthemelib.ACH_W}/{achthemelib.ACH_H};
+    <div id="stage" style="position:relative;width:100%;max-width:840px;margin:0 auto;aspect-ratio:{achthemelib.ACH_W}/{achthemelib.ACH_H};
         border-radius:14px;overflow:hidden;border:1px solid var(--border);
         background:#222 url('/badge-theme/preview.png') center/cover no-repeat;user-select:none;"></div>
     <div style="display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap;">
@@ -259,6 +274,17 @@ def page_theme():
   </div>
   <div style="flex:1 1 300px;min-width:280px;">
     <div class="form-group">
+      <label>Nama Contoh (pratinjau)</label>
+      <input type="text" id="sampleName" maxlength="22" placeholder="ContohMember"
+        oninput="refreshPreview();" style="width:100%;">
+    </div>
+    <div class="form-group">
+      <label>Badge Contoh (pisahkan dengan koma)</label>
+      <input type="text" id="sampleBadges" placeholder="(otomatis sesuai tier)"
+        oninput="refreshPreview();" style="width:100%;">
+      <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem;">Nama &amp; avatar member asli tidak tersimpan (butuh Discord), jadi pratinjau memakai contoh.</div>
+    </div>
+    <div class="form-group">
       <label>Opacity Panel ({{op}})</label>
       <input type="range" min="0" max="255" id="panelOpacity" value="{theme['panel_opacity']}"
         oninput="theme.panel_opacity=+this.value;markDirty();">
@@ -269,7 +295,7 @@ def page_theme():
       <button class="btn btn-ghost btn-sm" style="margin-top:.4rem;" onclick="uploadFont()">⬆️ Upload Font (.ttf/.otf)</button>
     </div>
     <div class="form-group">
-      <label>Background per Tier <small style="color:var(--muted)" id="bgInfo"></small></label>
+      <label>Tier — pratinjau &amp; background <small style="color:var(--muted)" id="bgInfo"></small></label>
       <select id="bgTier" onchange="refreshPreview()" style="width:100%;margin-bottom:.4rem;"></select>
       <input type="file" id="bgFile" accept=".png,.jpg,.jpeg,.webp">
       <div style="display:flex;gap:.5rem;margin-top:.4rem;flex-wrap:wrap;">
@@ -374,8 +400,14 @@ function renderControls(){{
 
 function refreshPreview(){{
   var bgt=document.getElementById('bgTier');
+  var tier=(bgt && bgt.value) ? bgt.value : 'Gold';
+  var nameEl=document.getElementById('sampleName');
+  var badgesEl=document.getElementById('sampleBadges');
+  var nameq=(nameEl && nameEl.value.trim()) ? '&name='+encodeURIComponent(nameEl.value.trim()) : '';
+  var badgesq=(badgesEl && badgesEl.value.trim()) ? '&badges='+encodeURIComponent(badgesEl.value.trim()) : '';
   var bgq=(bgt && bgt.value) ? '&bg='+encodeURIComponent(bgt.value) : '';
-  var url='/badge-theme/preview.png?t='+encodeURIComponent(JSON.stringify(theme))+bgq+'&_='+Date.now();
+  var url='/badge-theme/preview.png?t='+encodeURIComponent(JSON.stringify(theme))+
+          '&tier='+encodeURIComponent(tier)+nameq+badgesq+bgq+'&_='+Date.now();
   stage.style.backgroundImage="url('"+url+"')";
 }}
 function initBgUI(){{

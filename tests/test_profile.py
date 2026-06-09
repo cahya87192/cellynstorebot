@@ -67,3 +67,40 @@ def test_get_member_profile_empty(db):
     assert prof["total_spent"] == 0
     assert prof["level"] == 1
     assert prof["xp_total"] == 0
+
+
+def test_sample_member_data_all_tiers():
+    # Setiap tier menghasilkan data konsisten (tier sesuai level) + nama contoh.
+    for tier in p.SAMPLE_TIERS:
+        d = p.sample_member_data(tier)
+        assert d["tier"] == tier
+        assert d["tier"] == p.tier_for_level(d["level"])
+        assert d["name"]  # ada nama contoh non-kosong
+        # progres XP konsisten
+        assert d["xp_remaining"] == d["xp_for_next"] - d["xp_into_level"]
+        assert 0 <= d["xp_into_level"] <= d["xp_for_next"]
+        assert d["total_orders"] > 0 and d["spent_month"] > 0
+    # Tier makin tinggi -> level & belanja makin besar; Diamond = tertinggi.
+    bronze = p.sample_member_data("Bronze")
+    diamond = p.sample_member_data("Diamond")
+    assert diamond["level"] > bronze["level"]
+    assert diamond["spent_month"] > bronze["spent_month"]
+    assert diamond["next_tier"] is None
+    assert bronze["next_tier"] == "Silver"
+
+
+def test_sample_member_data_invalid_tier_falls_back_to_gold():
+    d = p.sample_member_data("Platinum")
+    assert d["tier"] == "Gold"
+    # None / kosong juga fallback ke Gold
+    assert p.sample_member_data(None)["tier"] == "Gold"
+    assert p.sample_member_data("")["tier"] == "Gold"
+
+
+def test_sample_member_data_shape_matches_card():
+    # Bentuk dict harus punya semua key yang dibaca render_profile_card.
+    d = p.sample_member_data("Gold")
+    for key in ("tier", "level", "first_order", "xp_into_level", "xp_for_next",
+                "xp_remaining", "next_tier", "spent_month", "total_orders",
+                "total_reviews"):
+        assert key in d

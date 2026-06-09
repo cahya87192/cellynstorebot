@@ -15,6 +15,7 @@ import json
 from flask import Blueprint, request, session, redirect, Response, jsonify
 
 from utils import profile_theme as themelib
+from utils import profile as profilelib
 
 theme_bp = Blueprint("theme_bp", __name__)
 
@@ -81,15 +82,21 @@ def _guard():
     return None
 
 
-def _sample_data():
-    """Data contoh untuk preview kartu (tanpa akses DB)."""
-    return {
-        "tier": "Gold", "level": 12,
-        "xp_into_level": 720, "xp_for_next": 1000, "xp_remaining": 280,
-        "next_tier": "Diamond",
-        "spent_month": 1250000, "total_orders": 24, "total_reviews": 8,
-        "first_order": "2025-01-12T00:00:00+00:00",
+def _sample_data(tier="Gold"):
+    """Data contoh untuk preview kartu (tanpa akses DB), per-tier."""
+    return profilelib.sample_member_data(tier)
+
+
+def _sample_badges(tier="Gold"):
+    """Badge contoh untuk preview, disesuaikan tier (makin tinggi makin banyak)."""
+    presets = {
+        "Bronze": ["🛒 Pembeli Baru"],
+        "Silver": ["🔁 Repeat Buyer", "⭐ Reviewer"],
+        "Gold": ["👑 Top Spender", "🔁 Repeat Buyer", "⭐ Reviewer"],
+        "Diamond": ["💎 VIP", "👑 Top Spender", "🔁 Repeat Buyer", "⭐ Reviewer"],
     }
+    key = (tier or "").strip().title()
+    return presets.get(key, presets["Gold"])
 
 
 
@@ -101,11 +108,14 @@ def preview_png():
     # Render pakai theme yang dikirim via query (?t=<json>) bila ada, else tersimpan.
     raw = request.args.get("t")
     theme = themelib.merge_theme(raw) if raw else themelib.load_theme()
+    tier = request.args.get("tier") or "Gold"
     bg_path = _bg_path(PROFILE_BG_BASE, request.args.get("bg"))
+    sample = _sample_data(tier)
+    name = (request.args.get("name") or "").strip() or sample.get("name") or "ContohMember"
     try:
         from cogs.profile import render_profile_card
-        buf = render_profile_card("ContohMember", None, _sample_data(),
-                                  rank=3, badges=["👑 Top Spender", "🔁 Repeat Buyer"],
+        buf = render_profile_card(name, None, sample,
+                                  rank=3, badges=_sample_badges(tier),
                                   bg_path=bg_path, theme=theme)
         return Response(buf.getvalue(), mimetype="image/png")
     except Exception as e:
@@ -213,10 +223,10 @@ def page_theme():
   <div class="page-title">Editor Kartu Profil <small>Geser elemen, atur font, warna & ukuran — lalu Simpan</small></div>
 </div>
 <div class="card"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:1.5rem;align-items:flex-start;">
-  <div style="flex:1 1 480px;min-width:320px;">
+  <div style="flex:1 1 560px;min-width:280px;">
     <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem;">
       Seret kotak elemen untuk memindah posisi. Kanvas 900×360 (skala mengikuti lebar).</div>
-    <div id="stage" style="position:relative;width:100%;max-width:600px;aspect-ratio:900/360;
+    <div id="stage" style="position:relative;width:100%;max-width:840px;margin:0 auto;aspect-ratio:900/360;
         border-radius:14px;overflow:hidden;border:1px solid var(--border);
         background:#222 url('/profil-theme/preview.png') center/cover no-repeat;user-select:none;"></div>
     <div style="display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap;">
@@ -228,6 +238,12 @@ def page_theme():
   </div>
   <div style="flex:1 1 300px;min-width:280px;">
     <div class="form-group">
+      <label>Nama Contoh (pratinjau)</label>
+      <input type="text" id="sampleName" maxlength="22" placeholder="(otomatis sesuai tier)"
+        oninput="refreshPreview();" style="width:100%;">
+      <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem;">Nama &amp; avatar member asli tidak tersimpan (butuh Discord), jadi pratinjau memakai contoh.</div>
+    </div>
+    <div class="form-group">
       <label>Opacity Panel ({{op}})</label>
       <input type="range" min="0" max="255" id="panelOpacity" value="{theme['panel_opacity']}"
         oninput="theme.panel_opacity=+this.value;markDirty();">
@@ -238,7 +254,7 @@ def page_theme():
       <button class="btn btn-ghost btn-sm" style="margin-top:.4rem;" onclick="uploadFont()">⬆️ Upload Font (.ttf/.otf)</button>
     </div>
     <div class="form-group">
-      <label>Background per Tier <small style="color:var(--muted)" id="bgInfo"></small></label>
+      <label>Tier — pratinjau &amp; background <small style="color:var(--muted)" id="bgInfo"></small></label>
       <select id="bgTier" onchange="refreshPreview()" style="width:100%;margin-bottom:.4rem;"></select>
       <input type="file" id="bgFile" accept=".png,.jpg,.jpeg,.webp">
       <div style="display:flex;gap:.5rem;margin-top:.4rem;flex-wrap:wrap;">
@@ -334,8 +350,12 @@ function renderControls(){{
 
 function refreshPreview(){{
   var bgt=document.getElementById('bgTier');
+  var tier=(bgt && bgt.value) ? bgt.value : 'Gold';
+  var nameEl=document.getElementById('sampleName');
+  var nameq=(nameEl && nameEl.value.trim()) ? '&name='+encodeURIComponent(nameEl.value.trim()) : '';
   var bgq=(bgt && bgt.value) ? '&bg='+encodeURIComponent(bgt.value) : '';
-  var url='/profil-theme/preview.png?t='+encodeURIComponent(JSON.stringify(theme))+bgq+'&_='+Date.now();
+  var url='/profil-theme/preview.png?t='+encodeURIComponent(JSON.stringify(theme))+
+          '&tier='+encodeURIComponent(tier)+nameq+bgq+'&_='+Date.now();
   stage.style.backgroundImage="url('"+url+"')";
 }}
 function initBgUI(){{
