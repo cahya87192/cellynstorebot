@@ -10,6 +10,7 @@ from utils.store_hours import is_store_open
 from utils.paginator import PaginatedSelectView, with_price
 from utils import ticket_ui
 from utils import catalog_emoji
+from utils import ml_text as mltext
 
 THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
 
@@ -426,21 +427,15 @@ class MLStore(commands.Cog):
         games = _load_games()
         game_list = "\n".join(f"• **{g['name']}**" for g in games) or "Belum ada game aktif."
         embed = discord.Embed(
-            title="TOPUP DIAMOND GAME",
-            description=(
-                f"Sekarang tersedia di **{STORE_NAME}**\n"
-                f"Topup diamond dengan harga terjangkau, proses cepat, amanah dan transparan!\n\n"
-                f"**Game tersedia:**\n{game_list}\n\n"
-                f"Pilih game di dropdown di bawah untuk melihat produk dan melakukan pemesanan.\n\n"
-                f"Metode Pembayaran: **QRIS**"
-            ),
+            title=mltext.load_text("catalog_title"),
+            description=mltext.render_text("catalog_desc", store=STORE_NAME, games=game_list),
             color=0x3498DB
         )
         from utils import catalog_settings
         _thumb = catalog_settings.get_thumbnail("ml")
         if _thumb:
             embed.set_thumbnail(url=_thumb)
-        embed.set_footer(text=STORE_NAME)
+        embed.set_footer(text=mltext.render_text("catalog_footer", store=STORE_NAME))
         if self.catalog_message_id:
             try:
                 msg = await ch.fetch_message(self.catalog_message_id)
@@ -483,21 +478,15 @@ class MLStore(commands.Cog):
         games = _load_games()
         game_list = "\n".join(f"• **{g['name']}**" for g in games) or "Belum ada game aktif."
         embed = discord.Embed(
-            title="TOPUP DIAMOND GAME",
-            description=(
-                f"Sekarang tersedia di **{STORE_NAME}**\n"
-                f"Topup diamond dengan harga terjangkau, proses cepat, amanah dan transparan!\n\n"
-                f"**Game tersedia:**\n{game_list}\n\n"
-                f"Pilih game di dropdown di bawah untuk melihat produk dan melakukan pemesanan.\n\n"
-                f"Metode Pembayaran: **QRIS**"
-            ),
+            title=mltext.load_text("catalog_title"),
+            description=mltext.render_text("catalog_desc", store=STORE_NAME, games=game_list),
             color=0x3498DB
         )
         from utils import catalog_settings
         _thumb = catalog_settings.get_thumbnail("ml")
         if _thumb:
             embed.set_thumbnail(url=_thumb)
-        embed.set_footer(text=STORE_NAME)
+        embed.set_footer(text=mltext.render_text("catalog_footer", store=STORE_NAME))
         await msg.edit(embed=embed, view=MLBuyView(store_open=is_store_open()))
 
     @commands.command(name="mlselesai")
@@ -514,7 +503,7 @@ class MLStore(commands.Cog):
         await ctx.send(
             content=member.mention if member else None,
             embed=ticket_ui.ticket_success_embed(
-                f"Topup berhasil diproses. Terima kasih telah berbelanja di {STORE_NAME}!"
+                mltext.render_text("done_success", store=STORE_NAME)
             ),
         )
         await asyncio.sleep(5)
@@ -591,7 +580,7 @@ class MLStore(commands.Cog):
             await ctx.send("Channel ini bukan tiket ML aktif.", delete_after=5)
             return
         embed = ticket_ui.ticket_cancel_embed(
-            by_mention=ctx.author.mention, reason=alasan, title="❌ Topup Dibatalkan"
+            by_mention=ctx.author.mention, reason=alasan, title=mltext.load_text("cancel_title")
         )
         await ctx.send(embed=embed)
         await asyncio.sleep(5)
