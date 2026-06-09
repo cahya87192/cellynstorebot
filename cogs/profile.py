@@ -22,6 +22,7 @@ from PIL import Image, ImageDraw, ImageFont
 from utils.config import ADMIN_ROLE_ID, STORE_NAME
 from utils import profile as profilelib
 from utils import profile_theme as themelib
+from utils import achievement_theme as achthemelib
 from utils import achievements as achlib
 
 # Background kustom per tier (di-upload admin via /setprofilbg). Disimpan di
@@ -281,46 +282,104 @@ def render_profile_card(name: str, avatar_bytes, data: dict, *,
 ACH_W, ACH_H = 880, 300
 
 
-def render_achievement_card(name: str, avatar_bytes, badge_names, tier: str = "Bronze") -> io.BytesIO:
+def _badge_bg_path_for(tier: str):
+    """Path background kustom kartu badge untuk tier (atau None). Pola sama
+    dengan /setprofilbg: data/badgebg_<tier>.<ext>."""
+    base = f"badgebg_{(tier or '').lower()}"
+    for ext in ALLOWED_IMAGE_EXTS:
+        path = os.path.join(DATA_DIR, base + ext)
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def render_achievement_card(name: str, avatar_bytes, badge_names, tier: str = "Bronze",
+                            *, theme=None, bg_path=None) -> io.BytesIO:
     """Render kartu 'Achievement Unlocked' -> PNG BytesIO. Murni Pillow.
 
-    Dipakai notifikasi badge baru (cogs/reviews.py). Tema warna mengikuti tier
-    member. Teks polos (font bundel tak render emoji warna).
+    Dipakai notifikasi badge baru (cogs/reviews.py). Posisi, warna, ukuran font,
+    teks judul, visibilitas, opacity panel & font kustom diambil dari `theme`
+    (utils.achievement_theme). `bg_path` = background kustom per tier (cover-fit
+    ACH_W×ACH_H); bila None pakai gradien tema tier. Teks polos (font bundel tak
+    render emoji warna).
     """
     dark, mid, accent = TIER_THEME.get(tier, TIER_THEME["Bronze"])
     badge_names = [str(b) for b in (badge_names or []) if str(b)][:4]
 
-    bg = _gradient(dark, mid).resize((ACH_W, ACH_H)).convert("RGBA")
+    theme = achthemelib.merge_theme(theme)
+    el = theme["elements"]
+    font_file = theme.get("font_file")
+
+    def fnt(size, bold=False):
+        return _font(size, bold=bold, font_file=font_file)
+
+    def rgb(key, fallback):
+        try:
+            return achthemelib.hex_to_rgb(el[key]["color"])
+        except Exception:
+            return fallback
+
+    bg = None
+    if bg_path:
+        try:
+            src = Image.open(bg_path).convert("RGBA")
+            sw, sh = src.size
+            scale = max(ACH_W / sw, ACH_H / sh)
+            nw, nh = int(sw * scale), int(sh * scale)
+            src = src.resize((nw, nh))
+            left, top = (nw - ACH_W) // 2, (nh - ACH_H) // 2
+            bg = src.crop((left, top, left + ACH_W, top + ACH_H))
+        except Exception:
+            bg = None
+    if bg is None:
+        bg = _gradient(dark, mid).resize((ACH_W, ACH_H)).convert("RGBA")
     card = bg
 
     panel = Image.new("RGBA", (ACH_W, ACH_H), (0, 0, 0, 0))
     pd = ImageDraw.Draw(panel)
-    _rounded(pd, (20, 20, ACH_W - 20, ACH_H - 20), 26, (0, 0, 0, 150))
+    _rounded(pd, (20, 20, ACH_W - 20, ACH_H - 20), 26, (0, 0, 0, int(theme["panel_opacity"])))
     card = Image.alpha_composite(card, panel)
     d = ImageDraw.Draw(card)
 
-    # Avatar bulat + ring aksen (kiri).
-    av_size, ax, ay = 150, 56, 75
-    d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=accent + (255,))
-    if avatar_bytes:
-        try:
-            im = Image.open(io.BytesIO(avatar_bytes))
-            circ = _circle_avatar(im, av_size)
-            card.paste(circ, (ax, ay), circ)
-        except Exception:
+    # Avatar bulat + ring aksen.
+    av = el["avatar"]
+    if av.get("show", True):
+        av_size = int(av["size"])
+        ax, ay = int(av["x"]), int(av["y"])
+        d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=accent + (255,))
+        if avatar_bytes:
+            try:
+                im = Image.open(io.BytesIO(avatar_bytes))
+                circ = _circle_avatar(im, av_size)
+                card.paste(circ, (ax, ay), circ)
+            except Exception:
+                d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+        else:
             d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
-    else:
-        d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
 
-    tx = ax + av_size + 40
-    d.text((tx, 52), "ACHIEVEMENT UNLOCKED", font=_font(26, True), fill=accent + (255,))
-    d.text((tx, 92), name[:24], font=_font(34, True), fill=(255, 255, 255))
+    # Judul (teks bisa diganti).
+    if el["title"].get("show", True):
+        e = el["title"]
+        d.text((e["x"], e["y"]), str(e.get("text") or "ACHIEVEMENT UNLOCKED"),
+               font=fnt(e["size"], e.get("bold", True)), fill=rgb("title", accent))
 
-    d.text((tx, 150), "Badge baru:", font=_font(18, False), fill=(210, 210, 220))
-    by = 176
-    for bn in badge_names:
-        d.text((tx, by), f"\u2022  {bn}", font=_font(22, True), fill=(255, 255, 255))
-        by += 30
+    # Nama member.
+    if el["name"].get("show", True):
+        e = el["name"]
+        d.text((e["x"], e["y"]), name[:24], font=fnt(e["size"], e.get("bold", True)),
+               fill=rgb("name", (255, 255, 255)))
+
+    # Daftar badge (header "Badge baru:" + tiap badge sebagai bullet).
+    if el["badges"].get("show", True):
+        e = el["badges"]
+        bx, by = int(e["x"]), int(e["y"])
+        label_sz = max(12, int(e["size"]) - 4)
+        d.text((bx, by), "Badge baru:", font=fnt(label_sz, False), fill=(210, 210, 220))
+        by += label_sz + 8
+        for bn in badge_names:
+            d.text((bx, by), f"\u2022  {bn}", font=fnt(e["size"], e.get("bold", True)),
+                   fill=rgb("badges", (255, 255, 255)))
+            by += int(e["size"]) + 8
 
     buf = io.BytesIO()
     card.convert("RGB").save(buf, format="PNG")

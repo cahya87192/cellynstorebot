@@ -25,6 +25,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 from admin_embed import embed_bp
 from admin_insights import insights_bp
 from admin_profile_theme import theme_bp
+from admin_achievement_theme import badge_theme_bp
 from admin_faq import faq_bp
 from functools import wraps
 
@@ -41,6 +42,7 @@ app.secret_key = os.environ.get("ADMIN_SECRET", "cellyn-admin-secret-2024")
 app.register_blueprint(embed_bp)
 app.register_blueprint(insights_bp)
 app.register_blueprint(theme_bp)
+app.register_blueprint(badge_theme_bp)
 app.register_blueprint(faq_bp)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "cellyn123")
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
@@ -355,7 +357,8 @@ var CMD_ITEMS=[
   {t:'Robux Store',u:'/robux'},{t:'GP Topup',u:'/gp'},{t:'Lainnya',u:'/lainnya'},
   {t:'QRIS',u:'/qr'},{t:'Statistik',u:'/stats'},{t:'Transaksi',u:'/transactions'},
   {t:'Tiket Aktif',u:'/tickets'},{t:'Performa Admin',u:'/admins'},
-  {t:'Editor Profil',u:'/profil-theme'},{t:'Editor FAQ',u:'/faq-editor'},
+  {t:'Editor Profil',u:'/profil-theme'},{t:'Editor Badge',u:'/badge-theme'},
+  {t:'Editor FAQ',u:'/faq-editor'},
   {t:'Rating & Ulasan',u:'/reviews'},{t:'Info Layanan',u:'/service-info'},
   {t:'Embed Builder',u:'/embeds'},{t:'AutoPost',u:'/autopost'}
 ];
@@ -432,6 +435,7 @@ def render_page(content, **ctx):
     {_a("Tiket Aktif", "/tickets", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/></svg>', "insights_bp.page_tickets")}
     {_a("Performa Admin", "/admins", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>', "insights_bp.page_admins")}
     {_a("Editor Profil", "/profil-theme", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>', "theme_bp.page_theme")}
+    {_a("Editor Badge", "/badge-theme", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="6"/><path d="M8.5 13.5L7 22l5-3 5 3-1.5-8.5"/></svg>', "badge_theme_bp.page_theme")}
     {_a("Editor FAQ", "/faq-editor", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19l-7 3V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v9"/><path d="M9.5 8.5a2.5 2.5 0 1 1 3 2.45V13"/><line x1="12.5" y1="16" x2="12.5" y2="16"/></svg>', "faq_bp.page_faq")}
     {_a("Rating &amp; Ulasan", "/reviews", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', "page_reviews")}
     {_a("Info Layanan", "/service-info", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', "page_service_info")}

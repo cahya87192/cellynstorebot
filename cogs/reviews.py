@@ -599,9 +599,13 @@ class Reviews(commands.Cog):
             name = (getattr(member, "display_name", None)
                     or getattr(user, "name", None) or f"User {user_id}")
             avatar = await self._fetch_avatar_bytes(user)
-            from cogs.profile import render_achievement_card
+            from cogs.profile import render_achievement_card, _badge_bg_path_for
+            from utils import achievement_theme as achthemelib
+            theme = achthemelib.load_theme()
+            bg_path = _badge_bg_path_for(tier)
             buf = await self.bot.loop.run_in_executor(
-                None, lambda: render_achievement_card(name, avatar, names, tier)
+                None, lambda: render_achievement_card(
+                    name, avatar, names, tier, theme=theme, bg_path=bg_path)
             )
             return discord.File(buf, filename="achievement.png")
         except Exception as e:
