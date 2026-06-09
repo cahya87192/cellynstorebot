@@ -18,6 +18,7 @@ from utils.paginator import PaginatedSelectView, with_price
 from utils.counter import next_ticket_number
 from utils import ticket_ui
 from utils import reviews as reviews_data
+from utils import robux_text as rbtext
 from utils import catalog_emoji
 
 # Emoji Robux yang aman lintas-server: di server self-host tanpa custom emoji
@@ -142,13 +143,8 @@ def build_catalog_embed(rate):
     categories = load_categories()
     cat_list = "\n".join(f"{ROBUX_EMOJI_SAFE} **{cat}**" for cat in categories) if categories else "Belum ada produk aktif."
     embed = discord.Embed(
-        title=f"{ROBUX_EMOJI_SAFE} ROBUX STORE — {STORE_NAME}",
-        description=(
-            f"Harga dihitung otomatis berdasarkan rate Robux terkini.\n"
-            f"Rate: **{rate_str}**\n\n"
-            f"**Kategori tersedia:**\n{cat_list}\n\n"
-            f"Klik tombol kategori di bawah untuk lihat item & order."
-        ),
+        title=rbtext.render_text("catalog_title", emoji=ROBUX_EMOJI_SAFE, store=STORE_NAME),
+        description=rbtext.render_text("catalog_desc", rate=rate_str, categories=cat_list),
         color=0xE91E63,
         timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
@@ -161,7 +157,7 @@ def build_catalog_embed(rate):
     _thumb = catalog_settings.get_thumbnail("robux")
     if _thumb:
         embed.set_thumbnail(url=_thumb)
-    embed.set_footer(text=f"{STORE_NAME} • Harga dapat berubah sewaktu-waktu")
+    embed.set_footer(text=rbtext.render_text("catalog_footer", store=STORE_NAME))
     return embed
 
 class CategoryView(discord.ui.View):
