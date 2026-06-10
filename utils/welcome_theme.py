@@ -1,57 +1,116 @@
-"""Tema/kustomisasi Kartu Welcome (logika murni, tanpa PIL/discord).
+"""Tema/kustomisasi Kartu Notifikasi member (welcome / boost / leave).
 
-Kembaran dari utils/achievement_theme.py, tapi untuk kartu sambutan member baru
-(render_welcome_card di cogs/profile.py). Menyimpan & memvalidasi konfigurasi
-tampilan kartu yang bisa diatur admin lewat admin panel: posisi tiap elemen
-(drag-and-drop), ukuran & warna font, visibilitas elemen, teks judul & subjudul,
-opacity panel, nama file font kustom, dan flag `enabled` (pakai kartu gambar
-atau embed teks klasik).
+Logika murni (tanpa PIL/discord). Satu modul melayani TIGA jenis kartu yang
+strukturnya sama persis tapi default teks/warna berbeda:
 
-Tema disimpan sebagai JSON di tabel `bot_state` (key `welcome_card_theme`),
-sehingga admin panel (Flask) & bot (discord) berbagi sumber yang sama.
+  - welcome : sambutan member baru (key DB `welcome_card_theme`)
+  - boost   : ucapan terima kasih member nge-boost (key `boost_card_theme`)
+  - leave   : pamitan member keluar (key `leave_card_theme`)
 
-Kanvas kartu berukuran WELCOME_W x WELCOME_H. Semua koordinat relatif ke kanvas.
+Tiap kartu menyimpan & memvalidasi konfigurasi tampilan yang bisa diatur admin
+lewat panel: posisi tiap elemen (drag-and-drop), ukuran & warna font,
+visibilitas elemen, teks judul & subjudul, warna bingkai (ring) avatar, opacity
+panel, nama file font kustom, dan flag `enabled` (pakai kartu gambar atau embed
+teks klasik).
+
+Tema disimpan sebagai JSON di tabel `bot_state` (satu key per jenis), sehingga
+admin panel (Flask) & bot (discord) berbagi sumber yang sama.
+
+API berbasis `kind` dengan default "welcome" agar pemanggil lama tetap jalan
+tanpa perubahan: `load_theme()`, `merge_theme(raw)`, `save_theme(raw)`,
+`default_theme()` tanpa argumen kind = welcome (backward compatible).
+
+Kanvas tiap kartu berukuran CANVAS[kind] = (W, H). Semua koordinat relatif ke
+kanvas. Untuk kompatibilitas, WELCOME_W/WELCOME_H = kanvas welcome.
 """
 
 import json
 
 from utils.db import get_conn
 
-THEME_KEY = "welcome_card_theme"
+# Jenis kartu yang didukung.
+KINDS = ("welcome", "boost", "leave")
 
-# Ukuran kanvas kartu sambutan (banner lebar).
-WELCOME_W = 1000
-WELCOME_H = 360
+# Key bot_state per jenis (welcome dipertahankan agar data lama kompatibel).
+THEME_KEYS = {
+    "welcome": "welcome_card_theme",
+    "boost": "boost_card_theme",
+    "leave": "leave_card_theme",
+}
 
-# Teks default (bisa diganti admin lewat panel).
-DEFAULT_TITLE = "SELAMAT DATANG"
-DEFAULT_SUBTITLE = "Selamat bergabung di server!"
+# Ukuran kanvas per jenis (semua banner lebar yang sama saat ini).
+CANVAS = {
+    "welcome": (1000, 360),
+    "boost": (1000, 360),
+    "leave": (1000, 360),
+}
+
+# Kompatibilitas: alias kanvas welcome + key welcome.
+WELCOME_W, WELCOME_H = CANVAS["welcome"]
+THEME_KEY = THEME_KEYS["welcome"]
+
 MAX_TEXT_LEN = 60
 
-# Elemen yang bisa dikustomisasi + default-nya.
-# Tipe "text": punya size, color, bold, show, x, y (+ "text" bila bisa diedit).
-# Tipe "avatar": punya size, show, x, y.
-DEFAULT_THEME = {
-    "enabled": False,              # False = tetap pakai embed klasik (perilaku lama)
-    "panel_opacity": 140,          # 0-255, panel gelap di atas background
-    "font_file": None,             # nama file font di data/ (None = font default)
-    "elements": {
-        "avatar":     {"type": "avatar", "x": 70,  "y": 95,  "size": 170, "show": True},
-        "title":      {"type": "text",   "x": 290, "y": 78,  "size": 30, "color": "#FFFFFF", "bold": True,  "show": True, "text": DEFAULT_TITLE},
-        "name":       {"type": "text",   "x": 290, "y": 128, "size": 46, "color": "#8B9BE0", "bold": True,  "show": True},
-        "subtitle":   {"type": "text",   "x": 290, "y": 200, "size": 24, "color": "#D8DCE6", "bold": False, "show": True, "text": DEFAULT_SUBTITLE},
-        "membercount":{"type": "text",   "x": 290, "y": 248, "size": 22, "color": "#A6B1C6", "bold": False, "show": True},
+# Warna bingkai (ring) avatar default per jenis (hex).
+RING_DEFAULTS = {
+    "welcome": "#8B9BE0",   # periwinkle kalem
+    "boost": "#FF73FA",     # pink boost
+    "leave": "#9AA3B2",     # abu kalem
+}
+
+# Teks & warna default per jenis. Skema elemen identik antar jenis:
+# avatar, title, name, subtitle, membercount.
+#   - title/subtitle : teks statis (editable)
+#   - name           : dinamis (nama member)
+#   - membercount    : dinamis (mis. "Member #12" / "3x boost" / "Tersisa 40 member")
+_KIND_DEFAULTS = {
+    "welcome": {
+        "title": "SELAMAT DATANG",
+        "subtitle": "Selamat bergabung di server!",
+        "name_color": "#8B9BE0",
+        "title_color": "#FFFFFF",
+        "subtitle_color": "#D8DCE6",
+        "count_color": "#A6B1C6",
+    },
+    "boost": {
+        "title": "TERIMA KASIH BOOST!",
+        "subtitle": "Dukunganmu bikin server makin keren 🚀",
+        "name_color": "#FF8BFB",
+        "title_color": "#FFFFFF",
+        "subtitle_color": "#F0D8EE",
+        "count_color": "#E0A6D6",
+    },
+    "leave": {
+        "title": "SAMPAI JUMPA",
+        "subtitle": "Terima kasih atas kebersamaannya 🤍",
+        "name_color": "#C7CDD8",
+        "title_color": "#FFFFFF",
+        "subtitle_color": "#CDD2DC",
+        "count_color": "#9AA3B2",
     },
 }
 
-# Urutan & label ramah untuk ditampilkan di editor.
-ELEMENT_LABELS = [
-    ("avatar", "Foto Profil"),
-    ("title", "Judul"),
-    ("name", "Nama Member"),
-    ("subtitle", "Subjudul / Pesan"),
-    ("membercount", "Jumlah Member"),
-]
+# Urutan & label ramah untuk ditampilkan di editor (sama untuk semua jenis).
+ELEMENT_ORDER = ["avatar", "title", "name", "subtitle", "membercount"]
+ELEMENT_LABELS_MAP = {
+    "avatar": "Foto Profil",
+    "title": "Judul",
+    "name": "Nama Member",
+    "subtitle": "Subjudul / Pesan",
+    "membercount": "Info Tambahan",
+}
+
+# Kompatibilitas: list (key,label) versi welcome.
+ELEMENT_LABELS = [(k, ELEMENT_LABELS_MAP[k]) for k in ELEMENT_ORDER]
+
+
+def element_labels(kind="welcome"):
+    """Daftar (key, label) elemen untuk `kind` (urutan ELEMENT_ORDER)."""
+    return [(k, ELEMENT_LABELS_MAP[k]) for k in ELEMENT_ORDER]
+
+
+def _normalize_kind(kind):
+    return kind if kind in KINDS else "welcome"
 
 
 def _clampi(v, lo, hi, default):
@@ -81,18 +140,43 @@ def hex_to_rgb(c) -> tuple:
     return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
 
 
-def default_theme() -> dict:
-    """Salinan dalam dari DEFAULT_THEME (aman dimodifikasi pemanggil)."""
-    return json.loads(json.dumps(DEFAULT_THEME))
+def _build_default(kind) -> dict:
+    """Susun DEFAULT_THEME untuk `kind`."""
+    kind = _normalize_kind(kind)
+    d = _KIND_DEFAULTS[kind]
+    ring = RING_DEFAULTS[kind]
+    return {
+        "enabled": False,            # False = tetap pakai embed klasik (perilaku lama)
+        "panel_opacity": 140,        # 0-255, panel gelap di atas background
+        "font_file": None,           # nama file font di data/ (None = font default)
+        "elements": {
+            "avatar":      {"type": "avatar", "x": 70,  "y": 95,  "size": 170, "show": True, "ring_color": ring},
+            "title":       {"type": "text",   "x": 290, "y": 78,  "size": 30, "color": d["title_color"],    "bold": True,  "show": True, "text": d["title"]},
+            "name":        {"type": "text",   "x": 290, "y": 128, "size": 46, "color": d["name_color"],     "bold": True,  "show": True},
+            "subtitle":    {"type": "text",   "x": 290, "y": 200, "size": 24, "color": d["subtitle_color"], "bold": False, "show": True, "text": d["subtitle"]},
+            "membercount": {"type": "text",   "x": 290, "y": 248, "size": 22, "color": d["count_color"],    "bold": False, "show": True},
+        },
+    }
 
 
-def merge_theme(raw) -> dict:
-    """Gabungkan tema tersimpan dengan default + validasi nilai.
+# DEFAULT_THEME welcome dipertahankan sebagai konstanta (kompatibilitas).
+DEFAULT_THEME = _build_default("welcome")
+
+
+def default_theme(kind="welcome") -> dict:
+    """Salinan dalam dari default untuk `kind` (aman dimodifikasi pemanggil)."""
+    return json.loads(json.dumps(_build_default(kind)))
+
+
+def merge_theme(raw, kind="welcome") -> dict:
+    """Gabungkan tema tersimpan dengan default `kind` + validasi nilai.
 
     Toleran: input None/rusak/sebagian -> dilengkapi default. Elemen/atribut
     asing diabaikan. Selalu mengembalikan tema lengkap & valid.
     """
-    theme = default_theme()
+    kind = _normalize_kind(kind)
+    cw, ch = CANVAS[kind]
+    theme = default_theme(kind)
     if isinstance(raw, str):
         try:
             raw = json.loads(raw)
@@ -112,8 +196,8 @@ def merge_theme(raw) -> dict:
         incoming = raw_elems.get(key)
         if not isinstance(incoming, dict):
             continue
-        base["x"] = _clampi(incoming.get("x", base["x"]), 0, WELCOME_W, base["x"])
-        base["y"] = _clampi(incoming.get("y", base["y"]), 0, WELCOME_H, base["y"])
+        base["x"] = _clampi(incoming.get("x", base["x"]), 0, cw, base["x"])
+        base["y"] = _clampi(incoming.get("y", base["y"]), 0, ch, base["y"])
         base["show"] = bool(incoming.get("show", base["show"]))
         if base["type"] == "text":
             base["size"] = _clampi(incoming.get("size", base["size"]), 8, 120, base["size"])
@@ -121,6 +205,8 @@ def merge_theme(raw) -> dict:
             base["bold"] = bool(incoming.get("bold", base["bold"]))
         elif base["type"] == "avatar":
             base["size"] = _clampi(incoming.get("size", base["size"]), 32, 320, base["size"])
+            base["ring_color"] = _valid_hex(incoming.get("ring_color", base["ring_color"]),
+                                            base["ring_color"])
         # Elemen yang punya teks bisa diganti (string non-kosong, dipangkas).
         if "text" in base:
             t = incoming.get("text", base["text"])
@@ -129,24 +215,27 @@ def merge_theme(raw) -> dict:
     return theme
 
 
-def load_theme() -> dict:
-    """Baca tema dari bot_state (atau default bila belum ada)."""
+def load_theme(kind="welcome") -> dict:
+    """Baca tema `kind` dari bot_state (atau default bila belum ada)."""
+    kind = _normalize_kind(kind)
     conn = get_conn()
     try:
-        row = conn.execute("SELECT value FROM bot_state WHERE key=?", (THEME_KEY,)).fetchone()
+        row = conn.execute("SELECT value FROM bot_state WHERE key=?",
+                           (THEME_KEYS[kind],)).fetchone()
     except Exception:
         row = None
     conn.close()
-    return merge_theme(row["value"] if row else None)
+    return merge_theme(row["value"] if row else None, kind)
 
 
-def save_theme(raw) -> dict:
-    """Validasi + simpan tema ke bot_state. Mengembalikan tema final."""
-    theme = merge_theme(raw)
+def save_theme(raw, kind="welcome") -> dict:
+    """Validasi + simpan tema `kind` ke bot_state. Mengembalikan tema final."""
+    kind = _normalize_kind(kind)
+    theme = merge_theme(raw, kind)
     conn = get_conn()
     conn.execute(
         "INSERT OR REPLACE INTO bot_state (key, value) VALUES (?,?)",
-        (THEME_KEY, json.dumps(theme)),
+        (THEME_KEYS[kind], json.dumps(theme)),
     )
     conn.commit()
     conn.close()

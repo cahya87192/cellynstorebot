@@ -424,23 +424,39 @@ def render_achievement_card(name: str, avatar_bytes, badge_names, tier: str = "B
 
 
 
-def render_welcome_card(name: str, avatar_bytes, *, member_count=None,
-                        theme=None, bg_path=None) -> io.BytesIO:
-    """Render kartu sambutan member baru -> PNG BytesIO. Murni Pillow.
+# Gradien latar default per jenis kartu notifikasi (dipakai bila tak ada
+# background kustom). Senada dengan warna ring/aksen tiap jenis.
+NOTIFY_GRADIENTS = {
+    "welcome": ((26, 29, 44), (52, 44, 88)),
+    "boost":   ((44, 26, 52), (96, 40, 90)),
+    "leave":   ((30, 32, 40), (58, 62, 74)),
+}
 
-    Dipakai cogs/welcome.py saat member join (bila kartu welcome diaktifkan di
-    panel). Posisi, warna, ukuran font, teks judul/subjudul, visibilitas, opacity
-    panel & font kustom diambil dari `theme` (utils.welcome_theme). `bg_path` =
-    background kustom (cover-fit WELCOME_W×WELCOME_H); bila None pakai gradien
-    default yang kalem. Teks polos (font bundel tak render emoji warna).
+
+def render_notify_card(kind: str, avatar_bytes, *, values=None,
+                       theme=None, bg_path=None) -> io.BytesIO:
+    """Render kartu notifikasi member (welcome/boost/leave) -> PNG BytesIO.
+
+    Murni Pillow (dipanggil di executor). Satu fungsi generik untuk ketiga
+    jenis kartu yang strukturnya identik (lihat utils.welcome_theme).
+
+    `kind`        : "welcome" | "boost" | "leave".
+    `values`      : dict nilai elemen dinamis, mis. {"name": "...",
+                    "membercount": "Member #12"}. Elemen teks dinamis yang
+                    tidak ada/None di `values` tidak digambar.
+    `theme`       : dict tema (utils.welcome_theme) untuk jenis ini.
+    `bg_path`     : background kustom (cover-fit kanvas); None = gradien default.
+
+    Teks polos (font bundel tak render emoji warna).
     """
     from utils import welcome_theme as wtheme
-    W, H = wtheme.WELCOME_W, wtheme.WELCOME_H
+    kind = kind if kind in wtheme.KINDS else "welcome"
+    W, H = wtheme.CANVAS[kind]
+    values = values or {}
 
-    theme = wtheme.merge_theme(theme)
+    theme = wtheme.merge_theme(theme, kind)
     el = theme["elements"]
     font_file = theme.get("font_file")
-    accent = (139, 155, 224)  # periwinkle kalem untuk ring avatar
 
     def fnt(size, bold=False):
         return _font(size, bold=bold, font_file=font_file)
@@ -464,7 +480,8 @@ def render_welcome_card(name: str, avatar_bytes, *, member_count=None,
         except Exception:
             bg = None
     if bg is None:
-        bg = _gradient((26, 29, 44), (52, 44, 88)).resize((W, H)).convert("RGBA")
+        g1, g2 = NOTIFY_GRADIENTS.get(kind, NOTIFY_GRADIENTS["welcome"])
+        bg = _gradient(g1, g2).resize((W, H)).convert("RGBA")
     card = bg
 
     panel = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -473,50 +490,64 @@ def render_welcome_card(name: str, avatar_bytes, *, member_count=None,
     card = Image.alpha_composite(card, panel)
     d = ImageDraw.Draw(card)
 
-    # Avatar bulat + ring aksen.
-    av = el["avatar"]
-    if av.get("show", True):
-        av_size = int(av["size"])
-        ax, ay = int(av["x"]), int(av["y"])
-        d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=accent + (255,))
-        if avatar_bytes:
-            try:
-                im = Image.open(io.BytesIO(avatar_bytes))
-                circ = _circle_avatar(im, av_size)
-                card.paste(circ, (ax, ay), circ)
-            except Exception:
+    for key in wtheme.ELEMENT_ORDER:
+        e = el.get(key)
+        if not e or not e.get("show", True):
+            continue
+
+        if e.get("type") == "avatar":
+            # Avatar bulat + ring (warna bisa diatur per kartu).
+            ring = wtheme.hex_to_rgb(e.get("ring_color")
+                                     or wtheme.RING_DEFAULTS.get(kind, "#8B9BE0"))
+            av_size = int(e["size"])
+            ax, ay = int(e["x"]), int(e["y"])
+            d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=ring + (255,))
+            if avatar_bytes:
+                try:
+                    im = Image.open(io.BytesIO(avatar_bytes))
+                    circ = _circle_avatar(im, av_size)
+                    card.paste(circ, (ax, ay), circ)
+                except Exception:
+                    d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+            else:
                 d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+            continue
+
+        # Elemen teks. Statis (title/subtitle) pakai e["text"]; dinamis
+        # (name/membercount) pakai values[key] — bila tak ada, dilewati.
+        if key in values:
+            val = values.get(key)
+            if val is None or str(val) == "":
+                continue
+            txt = str(val)
+        elif "text" in e:
+            txt = str(e.get("text") or "")
         else:
-            d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
-
-    # Judul (teks bisa diganti).
-    if el["title"].get("show", True):
-        e = el["title"]
-        d.text((e["x"], e["y"]), str(e.get("text") or "SELAMAT DATANG"),
-               font=fnt(e["size"], e.get("bold", True)), fill=rgb("title", (255, 255, 255)))
-
-    # Nama member (dinamis).
-    if el["name"].get("show", True):
-        e = el["name"]
-        d.text((e["x"], e["y"]), (name or "Member")[:24],
-               font=fnt(e["size"], e.get("bold", True)), fill=rgb("name", (139, 155, 224)))
-
-    # Subjudul / pesan (teks bisa diganti).
-    if el["subtitle"].get("show", True):
-        e = el["subtitle"]
-        d.text((e["x"], e["y"]), str(e.get("text") or ""),
-               font=fnt(e["size"], e.get("bold", False)), fill=rgb("subtitle", (216, 220, 230)))
-
-    # Jumlah member (dinamis) — hanya bila disediakan.
-    if el["membercount"].get("show", True) and member_count is not None:
-        e = el["membercount"]
-        d.text((e["x"], e["y"]), f"Member #{member_count}",
-               font=fnt(e["size"], e.get("bold", False)), fill=rgb("membercount", (166, 177, 198)))
+            # Elemen dinamis tanpa nilai -> tidak digambar.
+            continue
+        d.text((e["x"], e["y"]), txt,
+               font=fnt(e["size"], e.get("bold", False)),
+               fill=rgb(key, (255, 255, 255)))
 
     buf = io.BytesIO()
     card.convert("RGB").save(buf, format="PNG")
     buf.seek(0)
     return buf
+
+
+def render_welcome_card(name: str, avatar_bytes, *, member_count=None,
+                        theme=None, bg_path=None) -> io.BytesIO:
+    """Wrapper kompatibilitas: render kartu sambutan welcome.
+
+    Sekarang delegasi ke render_notify_card("welcome", ...). Dipakai
+    cogs/welcome.py & editor preview. `member_count` (bila ada) jadi teks
+    "Member #N" pada elemen membercount.
+    """
+    values = {"name": (name or "Member")[:24]}
+    if member_count is not None:
+        values["membercount"] = f"Member #{member_count}"
+    return render_notify_card("welcome", avatar_bytes, values=values,
+                              theme=theme, bg_path=bg_path)
 
 
 def _is_admin(member) -> bool:
