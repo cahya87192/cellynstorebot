@@ -511,6 +511,14 @@ th{background:transparent;}
 .nav-group.collapsed .nav-chevron{transform:rotate(-90deg);}
 .nav-group-items{overflow:hidden;max-height:1600px;transition:max-height .28s ease;}
 .nav-group.collapsed .nav-group-items{max-height:0;}
+/* Kotak cari menu di sidebar */
+.sidebar-search{padding:.7rem .75rem .2rem;}
+.nav-search-box{position:relative;display:flex;align-items:center;}
+.nav-search-box svg{position:absolute;left:.6rem;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted);pointer-events:none;}
+.nav-search-box input{width:100%;padding:.5rem .6rem .5rem 2rem;font-size:.84rem;border:1px solid var(--border);border-radius:10px;background:var(--input-bg);color:var(--text);}
+.nav-search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--ring);outline:none;}
+.nav-empty{display:none;padding:.6rem .8rem;font-size:.8rem;color:var(--muted);}
+body.nav-filtering .nav-chevron{opacity:.25;}
 </style>
 </head>
 <body>
@@ -588,7 +596,7 @@ function toggleGroup(btn){
     localStorage.setItem('cellyn-nav', JSON.stringify(c));
   }catch(_){}
 }
-(function initNav(){
+function restoreNavState(){
   var saved=null;
   try{saved=JSON.parse(localStorage.getItem('cellyn-nav'));}catch(_){}
   document.querySelectorAll('.nav-group').forEach(function(g){
@@ -598,7 +606,38 @@ function toggleGroup(btn){
     }
     if(g.querySelector('.nav-item.active')) g.classList.remove('collapsed'); // selalu buka grup halaman aktif
   });
-})();
+}
+/* Filter live menu sidebar */
+function filterNav(q){
+  q=(q||'').trim().toLowerCase();
+  var groups=document.querySelectorAll('.nav-group');
+  var empty=document.getElementById('navEmpty');
+  if(!q){
+    document.body.classList.remove('nav-filtering');
+    groups.forEach(function(g){
+      g.style.display='';
+      g.querySelectorAll('.nav-item').forEach(function(it){it.style.display='';});
+    });
+    if(empty) empty.style.display='none';
+    restoreNavState();
+    return;
+  }
+  document.body.classList.add('nav-filtering');
+  var hits=0;
+  groups.forEach(function(g){
+    var any=false;
+    g.classList.remove('collapsed'); // buka semua grup saat mencari
+    g.querySelectorAll('.nav-item').forEach(function(it){
+      var m=(it.textContent||'').toLowerCase().indexOf(q)>-1;
+      it.style.display=m?'':'none';
+      if(m){any=true;hits++;}
+    });
+    g.style.display=any?'':'none';
+  });
+  if(empty) empty.style.display=hits?'none':'block';
+}
+function navSearchKey(e){ if(e.key==='Escape'){e.target.value='';filterNav('');e.target.blur();} }
+restoreNavState();
 
 /* COMMAND PALETTE */
 var CMD_ITEMS=[
@@ -732,7 +771,14 @@ def render_page(content, **ctx):
     <img src="https://i.imgur.com/xp2F452.png" alt="logo">
     <div class="sidebar-logo-text">{ADMIN_BRAND}<span>Store Management</span></div>
   </div>
+  <div class="sidebar-search">
+    <div class="nav-search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="navSearch" type="text" placeholder="Cari menu..." autocomplete="off" spellcheck="false" oninput="filterNav(this.value)" onkeydown="navSearchKey(event)">
+    </div>
+  </div>
   <nav class="sidebar-nav">
+    <div class="nav-empty" id="navEmpty">Menu tidak ditemukan</div>
     {_grp("Menu", "menu", True)}
     {_a("Dashboard", "/", ico_dash, "index")}
     {_grpend()}{_grp("Produk", "produk", True)}
