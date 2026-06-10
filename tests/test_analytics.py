@@ -163,3 +163,40 @@ def test_top_customers_ignores_null_user(db):
     _ins_user(db, "ml", 20000, 42, days_ago=0)
     res = analytics.top_customers(days=30)
     assert [r["user_id"] for r in res] == [42]
+
+
+
+def test_daily_omzet_length_and_order(db):
+    res = analytics.daily_omzet(days=7)
+    assert len(res) == 7
+    tgls = [r["tgl"] for r in res]
+    assert tgls == sorted(tgls)  # menaik
+    today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    assert res[-1]["tgl"] == today  # elemen terakhir = hari ini
+
+
+def test_daily_omzet_fills_zero_days(db):
+    # Transaksi hanya di hari ini dan 3 hari lalu; sisanya harus 0 (kontinu).
+    _ins(db, "ml", 10000, days_ago=0)
+    _ins(db, "ml", 5000, days_ago=0)
+    _ins(db, "robux", 20000, days_ago=3)
+    res = analytics.daily_omzet(days=7)
+    by_day = {r["tgl"]: r for r in res}
+    assert len(res) == 7
+    # total omzet keseluruhan deret
+    assert sum(r["omzet"] for r in res) == 35000
+    assert sum(r["tx"] for r in res) == 3
+    today = datetime.datetime.now(datetime.timezone.utc).date()
+    t0 = today.isoformat()
+    t3 = (today - datetime.timedelta(days=3)).isoformat()
+    t1 = (today - datetime.timedelta(days=1)).isoformat()
+    assert by_day[t0] == {"tgl": t0, "tx": 2, "omzet": 15000}
+    assert by_day[t3] == {"tgl": t3, "tx": 1, "omzet": 20000}
+    assert by_day[t1] == {"tgl": t1, "tx": 0, "omzet": 0}  # hari kosong terisi 0
+
+
+def test_daily_omzet_excludes_outside_window(db):
+    _ins(db, "gp", 99000, days_ago=10)  # di luar 7 hari
+    res = analytics.daily_omzet(days=7)
+    assert len(res) == 7
+    assert sum(r["omzet"] for r in res) == 0

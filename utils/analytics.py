@@ -66,6 +66,37 @@ def omzet_by_layanan(days=30):
     return [{"layanan": r["layanan"], "tx": r["tx"] or 0, "omzet": r["omzet"] or 0} for r in rows]
 
 
+def daily_omzet(days=30):
+    """Tren omzet & transaksi harian untuk `days` hari terakhir.
+
+    Mengembalikan deret KONTINU (hari tanpa transaksi tetap muncul dgn 0),
+    urut menaik dari (days-1) hari lalu s/d hari ini. Berguna untuk grafik tren.
+
+    Return list of dict {tgl, tx, omzet} dengan tgl = 'YYYY-MM-DD' (UTC).
+    """
+    import datetime
+    from utils.db import get_conn
+    n = max(1, int(days))
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT date(closed_at) AS tgl, COUNT(*) AS tx, "
+            "COALESCE(SUM(nominal),0) AS omzet FROM transaction_log "
+            "WHERE closed_at >= date('now', ?) GROUP BY date(closed_at)",
+            [f"-{n - 1} days"],
+        ).fetchall()
+    finally:
+        conn.close()
+    by_day = {r["tgl"]: (r["tx"] or 0, r["omzet"] or 0) for r in rows}
+    today = datetime.datetime.now(datetime.timezone.utc).date()
+    out = []
+    for i in range(n - 1, -1, -1):
+        d = (today - datetime.timedelta(days=i)).isoformat()
+        tx, omzet = by_day.get(d, (0, 0))
+        out.append({"tgl": d, "tx": tx, "omzet": omzet})
+    return out
+
+
 def _pct_change(old, new):
     """Persentase perubahan dari `old` ke `new` (1 desimal).
 
