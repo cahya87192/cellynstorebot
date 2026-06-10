@@ -200,3 +200,21 @@ def test_daily_omzet_excludes_outside_window(db):
     res = analytics.daily_omzet(days=7)
     assert len(res) == 7
     assert sum(r["omzet"] for r in res) == 0
+
+
+
+def test_resolve_period_valid():
+    assert analytics.resolve_period("7") == ("7", 7, "7 Hari")
+    assert analytics.resolve_period("30") == ("30", 30, "30 Hari")
+    assert analytics.resolve_period("90") == ("90", 90, "90 Hari")
+
+
+def test_resolve_period_defaults_to_30():
+    for bad in (None, "", "  ", "abc", "15", "999", "7; DROP TABLE"):
+        assert analytics.resolve_period(bad) == ("30", 30, "30 Hari")
+
+
+def test_resolve_period_keys_match_periods_constant():
+    # Setiap entri PERIODS bisa di-resolve balik ke dirinya sendiri.
+    for k, d, lab in analytics.PERIODS:
+        assert analytics.resolve_period(k) == (k, d, lab)
