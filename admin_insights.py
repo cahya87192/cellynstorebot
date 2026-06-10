@@ -783,8 +783,8 @@ def page_analytics():
   var te=document.getElementById('trendChart');
   if(te) new Chart(te,{{type:'line',
     data:{{labels:{json.dumps(trend_labels)},datasets:[{{label:'Omzet',data:{json.dumps(trend_values)},
-      fill:true,tension:.3,backgroundColor:'rgba(22,163,74,.12)',borderColor:'#16a34a',
-      borderWidth:2,pointRadius:2,pointBackgroundColor:'#16a34a'}}]}},
+      fill:true,tension:.3,backgroundColor:'rgba(95,168,134,.14)',borderColor:'#5fa886',
+      borderWidth:2,pointRadius:2,pointBackgroundColor:'#5fa886'}}]}},
     options:{{responsive:true,plugins:{{legend:{{display:false}}}},
       scales:{{x:{{grid:{{display:false}},ticks:{{color:'#94a3b8',font:{{size:10}},maxRotation:0,autoSkip:true,maxTicksLimit:12}}}},
       y:{{grid:{{color:'rgba(148,163,184,.15)'}},ticks:{{color:'#94a3b8',font:{{size:10}}}},beginAtZero:true}}}}}}
@@ -792,7 +792,7 @@ def page_analytics():
   var el=document.getElementById('layChart');
   if(el) new Chart(el,{{type:'bar',
     data:{{labels:{json.dumps(chart_labels)},datasets:[{{label:'Omzet',data:{json.dumps(chart_values)},
-      backgroundColor:'rgba(37,99,235,.55)',borderColor:'#2563eb',borderWidth:1}}]}},
+      backgroundColor:'rgba(90,109,196,.55)',borderColor:'#5a6dc4',borderWidth:1}}]}},
     options:{{responsive:true,plugins:{{legend:{{display:false}}}},
       scales:{{x:{{grid:{{display:false}},ticks:{{color:'#94a3b8',font:{{size:10}}}}}},
       y:{{grid:{{color:'rgba(148,163,184,.15)'}},ticks:{{color:'#94a3b8',font:{{size:10}}}},beginAtZero:true}}}}}}

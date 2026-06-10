@@ -155,7 +155,7 @@ BASE = r"""<!DOCTYPE html>
 <title>BRANDPLACEHOLDER</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
  :root{
   --bg:#f5f7fa;--surface:#ffffff;--surface2:#f8fafc;--surface3:#eef1f6;
@@ -519,6 +519,113 @@ th{background:transparent;}
 .nav-search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--ring);outline:none;}
 .nav-empty{display:none;padding:.6rem .8rem;font-size:.8rem;color:var(--muted);}
 body.nav-filtering .nav-chevron{opacity:.25;}
+
+/* ============================================================
+   🌿 CALM 2026 — palet tenang & kartu modern (lapisan FINAL)
+   Mengganti nuansa indigo/violet yang ramai dengan palet
+   "slate-indigo" yang lembut, latar bersih nyaris polos,
+   kartu rapi dengan bayangan halus, ikon kontekstual yang
+   diturunkan saturasinya, dan tipografi yang nyaman dibaca.
+   Hanya CSS (utamanya redefinisi variabel) sehingga berlaku
+   ke SEMUA halaman lewat render_page tanpa ubah markup.
+   ============================================================ */
+:root{
+  /* Netral sejuk & kalem */
+  --bg:#eef1f6;--surface:#ffffff;--surface2:#f6f8fc;--surface3:#eef2f7;
+  --border:#e8ecf3;--border2:#d7dde8;--input-bg:#f6f8fc;
+  --text:#1d2435;--text2:#3b4660;--muted:#76819a;--muted2:#54607b;
+
+  /* Aksen tenang: slate-indigo lembut (cukup kontras utk teks putih) */
+  --accent:#5a6dc4;--accent2:#4a5cb0;--accent-soft:#eef0fa;
+  --accent-grad:linear-gradient(135deg,#5a6dc4 0%,#7768c9 100%);
+  --ring:rgba(90,109,196,.20);
+
+  /* Sudut & bayangan halus berlapis */
+  --radius:16px;--radius-sm:11px;
+  --shadow-sm:0 1px 2px rgba(30,41,59,.05);
+  --shadow:0 1px 2px rgba(30,41,59,.04),0 8px 20px -10px rgba(30,41,59,.10);
+  --shadow-lg:0 22px 46px -20px rgba(30,41,59,.22),0 10px 24px -16px rgba(30,41,59,.14);
+
+  /* Kartu bersih (kaca tipis, tetap legibel) */
+  --glass:rgba(255,255,255,.82);
+  --glass-strong:rgba(255,255,255,.94);
+  --glass-border:#e8ecf3;
+
+  /* Latar aplikasi: satu sapuan lembut + netral polos */
+  --app-bg:
+     radial-gradient(1100px 620px at 50% -25%, rgba(90,109,196,.07), transparent 70%),
+     #eef1f6;
+}
+html[data-theme="dark"]{
+  --bg:#0c111c;--surface:#141b29;--surface2:#111826;--surface3:#1b2436;
+  --border:#222c3e;--border2:#2f3b52;--input-bg:#111826;
+  --text:#e7ebf4;--text2:#c4ccdc;--muted:#8693ac;--muted2:#a7b2c7;
+
+  --accent:#8b9be0;--accent2:#7383d4;--accent-soft:#1b2238;
+  --accent-grad:linear-gradient(135deg,#7a8bdb 0%,#9a8fe0 100%);
+  --ring:rgba(139,155,224,.30);
+
+  --glass:rgba(20,27,41,.70);
+  --glass-strong:rgba(20,27,41,.92);
+  --glass-border:#222c3e;
+
+  --shadow-sm:0 1px 2px rgba(0,0,0,.30);
+  --shadow:0 1px 2px rgba(0,0,0,.28),0 10px 24px -12px rgba(0,0,0,.50);
+  --shadow-lg:0 26px 52px -22px rgba(0,0,0,.62),0 12px 26px -16px rgba(0,0,0,.46);
+  --app-bg:
+     radial-gradient(1100px 640px at 50% -25%, rgba(90,109,196,.16), transparent 70%),
+     #0a0f1a;
+}
+
+/* Tipografi: judul pakai Plus Jakarta Sans (ramah & modern),
+   teks isi tetap Inter yang enak dibaca. */
+.page-title,.page-header h2,.sidebar-logo-text,.stat-value,.modal-title,.rate-value,.card-title{
+  font-family:'Plus Jakarta Sans','Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+}
+.page-title,.page-header h2{font-weight:700;letter-spacing:-.02em;}
+
+/* Kartu konten: kaca tipis & bersih (blur ringan = lebih kalem & jernih) */
+.card,.stat-card,.qa-card{
+  background:var(--glass-strong);
+  -webkit-backdrop-filter:blur(8px) saturate(120%);backdrop-filter:blur(8px) saturate(120%);
+  border:1px solid var(--glass-border);
+}
+.card-header{border-bottom-color:var(--glass-border);}
+.card-title svg{color:var(--accent);}
+
+/* Garis aksen tipis di atas stat-card dibuat lebih lembut */
+.stat-card::after{height:3px;opacity:.9;}
+
+/* Ikon stat kontekstual — versi kalem (saturasi diturunkan,
+   tetap mudah dibedakan per kategori). */
+.stat-card.ml{--ic-grad:linear-gradient(135deg,#7e9bd8,#5972bd);--ic-fg:#5972bd;}
+.stat-card.ff{--ic-grad:linear-gradient(135deg,#e6b483,#d2935e);--ic-fg:#cf8f57;}
+.stat-card.robux{--ic-grad:linear-gradient(135deg,#d79ab7,#c27ba0);--ic-fg:#c27ba0;}
+.stat-card.gp{--ic-grad:linear-gradient(135deg,#9d93d6,#7d72c0);--ic-fg:#7d72c0;}
+.stat-card.gold{--ic-grad:linear-gradient(135deg,#dec384,#c9a85d);--ic-fg:#c2a052;}
+.stat-card.green{--ic-grad:linear-gradient(135deg,#87c2a6,#5fa886);--ic-fg:#5fa886;}
+.stat-icon{box-shadow:0 8px 18px -10px var(--ic-fg,var(--accent));}
+
+/* Akses cepat & ikon aksen pakai gradien tenang */
+.qa-ic{background:var(--accent-grad);box-shadow:0 8px 18px -10px var(--accent);}
+
+/* Tombol primer: gradien kalem, lift halus, fokus lembut */
+.btn-primary{background:var(--accent-grad);box-shadow:0 8px 18px -10px var(--accent);}
+.btn-primary:hover{filter:brightness(1.04);box-shadow:0 14px 26px -12px var(--accent);}
+
+/* Sidebar: kaca lembut & indikator aktif yang tenang */
+.sidebar{background:var(--glass);border-right:1px solid var(--glass-border);}
+.nav-item.active{background:var(--accent-soft);color:var(--accent);}
+.nav-item.active::before{background:var(--accent-grad);}
+
+/* Tabel: baris hover bernuansa aksen yang sangat halus */
+tbody tr:hover td{background:var(--accent-soft);}
+
+/* Badge tetap pill, tapi sedikit lebih lembut */
+.badge{font-weight:600;}
+
+/* Input fokus: cincin lembut sesuai aksen */
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--ring);}
 </style>
 </head>
 <body>
@@ -1038,7 +1145,7 @@ def index():
 new Chart(document.getElementById('dashChart'), {{
   type:'line',
   data:{{labels:{chart_labels},datasets:[{{label:'Omzet',data:{chart_omzet},
-    borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.12)',borderWidth:2,
+    borderColor:'#5a6dc4',backgroundColor:'rgba(90,109,196,.12)',borderWidth:2,
     pointRadius:2,fill:true,tension:.4}}]}},
   options:{{responsive:true,plugins:{{legend:{{display:false}}}},
     scales:{{x:{{grid:{{color:'rgba(148,163,184,.15)'}},ticks:{{color:'#94a3b8',font:{{size:10}}}}}},
@@ -1877,7 +1984,7 @@ new Chart(document.getElementById('chart7'), {{
   type: 'bar',
   data: {{
     labels: {chart_labels},
-    datasets: [{{ data: {chart_total}, backgroundColor: 'rgba(37,99,235,.35)', borderColor: '#2563eb', borderWidth: 1, borderRadius: 4 }}]
+    datasets: [{{ data: {chart_total}, backgroundColor: 'rgba(90,109,196,.35)', borderColor: '#5a6dc4', borderWidth: 1, borderRadius: 4 }}]
   }},
   options: chartDefaults
 }});
@@ -1885,7 +1992,7 @@ new Chart(document.getElementById('chart30'), {{
   type: 'line',
   data: {{
     labels: {chart30_labels},
-    datasets: [{{ data: {chart30_total}, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.12)', borderWidth: 2, pointRadius: 2, fill: true, tension: .4 }}]
+    datasets: [{{ data: {chart30_total}, borderColor: '#5fa886', backgroundColor: 'rgba(95,168,134,.14)', borderWidth: 2, pointRadius: 2, fill: true, tension: .4 }}]
   }},
   options: chartDefaults
 }});
