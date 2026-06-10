@@ -26,7 +26,7 @@ from utils.config import (
     ROBUX_CATALOG_CHANNEL_ID, ML_CATALOG_CHANNEL_ID,
     VILOG_CATALOG_CHANNEL_ID, MIDMAN_CHANNEL_ID,
     GP_CATALOG_CHANNEL_ID, LAINNYA_CATALOG_CHANNEL_ID,
-    ROYAL_CUSTOMER_ROLE_NAME, ADMIN_ROLE_ID,
+    ROYAL_CUSTOMER_ROLE_NAME,
 )
 from utils import reviews as rv
 from utils import invoice as invlib
@@ -863,32 +863,6 @@ class Reviews(commands.Cog):
         )
         embed.add_field(name="Total Transaksi", value=str(total), inline=True)
         embed.set_footer(text=f"{STORE_NAME} • menampilkan {len(txs)} terbaru")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    # ── Struk/invoice ulang transaksi terakhir ────
-    @app_commands.command(name="struk",
-                          description="Lihat ulang struk transaksi terakhirmu.")
-    @app_commands.describe(member="(Admin) lihat struk transaksi terakhir member lain")
-    async def struk(self, interaction: discord.Interaction,
-                    member: discord.Member = None):
-        target = member or interaction.user
-        # Hanya admin yang boleh melihat struk member lain.
-        if (member is not None and member.id != interaction.user.id
-                and not any(r.id == ADMIN_ROLE_ID
-                            for r in getattr(interaction.user, "roles", []))):
-            await interaction.response.send_message(
-                "❌ Kamu hanya bisa melihat strukmu sendiri.", ephemeral=True)
-            return
-
-        txs = rv.get_user_transactions(target.id, limit=1)
-        if not txs:
-            await interaction.response.send_message(
-                "Belum ada transaksi atas akun ini.", ephemeral=True)
-            return
-
-        tx = dict(txs[0])
-        tx["user_id"] = target.id
-        embed = build_invoice_embed(tx, target)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
