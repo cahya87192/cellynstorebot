@@ -23,6 +23,7 @@ from flask import Blueprint, request, session, redirect, Response
 from utils import member_names
 from utils import analytics
 from utils import customers
+from utils import warranty_monitor
 
 insights_bp = Blueprint("insights_bp", __name__)
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
@@ -372,6 +373,100 @@ def page_customers():
 </div>"""
     return render_page(content)
 
+
+def _warranty_status_tabs(active, counts):
+    tabs = [("", "Semua", counts["total"]), ("soon", "Akan Habis", counts["soon"]),
+            ("active", "Aktif", counts["active"]), ("unlimited", "Tanpa Batas", counts["unlimited"]),
+            ("expired", "Habis", counts["expired"])]
+    out = ""
+    for key, label, n in tabs:
+        cls = "btn" if key == active else "btn btn-ghost"
+        href = "/warranty" + (f"?status={key}" if key else "")
+        out += f'<a class="{cls}" href="{href}">{label} <span class="text-muted">({n})</span></a>'
+    return out
+
+
+def _warranty_remaining_cell(r):
+    st = r["status"]
+    rem = r["remaining"]
+    manual = " <span class='text-muted' style='font-size:.72rem;'>(manual)</span>" if r["manual"] else ""
+    if st == "unlimited":
+        return f"<span style='color:#2563eb;'>&#9854; tanpa batas</span>{manual}"
+    if st == "expired":
+        return f"<span style='color:#dc2626;'>&#128308; habis ({abs(rem)} hari lalu)</span>{manual}"
+    color = "#d97706" if st == "soon" else "#16a34a"
+    dot = "&#128993;" if st == "soon" else "&#128994;"
+    return f"<span style='color:{color};'>{dot} {rem} hari lagi</span>{manual}"
+
+
+@insights_bp.route("/warranty")
+def page_warranty():
+    g = _guard()
+    if g:
+        return g
+    from admin import render_page  # lazy import (hindari circular)
+
+    valid_status = {"soon", "active", "expired", "unlimited"}
+    status = (request.args.get("status") or "").strip()
+    if status not in valid_status:
+        status = ""
+
+    counts = warranty_monitor.summary()
+    rows = warranty_monitor.list_warranties(status=status or None)
+
+    cards = (
+        f'<div class="stat-card green"><div class="stat-label">Garansi Aktif</div>'
+        f'<div class="stat-value">{counts["active"]}</div>'
+        f'<div class="stat-sub">masih berjalan</div></div>'
+        f'<div class="stat-card gold"><div class="stat-label">Akan Habis</div>'
+        f'<div class="stat-value">{counts["soon"]}</div>'
+        f'<div class="stat-sub">&le; {warranty_monitor.SOON_DAYS} hari lagi</div></div>'
+        f'<div class="stat-card ml"><div class="stat-label">Tanpa Batas</div>'
+        f'<div class="stat-value">{counts["unlimited"]}</div>'
+        f'<div class="stat-sub">durasi tak terbaca</div></div>'
+        f'<div class="stat-card robux"><div class="stat-label">Sudah Habis</div>'
+        f'<div class="stat-value">{counts["expired"]}</div>'
+        f'<div class="stat-sub">garansi berakhir</div></div>'
+    )
+
+    nm = member_names.name_map([r["user_id"] for r in rows])
+    body = ""
+    for r in rows:
+        rt = (r["rated_at"] or "")[:10] or "-"
+        rr = max(0, min(5, int(r["rating"] or 0)))
+        stars = "★" * rr + "☆" * (5 - rr)
+        lab = LAYANAN_LABEL.get(r["layanan"], (r["layanan"] or "-").title())
+        body += (
+            f"<tr><td>{_who(r['user_id'], nm)}</td>"
+            f"<td>{_esc(r['item'] or '-')}</td>"
+            f"<td><span class='badge badge-ml'>{_esc(lab)}</span></td>"
+            f"<td>{_rupiah(r['nominal'])}</td>"
+            f"<td title='{rr}/5'>{stars}</td>"
+            f"<td>{_esc(rt)}</td>"
+            f"<td>{_warranty_remaining_cell(r)}</td></tr>"
+        )
+    if not body:
+        body = "<tr><td colspan='7' class='empty'>Tidak ada garansi pada filter ini.</td></tr>"
+
+    content = f"""
+<div class="page-header">
+  <div class="page-title">Monitor Garansi <small>Status &amp; sisa masa garansi pembelian</small></div>
+  <div class="page-actions"><a class="btn btn-ghost" href="/warranty-editor">Edit teks garansi</a></div>
+</div>
+<div class="stats-grid">{cards}</div>
+<div class="card"><div class="card-body" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+  <span class="text-muted" style="font-size:.85rem;">Filter:</span>{_warranty_status_tabs(status, counts)}
+</div></div>
+<div class="card">
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Member</th><th>Item</th><th>Layanan</th><th>Nominal</th><th>Rating</th><th>Diaktifkan</th><th>Sisa Garansi</th></tr></thead>
+      <tbody>{body}</tbody>
+    </table>
+  </div>
+  <div class="card-body"><span class="text-muted">Garansi dihitung sejak member memberi rating. Durasi: override manual &gt; durasi langganan dari nama item &gt; default {warranty_monitor._resolve_default_days()} hari.</span></div>
+</div>"""
+    return render_page(content)
 
 
 @insights_bp.route("/admins")

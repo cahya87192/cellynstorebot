@@ -428,6 +428,7 @@ var CMD_ITEMS=[
   {t:'QRIS',u:'/qr'},{t:'Statistik',u:'/stats'},{t:'Analitik',u:'/analytics'},{t:'Transaksi',u:'/transactions'},
   {t:'Tiket Aktif',u:'/tickets'},{t:'Performa Admin',u:'/admins'},
   {t:'Pelanggan',u:'/customers'},
+  {t:'Monitor Garansi',u:'/warranty'},
   {t:'Editor Profil',u:'/profil-theme'},{t:'Editor Badge',u:'/badge-theme'},
   {t:'Thumbnail Katalog',u:'/catalog-thumbnails'},
   {t:'Emoji Katalog',u:'/lainnya/emoji'},
@@ -537,6 +538,7 @@ def render_page(content, **ctx):
     {_a("Tiket Aktif", "/tickets", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/></svg>', "insights_bp.page_tickets")}
     {_a("Performa Admin", "/admins", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>', "insights_bp.page_admins")}
     {_a("Pelanggan", "/customers", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', "insights_bp.page_customers")}
+    {_a("Monitor Garansi", "/warranty", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>', "insights_bp.page_warranty")}
     {_a("Editor Profil", "/profil-theme", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>', "theme_bp.page_theme")}
     {_a("Editor Badge", "/badge-theme", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="6"/><path d="M8.5 13.5L7 22l5-3 5 3-1.5-8.5"/></svg>', "badge_theme_bp.page_theme")}
     {_a("Thumbnail Katalog", "/catalog-thumbnails", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>', "catalog_thumb_bp.page")}

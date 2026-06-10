@@ -494,6 +494,42 @@ def get_warranty_transactions(user_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_all_warranty_transactions(limit: int = None) -> list[dict]:
+    """Semua transaksi BERGARANSI (rated/published) lintas member, terbaru dulu.
+
+    Versi lintas-member dari get_warranty_transactions (yang per-user) — dipakai
+    halaman Monitor Garansi di admin panel. Tiap baris menyertakan `user_id`.
+    Best-effort: bila tabel reviews belum ada (bot belum pernah jalan), return [].
+    """
+    try:
+        conn = get_conn()
+    except Exception:
+        return []
+    try:
+        c = conn.cursor()
+        placeholders = ",".join("?" for _ in WARRANTY_VALID_STATUSES)
+        sql = (
+            "SELECT r.tx_id AS tx_id, r.user_id AS user_id, r.layanan AS layanan, "
+            "r.item AS item, r.nominal AS nominal, r.rating AS rating, "
+            "r.rated_at AS rated_at, r.warranty_days AS warranty_days, "
+            "t.closed_at AS closed_at "
+            "FROM reviews r LEFT JOIN transaction_log t ON t.id = r.tx_id "
+            f"WHERE r.status IN ({placeholders}) "
+            "ORDER BY r.rated_at DESC, r.id DESC"
+        )
+        params = list(WARRANTY_VALID_STATUSES)
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        c.execute(sql, params)
+        rows = c.fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+    finally:
+        conn.close()
+
+
 def has_valid_warranty(user_id: int) -> bool:
     """True bila member punya minimal satu transaksi yang bergaransi (sudah rating)."""
     conn = get_conn()
