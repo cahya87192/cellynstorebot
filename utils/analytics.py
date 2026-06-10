@@ -66,6 +66,84 @@ def omzet_by_layanan(days=30):
     return [{"layanan": r["layanan"], "tx": r["tx"] or 0, "omzet": r["omzet"] or 0} for r in rows]
 
 
+def _pct_change(old, new):
+    """Persentase perubahan dari `old` ke `new` (1 desimal).
+
+    Return None bila tidak ada baseline (old == 0) -> caller menampilkan
+    "baru"/"-" karena pertumbuhan tak terdefinisi.
+    """
+    if not old:
+        return None
+    return round((new - old) / old * 100, 1)
+
+
+def period_comparison(days=30):
+    """Bandingkan `days` hari terakhir dengan `days` hari sebelumnya.
+
+    Window saat ini: N hari terakhir (termasuk hari ini).
+    Window sebelumnya: N hari tepat sebelum window saat ini.
+
+    Return dict {days, current, previous, omzet_delta, omzet_pct,
+    tx_delta, tx_pct} dengan current/previous = {tx, omzet}.
+    """
+    from utils.db import get_conn
+    n = int(days)
+    conn = get_conn()
+    try:
+        cur = conn.execute(
+            "SELECT COUNT(*) AS tx, COALESCE(SUM(nominal),0) AS omzet "
+            "FROM transaction_log WHERE closed_at >= date('now', ?)",
+            [f"-{n - 1} days"],
+        ).fetchone()
+        prev = conn.execute(
+            "SELECT COUNT(*) AS tx, COALESCE(SUM(nominal),0) AS omzet "
+            "FROM transaction_log "
+            "WHERE closed_at >= date('now', ?) AND closed_at < date('now', ?)",
+            [f"-{2 * n - 1} days", f"-{n - 1} days"],
+        ).fetchone()
+    finally:
+        conn.close()
+    current = {"tx": cur["tx"] or 0, "omzet": cur["omzet"] or 0}
+    previous = {"tx": prev["tx"] or 0, "omzet": prev["omzet"] or 0}
+    return {
+        "days": n,
+        "current": current,
+        "previous": previous,
+        "omzet_delta": current["omzet"] - previous["omzet"],
+        "omzet_pct": _pct_change(previous["omzet"], current["omzet"]),
+        "tx_delta": current["tx"] - previous["tx"],
+        "tx_pct": _pct_change(previous["tx"], current["tx"]),
+    }
+
+
+def top_customers(days=30, limit=10):
+    """Pelanggan dengan belanja terbesar (urut omzet desc) untuk `days` terakhir.
+
+    Return list of dict {user_id, orders, omzet}. Baris tanpa user_id diabaikan.
+    """
+    from utils.db import get_conn
+    clause, params = _period_clause(days)
+    # Hanya baris yang punya user_id.
+    if clause:
+        clause += " AND user_id IS NOT NULL"
+    else:
+        clause = " WHERE user_id IS NOT NULL"
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            f"SELECT user_id, COUNT(*) AS orders, COALESCE(SUM(nominal),0) AS omzet "
+            f"FROM transaction_log{clause} GROUP BY user_id "
+            f"ORDER BY omzet DESC, orders DESC LIMIT ?",
+            params + [int(limit)],
+        ).fetchall()
+    finally:
+        conn.close()
+    return [
+        {"user_id": r["user_id"], "orders": r["orders"] or 0, "omzet": r["omzet"] or 0}
+        for r in rows
+    ]
+
+
 def top_items(days=30, limit=10):
     """Item paling laku (urut jumlah order desc) untuk `days` terakhir.
 
