@@ -82,3 +82,84 @@ def test_top_items_limit(db):
     for i in range(8):
         _ins(db, "ml", 1000, f"item{i}", days_ago=0)
     assert len(analytics.top_items(days=30, limit=3)) == 3
+
+
+
+def _ins_user(db, layanan, nominal, user_id, days_ago=0):
+    """Sisipkan transaction_log dgn user_id, closed_at `days_ago` hari lalu."""
+    closed = (datetime.datetime.now(datetime.timezone.utc)
+              - datetime.timedelta(days=days_ago)).isoformat()
+    conn = db.get_conn()
+    conn.execute(
+        "INSERT INTO transaction_log (layanan, nominal, user_id, closed_at) "
+        "VALUES (?,?,?,?)",
+        (layanan, nominal, user_id, closed),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_pct_change():
+    assert analytics._pct_change(0, 0) is None
+    assert analytics._pct_change(0, 100) is None  # tanpa baseline
+    assert analytics._pct_change(100, 150) == 50.0
+    assert analytics._pct_change(100, 50) == -50.0
+    assert analytics._pct_change(100, 100) == 0.0
+
+
+def test_period_comparison_empty(db):
+    c = analytics.period_comparison(days=30)
+    assert c["days"] == 30
+    assert c["current"] == {"tx": 0, "omzet": 0}
+    assert c["previous"] == {"tx": 0, "omzet": 0}
+    assert c["omzet_pct"] is None and c["tx_pct"] is None
+    assert c["omzet_delta"] == 0 and c["tx_delta"] == 0
+
+
+def test_period_comparison_windows(db):
+    # Window saat ini (0..29 hari lalu)
+    _ins(db, "ml", 100000, "a", days_ago=1)
+    _ins(db, "ml", 50000, "b", days_ago=10)
+    # Window sebelumnya (30..59 hari lalu)
+    _ins(db, "robux", 60000, "c", days_ago=35)
+    # Lebih tua dari kedua window -> diabaikan
+    _ins(db, "gp", 999999, "old", days_ago=120)
+
+    c = analytics.period_comparison(days=30)
+    assert c["current"] == {"tx": 2, "omzet": 150000}
+    assert c["previous"] == {"tx": 1, "omzet": 60000}
+    assert c["omzet_delta"] == 90000
+    assert c["omzet_pct"] == 150.0
+    assert c["tx_delta"] == 1
+    assert c["tx_pct"] == 100.0
+
+
+def test_top_customers_sorted(db):
+    _ins_user(db, "ml", 50000, 111, days_ago=1)
+    _ins_user(db, "ml", 30000, 111, days_ago=2)   # user 111 total 80000, 2 order
+    _ins_user(db, "robux", 100000, 222, days_ago=1)  # user 222 total 100000, 1 order
+    res = analytics.top_customers(days=30, limit=10)
+    assert res[0]["user_id"] == 222 and res[0]["omzet"] == 100000
+    u111 = next(r for r in res if r["user_id"] == 111)
+    assert u111["orders"] == 2 and u111["omzet"] == 80000
+
+
+def test_top_customers_excludes_old_and_limit(db):
+    _ins_user(db, "ml", 10000, 1, days_ago=1)
+    _ins_user(db, "ml", 20000, 2, days_ago=2)
+    _ins_user(db, "ml", 30000, 3, days_ago=3)
+    _ins_user(db, "gp", 99000, 9, days_ago=60)  # di luar 30 hari
+    res = analytics.top_customers(days=30, limit=2)
+    assert len(res) == 2
+    ids = {r["user_id"] for r in res}
+    assert 9 not in ids
+    # all-time mencakup user lama
+    res_all = analytics.top_customers(days=None, limit=10)
+    assert 9 in {r["user_id"] for r in res_all}
+
+
+def test_top_customers_ignores_null_user(db):
+    _ins(db, "ml", 10000, "no-user", days_ago=0)  # user_id NULL
+    _ins_user(db, "ml", 20000, 42, days_ago=0)
+    res = analytics.top_customers(days=30)
+    assert [r["user_id"] for r in res] == [42]

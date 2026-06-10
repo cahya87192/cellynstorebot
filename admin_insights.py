@@ -406,8 +406,22 @@ def page_analytics():
     from admin import render_page
 
     summary = analytics.period_summary()
+    comp = analytics.period_comparison(days=30)
     per_layanan = analytics.omzet_by_layanan(days=30)
     items = analytics.top_items(days=30, limit=10)
+    customers = analytics.top_customers(days=30, limit=10)
+
+    def _trend(pct):
+        """Badge tren persen: hijau naik, merah turun, abu untuk baru/datar."""
+        if pct is None:
+            return "<span class='text-muted' style='font-size:.78rem;'>baru</span>"
+        if pct > 0:
+            return (f"<span style='color:#16a34a;font-size:.78rem;font-weight:600;'>"
+                    f"&#9650; {pct:g}%</span>")
+        if pct < 0:
+            return (f"<span style='color:#dc2626;font-size:.78rem;font-weight:600;'>"
+                    f"&#9660; {abs(pct):g}%</span>")
+        return "<span class='text-muted' style='font-size:.78rem;'>0%</span>"
 
     def _card(cls, label, p, sub):
         return (f'<div class="stat-card {cls}"><div class="stat-label">{label}</div>'
@@ -420,6 +434,34 @@ def page_analytics():
         + _card("ml", "30 Hari", summary["d30"], "bulan ini")
         + _card("robux", "Sepanjang Waktu", summary["all"], "total")
     )
+
+    # Kartu pertumbuhan: 30 hari ini vs 30 hari sebelumnya.
+    growth = f"""
+<div class="card">
+  <div class="card-header"><span class="card-title">Pertumbuhan (30 hari vs 30 hari sebelumnya)</span></div>
+  <div class="card-body" style="display:flex;gap:2rem;flex-wrap:wrap;">
+    <div>
+      <div class="stat-label">Omzet</div>
+      <div class="stat-value" style="font-size:1.3rem;">{_rupiah(comp['current']['omzet'])} {_trend(comp['omzet_pct'])}</div>
+      <div class="stat-sub">sebelumnya {_rupiah(comp['previous']['omzet'])}</div>
+    </div>
+    <div>
+      <div class="stat-label">Transaksi</div>
+      <div class="stat-value" style="font-size:1.3rem;">{comp['current']['tx']} {_trend(comp['tx_pct'])}</div>
+      <div class="stat-sub">sebelumnya {comp['previous']['tx']}</div>
+    </div>
+  </div>
+</div>"""
+
+    # Tabel pelanggan teratas (30 hari) — pakai cache nama (member_names).
+    nm_cust = member_names.name_map([c["user_id"] for c in customers])
+    cust_rows = ""
+    for i, c in enumerate(customers, 1):
+        medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(i, f"#{i}")
+        cust_rows += (f"<tr><td>{medal}</td><td>{_who(c['user_id'], nm_cust)}</td>"
+                      f"<td>{c['orders']}</td><td>{_rupiah(c['omzet'])}</td></tr>")
+    if not cust_rows:
+        cust_rows = "<tr><td colspan='4' class='empty'>Belum ada pelanggan.</td></tr>"
 
     # Bar chart omzet per layanan (30 hari).
     chart_labels = [LAYANAN_LABEL.get(r["layanan"], (r["layanan"] or "-").title()) for r in per_layanan]
@@ -447,6 +489,7 @@ def page_analytics():
   <div class="page-actions"><a class="btn btn-ghost" href="/transactions">Lihat transaksi</a></div>
 </div>
 <div class="stats-grid">{cards}</div>
+{growth}
 <div class="card">
   <div class="card-header"><span class="card-title">Omzet per Layanan (30 hari)</span></div>
   <div class="card-body"><canvas id="layChart" height="100"></canvas></div>
@@ -456,6 +499,13 @@ def page_analytics():
   <div class="table-wrapper">
     <table><thead><tr><th>Layanan</th><th>Transaksi</th><th>Omzet</th></tr></thead>
     <tbody>{lay_rows}</tbody></table>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="card-title">Pelanggan Teratas (30 hari)</span></div>
+  <div class="table-wrapper">
+    <table><thead><tr><th>#</th><th>Pelanggan</th><th>Order</th><th>Total Belanja</th></tr></thead>
+    <tbody>{cust_rows}</tbody></table>
   </div>
 </div>
 <div class="card">
