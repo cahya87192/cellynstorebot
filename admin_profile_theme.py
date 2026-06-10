@@ -361,6 +361,10 @@ function renderControls(){{
     h+='<div class="form-group"><label>Tebal</label><select onchange="theme.elements[\\''+k+'\\'].bold=(this.value==\\'1\\');markDirty();"><option value="1"'+(el.bold?' selected':'')+'>Bold</option><option value="0"'+(!el.bold?' selected':'')+'>Normal</option></select></div>';
   }} else if(el.type==='avatar'){{
     h+='<div class="form-group"><label>Ukuran: '+el.size+'</label><input type="range" min="32" max="300" value="'+el.size+'" oninput="theme.elements[\\''+k+'\\'].size=+this.value;renderBoxes();markDirty();"></div>';
+    h+='<div class="form-group"><label>Warna Bingkai (ring)</label>';
+    h+='<label style="display:flex;align-items:center;gap:.4rem;font-weight:400;margin:.35rem 0;"><input type="checkbox" '+(el.ring_color?'':'checked')+' style="width:auto;" onchange="theme.elements[\\''+k+'\\'].ring_color=this.checked?null:\\'#F0C85A\\';renderControls();markDirty();"> Otomatis (warna tier)</label>';
+    h+=(el.ring_color?'<input type="color" value="'+el.ring_color+'" oninput="theme.elements[\\''+k+'\\'].ring_color=this.value;markDirty();">':'');
+    h+='</div>';
   }} else if(el.type==='bar'){{
     h+='<div class="form-group"><label>Lebar: '+el.w+'</label><input type="range" min="50" max="'+CARD_W+'" value="'+el.w+'" oninput="theme.elements[\\''+k+'\\'].w=+this.value;markDirty();"></div>';
     h+='<div class="form-group"><label>Tinggi: '+el.h+'</label><input type="range" min="6" max="80" value="'+el.h+'" oninput="theme.elements[\\''+k+'\\'].h=+this.value;markDirty();"></div>';

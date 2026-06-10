@@ -191,12 +191,13 @@ def render_profile_card(name: str, avatar_bytes, data: dict, *,
         except Exception:
             return fallback
 
-    # Avatar bulat + ring aksen.
+    # Avatar bulat + ring (warna tier otomatis, atau kustom bila diatur admin).
     av = el["avatar"]
     if av.get("show", True):
+        ring = themelib.hex_to_rgb(av["ring_color"]) if av.get("ring_color") else accent
         av_size = int(av["size"])
         ax, ay = int(av["x"]), int(av["y"])
-        d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=accent + (255,))
+        d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=ring + (255,))
         if avatar_bytes:
             try:
                 im = Image.open(io.BytesIO(avatar_bytes))
@@ -359,12 +360,13 @@ def render_achievement_card(name: str, avatar_bytes, badge_names, tier: str = "B
     card = Image.alpha_composite(card, panel)
     d = ImageDraw.Draw(card)
 
-    # Avatar bulat + ring aksen.
+    # Avatar bulat + ring (warna tier otomatis, atau kustom bila diatur admin).
     av = el["avatar"]
     if av.get("show", True):
+        ring = achthemelib.hex_to_rgb(av["ring_color"]) if av.get("ring_color") else accent
         av_size = int(av["size"])
         ax, ay = int(av["x"]), int(av["y"])
-        d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=accent + (255,))
+        d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=ring + (255,))
         if avatar_bytes:
             try:
                 im = Image.open(io.BytesIO(avatar_bytes))
