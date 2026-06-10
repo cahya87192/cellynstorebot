@@ -104,6 +104,9 @@ def build_catalog_embed(rate: int) -> discord.Embed:
     _thumb = catalog_settings.get_thumbnail("gp")
     if _thumb:
         embed.set_thumbnail(url=_thumb)
+    _banner = catalog_settings.get_banner("gp")
+    if _banner:
+        embed.set_image(url=_banner)
     embed.set_footer(text=gptext.render_text("catalog_footer", store=STORE_NAME))
     return embed
 

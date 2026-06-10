@@ -1,9 +1,10 @@
-"""Pengaturan katalog (thumbnail per katalog) — logika murni, tanpa discord/PIL.
+"""Pengaturan katalog (thumbnail & banner per katalog) — logika murni.
 
-Menyimpan URL thumbnail/gambar kecil untuk tiap embed katalog produk
-(robux, ml, gp, vilog, lainnya) sehingga bisa diatur admin lewat panel.
-Data disimpan sebagai JSON di tabel `bot_state` (key `catalog_thumbnails`),
-dibagikan antara bot (discord) & admin panel (Flask).
+Menyimpan URL thumbnail (gambar kecil) dan banner (gambar besar/embed.set_image)
+untuk tiap embed katalog produk (robux, ml, gp, vilog, lainnya) sehingga bisa
+diatur admin lewat panel. Data disimpan sebagai JSON di tabel `bot_state`
+(key `catalog_thumbnails` & `catalog_banners`), dibagikan antara bot (discord)
+& admin panel (Flask).
 
 Catatan: katalog "ml" adalah embed gabungan "Topup Diamond Game" yang juga
 mencakup Free Fire (FF) & WDP — ketiganya satu embed, jadi memakai key "ml".
@@ -16,9 +17,13 @@ import json
 from utils.db import get_conn
 
 THUMB_KEY = "catalog_thumbnails"
+# Banner = gambar besar (embed.set_image) di bawah konten katalog. Opsional;
+# tidak ada default (kosong = tidak menampilkan banner).
+BANNER_KEY = "catalog_banners"
 
 # Thumbnail default (logo toko de-facto yang dipakai berulang di repo).
 DEFAULT_THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
+DEFAULT_BANNER = ""  # banner bersifat opsional -> default kosong
 
 # Registry katalog yang punya embed & bisa diatur thumbnailnya.
 # (code, label tampilan di panel)
@@ -116,3 +121,43 @@ def save_settings(raw) -> dict:
 def get_thumbnail(code) -> str:
     """Helper untuk cog: URL thumbnail katalog `code` (fallback default)."""
     return resolve_thumbnail(load_settings(), code)
+
+
+# ── Banner (gambar besar / embed.set_image) ────────────────────────────────────
+def resolve_banner(settings, code) -> str:
+    """Ambil URL banner untuk `code` dari dict settings. Banner opsional, jadi
+    fallback-nya string kosong (tidak menampilkan banner)."""
+    if isinstance(settings, dict):
+        url = settings.get(code)
+        if isinstance(url, str) and url.strip():
+            return url.strip()
+    return DEFAULT_BANNER
+
+
+def load_banners() -> dict:
+    """Baca {code: url} banner dari bot_state (atau dict kosong)."""
+    conn = get_conn()
+    try:
+        row = conn.execute("SELECT value FROM bot_state WHERE key=?", (BANNER_KEY,)).fetchone()
+    except Exception:
+        row = None
+    conn.close()
+    return merge_settings(row["value"] if row else None)
+
+
+def save_banners(raw) -> dict:
+    """Validasi + simpan {code: url} banner ke bot_state. Mengembalikan dict final."""
+    settings = merge_settings(raw)
+    conn = get_conn()
+    conn.execute(
+        "INSERT OR REPLACE INTO bot_state (key, value) VALUES (?,?)",
+        (BANNER_KEY, json.dumps(settings)),
+    )
+    conn.commit()
+    conn.close()
+    return settings
+
+
+def get_banner(code) -> str:
+    """Helper untuk cog: URL banner katalog `code` (string kosong bila tak diset)."""
+    return resolve_banner(load_banners(), code)
