@@ -2100,6 +2100,11 @@ def page_qr():
     slots = conn.execute("SELECT * FROM qr_slots ORDER BY slot").fetchall()
     conn.close()
 
+    from utils import qris as qris_util
+    cur_payload = qris_util.load_payload() or ""
+    payload_valid = qris_util.is_valid(cur_payload) if cur_payload else False
+    preview_url = qris_util.dynamic_image_url(25000, size=200) if payload_valid else ""
+
     def _js(s):
         s = s or ""
         return s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "")
@@ -2125,6 +2130,34 @@ def page_qr():
     content = f"""
 <div class="page-header">
   <div class="page-title">QRIS Slots <small>!qr1 — !qr{len(slots)}</small></div>
+</div>
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">QRIS Dinamis <small style="font-weight:500;color:var(--muted)">nominal otomatis tertanam</small></span>
+    <span style="font-size:.8rem;font-weight:600;color:{'var(--success)' if payload_valid else ('var(--danger)' if cur_payload else 'var(--muted)')}">{'Aktif &amp; valid' if payload_valid else ('Payload tidak valid' if cur_payload else 'Belum diset')}</span>
+  </div>
+  <div class="card-body">
+    <p style="color:var(--muted);font-size:.86rem;margin-bottom:.8rem;line-height:1.5">
+      Tempel <b>string payload QRIS statis</b> dari penyedia (mulai dengan <code>0002…</code>, yang biasanya jadi isi QR Code-mu).
+      Bot akan otomatis menyisipkan nominal tiap transaksi Robux, sehingga pembeli tinggal <b>scan &amp; bayar</b> tanpa mengetik jumlah (mengurangi salah nominal).
+    </p>
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start">
+      <form method="post" action="/qr/payload" style="flex:1;min-width:280px">
+        <div class="form-group">
+          <label>Payload QRIS</label>
+          <textarea name="payload" rows="4" placeholder="00020101021126..." style="font-family:monospace;font-size:.8rem">{_h(cur_payload)}</textarea>
+          <small style="color:var(--muted)">Dapatkan dari merchant QRIS / penyedia pembayaranmu. CRC akan divalidasi otomatis saat disimpan.</small>
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:.8rem;align-items:center">
+          <button type="submit" class="btn btn-primary">Simpan &amp; Validasi</button>
+        </div>
+      </form>
+      <div style="text-align:center">
+        {('<div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem">Pratinjau (Rp 25.000)</div><img src="'+_h(preview_url)+'" style="width:170px;height:170px;border-radius:12px;background:#fff;padding:6px">') if preview_url else '<div style="font-size:.8rem;color:var(--muted);max-width:200px">Pratinjau QR dinamis muncul di sini setelah payload valid disimpan.</div>'}
+        {('<form method="post" action="/qr/payload/clear" style="margin-top:.6rem"><button class="btn btn-ghost btn-sm">Hapus payload</button></form>') if cur_payload else ''}
+      </div>
+    </div>
+  </div>
 </div>
 <div class="card"><table>
   <thead><tr><th>Command</th><th>Label</th><th>Detail</th><th>URL Gambar</th><th>Preview</th><th>Status</th><th>Aksi</th></tr></thead>
@@ -2188,6 +2221,32 @@ def qr_toggle(slot):
     conn.commit()
     conn.close()
     flash(f"Status slot !qr{slot} diubah.", "success")
+    return redirect(url_for("page_qr"))
+
+
+@app.route("/qr/payload", methods=["POST"])
+@login_required
+def qr_payload_save():
+    from utils import qris as q
+    payload = (request.form.get("payload") or "").strip()
+    if not payload:
+        q.clear_payload()
+        flash("QRIS dinamis dikosongkan.", "success")
+        return redirect(url_for("page_qr"))
+    if not q.is_valid(payload):
+        flash("Payload QRIS tidak valid (format/CRC tidak cocok). Salin string lengkap dari penyedia.", "error")
+        return redirect(url_for("page_qr"))
+    q.save_payload(payload)
+    flash("QRIS dinamis tersimpan & tervalidasi. Pembayaran kini menampilkan nominal otomatis.", "success")
+    return redirect(url_for("page_qr"))
+
+
+@app.route("/qr/payload/clear", methods=["POST"])
+@login_required
+def qr_payload_clear():
+    from utils import qris as q
+    q.clear_payload()
+    flash("QRIS dinamis dihapus.", "success")
     return redirect(url_for("page_qr"))
 
 

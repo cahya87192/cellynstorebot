@@ -33,22 +33,37 @@ async def send_qris_payment(channel, ticket: dict):
 
     Dipakai saat tiket dibuat — pembayaran kini QRIS otomatis (tanpa pilih 1/2/3).
     """
+    # QRIS dinamis (nominal otomatis tertanam) bila payload sudah diset di panel.
+    from utils import qris as qris_util
     qris_url = None
+    is_dynamic = False
     try:
-        conn = get_conn()
-        c = conn.cursor()
-        c.execute("SELECT value FROM settings WHERE key = 'qris_url'")
-        row = c.fetchone()
-        conn.close()
-        if row:
-            qris_url = row["value"]
+        qris_url = qris_util.dynamic_image_url(ticket["total"])
+        is_dynamic = qris_url is not None
     except Exception:
-        pass
+        qris_url = None
+    if not qris_url:
+        # fallback: gambar QRIS statis lama (bila ada di settings)
+        try:
+            conn = get_conn()
+            c = conn.cursor()
+            c.execute("SELECT value FROM settings WHERE key = 'qris_url'")
+            row = c.fetchone()
+            conn.close()
+            if row:
+                qris_url = row["value"]
+        except Exception:
+            pass
 
+    nominal_note = (
+        "Nominal sudah otomatis tertera di QR — tinggal scan & bayar."
+        if is_dynamic else
+        "Scan QR Code di bawah, lalu masukkan nominal sesuai total."
+    )
     embed = discord.Embed(
         title="QRIS PAYMENT",
         description=(
-            f"Scan QR Code di bawah untuk membayar.\n\n"
+            f"{nominal_note}\n\n"
             f"Item: **{ticket['item_name']}**\n"
             f"Rate: **Rp {ticket['rate']:,}/Robux**\n"
             f"Total: **Rp {ticket['total']:,}**\n\n"
