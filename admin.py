@@ -463,6 +463,43 @@ tbody tr:hover td{background:var(--accent-soft);}
 /* Modal + command palette — glass */
 .modal{border-radius:18px;box-shadow:var(--shadow-lg);}
 #cmdPalette .modal{background:var(--glass-strong);-webkit-backdrop-filter:blur(20px) saturate(160%);backdrop-filter:blur(20px) saturate(160%);border:1px solid var(--glass-border);}
+
+/* Kartu konten jadi frosted glass (tetap legibel: opasitas tinggi + blur) */
+.card,.stat-card,.qa-card{
+  background:var(--glass-strong);
+  -webkit-backdrop-filter:blur(16px) saturate(150%);backdrop-filter:blur(16px) saturate(150%);
+  border:1px solid var(--glass-border);
+}
+.card-header{border-bottom-color:var(--glass-border);}
+th{background:transparent;}
+.table-wrapper thead th{background:var(--surface2);}
+
+/* ── Animasi transisi halaman (masuk & keluar) ─────────────────────────── */
+@media (prefers-reduced-motion: no-preference){
+  @keyframes pageFade{from{opacity:0}to{opacity:1}}
+  @keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+  .content{animation:pageFade .3s ease both;}
+  /* reveal bertahap tiap blok teratas di halaman */
+  .content > *{animation:cardIn .44s cubic-bezier(.22,.61,.36,1) both;}
+  .content > *:nth-child(1){animation-delay:.02s}
+  .content > *:nth-child(2){animation-delay:.07s}
+  .content > *:nth-child(3){animation-delay:.12s}
+  .content > *:nth-child(4){animation-delay:.17s}
+  .content > *:nth-child(5){animation-delay:.22s}
+  .content > *:nth-child(6){animation-delay:.27s}
+  .content > *:nth-child(7){animation-delay:.32s}
+  .content > *:nth-child(8){animation-delay:.37s}
+  .content > *:nth-child(n+9){animation-delay:.4s}
+  /* reveal bertahap kartu statistik di dalam grid */
+  .stats-grid > *,.stat-grid > *,.qa-grid > *{animation:cardIn .5s cubic-bezier(.22,.61,.36,1) both;}
+  .stats-grid > *:nth-child(2),.stat-grid > *:nth-child(2),.qa-grid > *:nth-child(2){animation-delay:.06s}
+  .stats-grid > *:nth-child(3),.stat-grid > *:nth-child(3),.qa-grid > *:nth-child(3){animation-delay:.12s}
+  .stats-grid > *:nth-child(4),.stat-grid > *:nth-child(4),.qa-grid > *:nth-child(4){animation-delay:.18s}
+  .stats-grid > *:nth-child(5),.stat-grid > *:nth-child(5),.qa-grid > *:nth-child(5){animation-delay:.24s}
+  .stats-grid > *:nth-child(n+6),.stat-grid > *:nth-child(n+6),.qa-grid > *:nth-child(n+6){animation-delay:.3s}
+  /* keluar halaman: konten meredup & naik sedikit sebelum pindah */
+  body.is-leaving .content{opacity:0;transform:translateY(-8px);transition:opacity .17s ease,transform .17s ease;animation:none;}
+}
 </style>
 </head>
 <body>
@@ -606,6 +643,30 @@ document.addEventListener('keydown',function(e){
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette();}
   if(e.key==='Escape'){closePalette();}
 });
+</script>
+<!-- Transisi halaman (fade-out saat pindah, fade-in saat tiba) -->
+<script>
+(function(){
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  window.addEventListener('pageshow',function(){document.body.classList.remove('is-leaving');});
+  if(reduce) return;
+  document.addEventListener('click',function(e){
+    if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey) return;
+    var a=e.target.closest?e.target.closest('a'):null;
+    if(!a) return;
+    var href=a.getAttribute('href');
+    if(!href||a.hasAttribute('download')) return;
+    if(a.target&&a.target!=='_self') return;
+    if(href.charAt(0)==='#'||/^(javascript|mailto|tel):/i.test(href)) return;
+    var url;
+    try{url=new URL(href,location.href);}catch(_){return;}
+    if(url.origin!==location.origin) return;
+    if(url.pathname===location.pathname&&url.search===location.search) return;
+    e.preventDefault();
+    document.body.classList.add('is-leaving');
+    setTimeout(function(){location.href=url.href;},170);
+  });
+})();
 </script>
 </body>
 </html>"""
