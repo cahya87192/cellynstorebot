@@ -33,6 +33,7 @@ CATALOGS = [
     ("gp",      "Robux via Gamepass"),
     ("vilog",   "Robux via Login (Vilog)"),
     ("lainnya", "Layanan Lainnya"),
+    ("midman",  "Midman Trade"),
 ]
 CATALOG_CODES = {code for code, _ in CATALOGS}
 
