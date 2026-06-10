@@ -164,6 +164,37 @@ def _build_tx_filters(args):
 
 
 
+def _insights_tabs(active):
+    """Sub-navigasi (tab) bersama untuk seluruh halaman Insights, agar
+    Analitik/Transaksi/Pelanggan/Garansi/Admin/Tiket terasa satu bagian."""
+    style = (
+        "<style>"
+        ".insights-tabs{display:flex;gap:.3rem;flex-wrap:wrap;margin:-.2rem 0 1.4rem;"
+        "padding-bottom:.6rem;border-bottom:1px solid var(--border);overflow-x:auto;}"
+        ".ins-tab{display:inline-flex;align-items:center;white-space:nowrap;padding:.45rem .85rem;"
+        "border-radius:9px;font-size:.83rem;font-weight:600;color:var(--muted2);text-decoration:none;"
+        "border:1px solid transparent;transition:background .15s,color .15s,border-color .15s;}"
+        ".ins-tab:hover{background:var(--surface2);color:var(--text);}"
+        ".ins-tab.active{background:var(--accent-soft);color:var(--accent);border-color:var(--glass-border);}"
+        ".ins-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.15rem;}"
+        ".ins-grid2>.card{margin-bottom:0;}"
+        "</style>"
+    )
+    tabs = [
+        ("analytics", "Analitik", "/analytics"),
+        ("transactions", "Transaksi", "/transactions"),
+        ("customers", "Pelanggan", "/customers"),
+        ("warranty", "Garansi", "/warranty"),
+        ("admins", "Admin", "/admins"),
+        ("tickets", "Tiket", "/tickets"),
+    ]
+    links = "".join(
+        f'<a class="{"ins-tab active" if k == active else "ins-tab"}" href="{href}">{label}</a>'
+        for k, label, href in tabs
+    )
+    return f'{style}<div class="insights-tabs">{links}</div>'
+
+
 @insights_bp.route("/transactions")
 def page_transactions():
     g = _guard()
@@ -223,6 +254,7 @@ def page_transactions():
     <a class="btn btn-ghost" href="/transactions/export.csv{export_qs}">{ICONS.get('money','')} Export CSV</a>
   </div>
 </div>
+{_insights_tabs('transactions')}
 <div class="card">
   <div class="card-body">
     <form method="get" action="/transactions" class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end;">
@@ -346,6 +378,7 @@ def page_customers():
   <div class="page-title">Pelanggan <small>Direktori pelanggan &amp; riwayat belanja</small></div>
   <div class="page-actions"><a class="btn btn-ghost" href="/analytics">Lihat analitik</a></div>
 </div>
+{_insights_tabs('customers')}
 <div class="stats-grid">{cards}</div>
 <div class="card">
   <div class="card-body">
@@ -453,6 +486,7 @@ def page_warranty():
   <div class="page-title">Monitor Garansi <small>Status &amp; sisa masa garansi pembelian</small></div>
   <div class="page-actions"><a class="btn btn-ghost" href="/warranty-editor">Edit teks garansi</a></div>
 </div>
+{_insights_tabs('warranty')}
 <div class="stats-grid">{cards}</div>
 <div class="card"><div class="card-body" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
   <span class="text-muted" style="font-size:.85rem;">Filter:</span>{_warranty_status_tabs(status, counts)}
@@ -517,6 +551,7 @@ def page_admins():
 <div class="page-header">
   <div class="page-title">Performa Admin <small>Ranking staff berdasarkan transaksi selesai</small></div>
 </div>
+{_insights_tabs('admins')}
 <div class="card">
   <div class="table-wrapper">
     <table>
@@ -620,6 +655,7 @@ def page_tickets():
 <div class="page-header">
   <div class="page-title">Tiket Aktif <small>Pantauan langsung - halaman auto-refresh 30 detik</small></div>
 </div>
+{_insights_tabs('tickets')}
 <div class="stats-grid">
   <div class="stat-card gold"><div class="stat-label">Total Aktif</div><div class="stat-value">{len(items)}</div><div class="stat-sub">semua layanan</div></div>
   <div class="stat-card green"><div class="stat-label">Sedang Diproses</div><div class="stat-value">{diproses}</div><div class="stat-sub">admin sudah !pay</div></div>
@@ -744,17 +780,21 @@ def page_analytics():
   <div class="page-title">Analitik <small>Ringkasan penjualan &amp; produk terlaris</small></div>
   <div class="page-actions"><a class="btn btn-ghost" href="/transactions">Lihat transaksi</a></div>
 </div>
+{_insights_tabs('analytics')}
 <div class="stats-grid">{cards}</div>
 {period_nav}
 {growth}
+<div class="ins-grid2">
 <div class="card">
   <div class="card-header"><span class="card-title">Tren Omzet Harian ({plabel})</span></div>
-  <div class="card-body"><canvas id="trendChart" height="100"></canvas></div>
+  <div class="card-body"><canvas id="trendChart" height="120"></canvas></div>
 </div>
 <div class="card">
   <div class="card-header"><span class="card-title">Omzet per Layanan ({plabel})</span></div>
-  <div class="card-body"><canvas id="layChart" height="100"></canvas></div>
+  <div class="card-body"><canvas id="layChart" height="120"></canvas></div>
 </div>
+</div>
+<div class="ins-grid2">
 <div class="card">
   <div class="card-header"><span class="card-title">Rincian per Layanan ({plabel})</span></div>
   <div class="table-wrapper">
@@ -768,6 +808,7 @@ def page_analytics():
     <table><thead><tr><th>#</th><th>Pelanggan</th><th>Order</th><th>Total Belanja</th></tr></thead>
     <tbody>{cust_rows}</tbody></table>
   </div>
+</div>
 </div>
 <div class="card">
   <div class="card-header"><span class="card-title">Item Terlaris ({plabel})</span></div>
