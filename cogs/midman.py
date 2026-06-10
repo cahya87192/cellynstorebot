@@ -129,6 +129,13 @@ class Midman(commands.Cog):
             inline=False
         )
         embed.set_footer(text=STORE_NAME)
+        from utils import catalog_settings
+        _thumb = catalog_settings.get_thumbnail("midman")
+        if _thumb:
+            embed.set_thumbnail(url=_thumb)
+        _banner = catalog_settings.get_banner("midman")
+        if _banner:
+            embed.set_image(url=_banner)
         msg = await ch.send(embed=embed, view=MidmanMainView(store_open=is_store_open()))
         _set_setting("midman_catalog_message_id", str(msg.id))
         await ctx.send(f"Embed dikirim ke {ch.mention}", delete_after=5)
