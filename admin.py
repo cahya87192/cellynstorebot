@@ -353,6 +353,116 @@ code{background:var(--surface3);padding:.12rem .4rem;border-radius:5px;font-size
 @media(max-width:480px){
   .stats-grid,.stat-grid{grid-template-columns:1fr;}
 }
+
+/* ============================================================
+   ✨ 2026 REFRESH — lapisan upgrade visual (override aturan di atas)
+   Tren: glassmorphism, gradien lembut, aksen indigo→violet, radius
+   lebih besar, shadow berlapis, dan micro-interaction halus.
+   Hanya CSS — tidak mengubah struktur/markup, jadi berlaku ke semua
+   halaman tanpa risiko.
+   ============================================================ */
+:root{
+  --accent:#6366f1;--accent2:#4f46e5;--accent-soft:#eef1ff;
+  --accent-grad:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);
+  --ring:rgba(99,102,241,.28);
+  --radius:16px;--radius-sm:10px;
+  --shadow-sm:0 1px 2px rgba(2,6,23,.05);
+  --shadow:0 2px 4px rgba(2,6,23,.04),0 6px 16px rgba(2,6,23,.06);
+  --shadow-lg:0 18px 40px -14px rgba(2,6,23,.20),0 8px 18px -10px rgba(2,6,23,.12);
+  --glass:rgba(255,255,255,.68);
+  --glass-strong:rgba(255,255,255,.86);
+  --glass-border:rgba(255,255,255,.6);
+  --app-bg:
+     radial-gradient(900px 520px at 10% -10%, rgba(99,102,241,.10), transparent 60%),
+     radial-gradient(820px 520px at 102% -4%, rgba(139,92,246,.10), transparent 55%),
+     radial-gradient(760px 620px at 50% 122%, rgba(56,189,248,.07), transparent 60%),
+     #f2f4fb;
+}
+html[data-theme="dark"]{
+  --accent:#818cf8;--accent2:#6366f1;--accent-soft:#1c2440;
+  --accent-grad:linear-gradient(135deg,#818cf8 0%,#a78bfa 100%);
+  --ring:rgba(129,140,248,.35);
+  --glass:rgba(17,24,39,.60);
+  --glass-strong:rgba(17,24,39,.82);
+  --glass-border:rgba(148,163,184,.16);
+  --shadow:0 2px 4px rgba(0,0,0,.30),0 8px 18px rgba(0,0,0,.34);
+  --shadow-lg:0 22px 48px -14px rgba(0,0,0,.58),0 10px 22px -10px rgba(0,0,0,.42);
+  --app-bg:
+     radial-gradient(900px 540px at 8% -12%, rgba(99,102,241,.22), transparent 60%),
+     radial-gradient(840px 540px at 104% -6%, rgba(139,92,246,.17), transparent 55%),
+     radial-gradient(780px 640px at 50% 124%, rgba(56,189,248,.10), transparent 60%),
+     #0a0f1d;
+}
+body{background:var(--app-bg);background-attachment:fixed;}
+
+/* Scrollbar modern */
+*{scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+*::-webkit-scrollbar{width:10px;height:10px;}
+*::-webkit-scrollbar-thumb{background:var(--border2);border-radius:20px;border:2px solid transparent;background-clip:content-box;}
+*::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:content-box;}
+
+/* Sidebar — frosted glass + aksen aktif */
+.sidebar{background:var(--glass);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);border-right:1px solid var(--glass-border);}
+.sidebar-logo img{box-shadow:0 6px 16px -6px rgba(99,102,241,.55);}
+.nav-item{position:relative;border-radius:10px;}
+.nav-item svg{width:18px;height:18px;}
+.nav-item.active{background:var(--accent-soft);color:var(--accent);}
+.nav-item.active::before{content:"";position:absolute;left:-.65rem;top:50%;transform:translateY(-50%);width:3px;height:58%;border-radius:0 3px 3px 0;background:var(--accent-grad);}
+
+/* Topbar mobile — glass */
+.topbar{background:var(--glass-strong);-webkit-backdrop-filter:blur(14px) saturate(160%);backdrop-filter:blur(14px) saturate(160%);border-bottom:1px solid var(--glass-border);}
+
+/* Judul halaman sedikit lebih tegas */
+.page-title,.page-header h2{font-size:1.6rem;letter-spacing:-.025em;}
+
+/* Kartu */
+.card{border-radius:var(--radius);box-shadow:var(--shadow);transition:box-shadow .22s ease,transform .22s ease,border-color .22s ease;}
+.card:hover{box-shadow:var(--shadow-lg);}
+.card-title{font-size:.84rem;}
+
+/* Stat cards — tile ikon gradien, garis aksen atas, hover lift */
+.stats-grid,.stat-grid{gap:1.15rem;}
+.stat-card{border-radius:var(--radius);box-shadow:var(--shadow);transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;}
+.stat-card::after{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--ic-grad,var(--accent-grad));}
+.stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);}
+.stat-value{font-size:2rem;letter-spacing:-.03em;}
+.stat-icon{width:46px;height:46px;border-radius:13px;border:none;color:#fff;background:var(--ic-grad,var(--accent-grad));box-shadow:0 8px 18px -7px var(--ic-fg,var(--accent));}
+.stat-icon svg{width:22px;height:22px;}
+.stat-card.ml{--ic-grad:linear-gradient(135deg,#60a5fa,#2563eb);}
+.stat-card.ff{--ic-grad:linear-gradient(135deg,#fb923c,#ea580c);}
+.stat-card.robux{--ic-grad:linear-gradient(135deg,#f472b6,#db2777);}
+.stat-card.gp{--ic-grad:linear-gradient(135deg,#a78bfa,#7c3aed);}
+.stat-card.gold{--ic-grad:linear-gradient(135deg,#fbbf24,#d97706);}
+.stat-card.green{--ic-grad:linear-gradient(135deg,#34d399,#16a34a);}
+
+/* Akses cepat */
+.qa-card{border-radius:var(--radius);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;}
+.qa-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--accent);}
+.qa-ic{border-radius:12px;background:var(--accent-grad);color:#fff;box-shadow:0 8px 18px -7px var(--accent);}
+
+/* Tombol — primary gradien + lift */
+.btn{border-radius:10px;transition:transform .15s ease,box-shadow .15s ease,background .15s,border-color .15s,color .15s,filter .15s;}
+.btn-primary{background:var(--accent-grad);border:none;box-shadow:0 6px 16px -7px var(--accent);}
+.btn-primary:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 12px 24px -8px var(--accent);}
+.btn-ghost:hover{transform:translateY(-1px);border-color:var(--accent);color:var(--accent);}
+.btn-sm{border-radius:8px;}
+
+/* Badge → pill */
+.badge{border-radius:999px;padding:.26rem .65rem;}
+
+/* Input — radius & focus ring lembut */
+input,select,textarea{border-radius:10px;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--ring);}
+
+/* Tabel — hover baris bernuansa aksen */
+tbody tr:hover td{background:var(--accent-soft);}
+
+/* Rate display */
+.rate-display{border-radius:var(--radius);}
+
+/* Modal + command palette — glass */
+.modal{border-radius:18px;box-shadow:var(--shadow-lg);}
+#cmdPalette .modal{background:var(--glass-strong);-webkit-backdrop-filter:blur(20px) saturate(160%);backdrop-filter:blur(20px) saturate(160%);border:1px solid var(--glass-border);}
 </style>
 </head>
 <body>
@@ -610,7 +720,7 @@ def login():
             return redirect(url_for("index"))
         error = "Password salah."
     content = f"""
-<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;background:var(--bg);">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;background:transparent;">
   <div style="width:100%;max-width:380px;">
     <div style="text-align:center;margin-bottom:2rem;">
       <img src="https://i.imgur.com/xp2F452.png" alt="logo" style="width:64px;height:64px;border-radius:14px;margin-bottom:1rem;box-shadow:var(--shadow);">
