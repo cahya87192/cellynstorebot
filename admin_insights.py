@@ -410,6 +410,7 @@ def page_analytics():
     per_layanan = analytics.omzet_by_layanan(days=30)
     items = analytics.top_items(days=30, limit=10)
     customers = analytics.top_customers(days=30, limit=10)
+    trend = analytics.daily_omzet(days=30)
 
     def _trend(pct):
         """Badge tren persen: hijau naik, merah turun, abu untuk baru/datar."""
@@ -467,6 +468,10 @@ def page_analytics():
     chart_labels = [LAYANAN_LABEL.get(r["layanan"], (r["layanan"] or "-").title()) for r in per_layanan]
     chart_values = [int(r["omzet"]) for r in per_layanan]
 
+    # Line chart tren omzet harian (30 hari) — label DD/MM, deret kontinu.
+    trend_labels = [f"{d['tgl'][8:10]}/{d['tgl'][5:7]}" for d in trend]
+    trend_values = [int(d["omzet"]) for d in trend]
+
     lay_rows = ""
     for r in per_layanan:
         lab = LAYANAN_LABEL.get(r["layanan"], (r["layanan"] or "-").title())
@@ -490,6 +495,10 @@ def page_analytics():
 </div>
 <div class="stats-grid">{cards}</div>
 {growth}
+<div class="card">
+  <div class="card-header"><span class="card-title">Tren Omzet Harian (30 hari)</span></div>
+  <div class="card-body"><canvas id="trendChart" height="100"></canvas></div>
+</div>
 <div class="card">
   <div class="card-header"><span class="card-title">Omzet per Layanan (30 hari)</span></div>
   <div class="card-body"><canvas id="layChart" height="100"></canvas></div>
@@ -518,8 +527,18 @@ def page_analytics():
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 (function(){{
-  var el=document.getElementById('layChart'); if(!el||!window.Chart) return;
-  new Chart(el,{{type:'bar',
+  if(!window.Chart) return;
+  var te=document.getElementById('trendChart');
+  if(te) new Chart(te,{{type:'line',
+    data:{{labels:{json.dumps(trend_labels)},datasets:[{{label:'Omzet',data:{json.dumps(trend_values)},
+      fill:true,tension:.3,backgroundColor:'rgba(22,163,74,.12)',borderColor:'#16a34a',
+      borderWidth:2,pointRadius:2,pointBackgroundColor:'#16a34a'}}]}},
+    options:{{responsive:true,plugins:{{legend:{{display:false}}}},
+      scales:{{x:{{grid:{{display:false}},ticks:{{color:'#94a3b8',font:{{size:10}},maxRotation:0,autoSkip:true,maxTicksLimit:12}}}},
+      y:{{grid:{{color:'rgba(148,163,184,.15)'}},ticks:{{color:'#94a3b8',font:{{size:10}}}},beginAtZero:true}}}}}}
+  }});
+  var el=document.getElementById('layChart');
+  if(el) new Chart(el,{{type:'bar',
     data:{{labels:{json.dumps(chart_labels)},datasets:[{{label:'Omzet',data:{json.dumps(chart_values)},
       backgroundColor:'rgba(37,99,235,.55)',borderColor:'#2563eb',borderWidth:1}}]}},
     options:{{responsive:true,plugins:{{legend:{{display:false}}}},
