@@ -95,7 +95,7 @@ def page_store_status():
     Label ini jadi nama voice channel status toko, diganti otomatis sesuai jam buka/tutup.
     Perubahan dipakai pada sinkronisasi status berikutnya. Maksimal 100 karakter (batas nama channel Discord).
   </div>
-  <div id="sections"></div>
+  <div id="sections" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;"></div>
 </div></div>
 
 <script>
@@ -115,13 +115,13 @@ function updatePreview(i){
 function build(){
   var html = '';
   SECTIONS.forEach(function(s, i){
-    html += '<div class="card" style="margin-bottom:1rem;border:1px solid var(--border);"><div class="card-body">'
+    html += '<div class="card" style="margin:0;"><div class="card-body">'
       + '<div style="font-weight:700;margin-bottom:.2rem;">'+esc(s.label)+'</div>'
       + '<div style="font-size:.78rem;color:var(--muted);margin-bottom:.7rem;">Default: <code>'+esc(s.default)+'</code></div>'
       + '<div class="form-group"><input type="text" id="txt_'+s.kind+'" maxlength="100" style="width:100%;" '
       + 'oninput="updatePreview('+i+');setStatus(\\''+s.kind+'\\',\\'Belum disimpan\\',false);"></div>'
-      + '<button class="btn btn-primary btn-sm" onclick="saveSec('+i+')">💾 Simpan</button> '
-      + '<button class="btn btn-ghost btn-sm" onclick="resetSec('+i+')">↺ Default</button>'
+      + '<button class="btn btn-primary btn-sm" onclick="saveSec('+i+')">Simpan</button> '
+      + '<button class="btn btn-ghost btn-sm" onclick="resetSec('+i+')">Default</button>'
       + '<span id="st_'+s.kind+'" style="margin-left:.6rem;font-size:.85rem;"></span>'
       + '<div style="margin-top:.9rem;border-left:4px solid var(--accent);background:var(--surface3);border-radius:6px;padding:.7rem .9rem;">'
       + '<div id="pv_'+s.kind+'" style="color:var(--text);font-weight:600;"></div></div>'
