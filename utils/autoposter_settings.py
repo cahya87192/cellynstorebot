@@ -22,6 +22,13 @@ def _get_columns(conn, table_name):
     cur = conn.execute(f"PRAGMA table_info({table_name})")
     return {row["name"] for row in cur.fetchall()}
 
+def _ensure_column(conn, table_name, column, ddl):
+    """Tambah kolom secara non-destruktif bila belum ada (SQLite tak punya
+    ADD COLUMN IF NOT EXISTS)."""
+    if column not in _get_columns(conn, table_name):
+        conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {ddl}")
+        conn.commit()
+
 def _migrate_autopost_tables():
     conn = get_conn()
     
@@ -35,6 +42,7 @@ def _migrate_autopost_tables():
                 user_token TEXT NOT NULL DEFAULT '',
                 loop_counter INTEGER DEFAULT 0,
                 last_post TEXT,
+                force_post INTEGER DEFAULT 0,
                 is_active INTEGER DEFAULT 1,
                 created_at TEXT NOT NULL
             )
@@ -44,7 +52,7 @@ def _migrate_autopost_tables():
         return
     
     cols = _get_columns(conn, "autopost_tasks")
-    required_cols = {"channel_id", "message", "interval_minutes", "user_token", "loop_counter", "last_post", "is_active", "created_at"}
+    required_cols = {"channel_id", "message", "interval_minutes", "user_token", "loop_counter", "last_post", "force_post", "is_active", "created_at"}
     
     if required_cols.issubset(cols):
         conn.close()
@@ -63,6 +71,7 @@ def _migrate_autopost_tables():
             user_token TEXT NOT NULL DEFAULT '',
             loop_counter INTEGER DEFAULT 0,
             last_post TEXT,
+            force_post INTEGER DEFAULT 0,
             is_active INTEGER DEFAULT 1,
             created_at TEXT NOT NULL
         )
@@ -71,9 +80,10 @@ def _migrate_autopost_tables():
     
     for row in rows:
         from datetime import datetime
+        rowd = dict(row)
         conn.execute(
-            "INSERT INTO autopost_tasks (channel_id, message, interval_minutes, user_token, loop_counter, last_post, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (row["channel_id"], row["message"], row["interval_minutes"], row.get("user_token", ""), row.get("loop_counter", 0), row.get("last_post"), row.get("is_active", 1), datetime.now().isoformat())
+            "INSERT INTO autopost_tasks (channel_id, message, interval_minutes, user_token, loop_counter, last_post, force_post, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (rowd.get("channel_id"), rowd.get("message"), rowd.get("interval_minutes"), rowd.get("user_token", ""), rowd.get("loop_counter", 0), rowd.get("last_post"), rowd.get("force_post", 0), rowd.get("is_active", 1), rowd.get("created_at") or datetime.now().isoformat())
         )
     conn.commit()
     conn.close()
@@ -88,10 +98,14 @@ def init_autopost_tables():
             task_id INTEGER,
             message TEXT,
             status TEXT,
+            detail TEXT,
             created_at TEXT NOT NULL
         )
     """)
     conn.commit()
+    # Defensif: pastikan kolom baru ada di DB lama tanpa rebuild destruktif.
+    _ensure_column(conn, "autopost_tasks", "force_post", "force_post INTEGER DEFAULT 0")
+    _ensure_column(conn, "autopost_history", "detail", "detail TEXT")
     conn.close()
 
 def get_autopost_tasks():
@@ -129,8 +143,22 @@ def update_autopost_counter(task_id: int, loop_counter: int):
 
 def update_autopost_last_post(task_id: int):
     conn = get_conn()
-    conn.execute("UPDATE autopost_tasks SET last_post = ?, loop_counter = 0 WHERE id = ?",
+    conn.execute("UPDATE autopost_tasks SET last_post = ?, loop_counter = 0, force_post = 0 WHERE id = ?",
                 (datetime.now().isoformat(), task_id))
+    conn.commit()
+    conn.close()
+
+def request_force_post(task_id: int):
+    """Tandai task agar di-post pada iterasi loop berikutnya (lintas proses
+    admin panel <-> bot). Loop akan membersihkan flag ini setelah posting."""
+    conn = get_conn()
+    conn.execute("UPDATE autopost_tasks SET force_post = 1 WHERE id = ?", (task_id,))
+    conn.commit()
+    conn.close()
+
+def clear_force_post(task_id: int):
+    conn = get_conn()
+    conn.execute("UPDATE autopost_tasks SET force_post = 0 WHERE id = ?", (task_id,))
     conn.commit()
     conn.close()
 
@@ -149,8 +177,10 @@ def delete_autopost_task(task_id: int):
     conn.commit()
     conn.close()
 
-def update_autopost_task(task_id: int, message: str = None, interval_minutes: int = None, user_token: str = None):
+def update_autopost_task(task_id: int, channel_id: str = None, message: str = None, interval_minutes: int = None, user_token: str = None):
     conn = get_conn()
+    if channel_id is not None:
+        conn.execute("UPDATE autopost_tasks SET channel_id = ? WHERE id = ?", (channel_id, task_id))
     if message is not None:
         conn.execute("UPDATE autopost_tasks SET message = ? WHERE id = ?", (message, task_id))
     if interval_minutes is not None:
@@ -160,11 +190,11 @@ def update_autopost_task(task_id: int, message: str = None, interval_minutes: in
     conn.commit()
     conn.close()
 
-def log_autopost_history(task_id: int, message: str, status: str):
+def log_autopost_history(task_id: int, message: str, status: str, detail: str = None):
     conn = get_conn()
     conn.execute(
-        "INSERT INTO autopost_history (task_id, message, status, created_at) VALUES (?, ?, ?, ?)",
-        (task_id, message, status, datetime.now().isoformat())
+        "INSERT INTO autopost_history (task_id, message, status, detail, created_at) VALUES (?, ?, ?, ?, ?)",
+        (task_id, message, status, detail, datetime.now().isoformat())
     )
     conn.commit()
     conn.close()

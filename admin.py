@@ -2320,6 +2320,63 @@ def page_service_info():
     return render_page(content)
 
 
+def _ap_short(text, n=60):
+    """Potong teks dengan aman (escape HTML) dan beri elipsis hanya bila perlu."""
+    text = str(text if text is not None else "")
+    t = text[:n] + ("\u2026" if len(text) > n else "")
+    return html.escape(t)
+
+
+def _ap_rel_time(sec):
+    past = sec >= 0
+    sec = abs(sec)
+    if sec < 60:
+        val, unit = int(sec), "dtk"
+    elif sec < 3600:
+        val, unit = int(sec // 60), "mnt"
+    elif sec < 86400:
+        val, unit = int(sec // 3600), "jam"
+    else:
+        val, unit = int(sec // 86400), "hr"
+    return f"{val} {unit} lalu" if past else f"dalam {val} {unit}"
+
+
+def _ap_fmt_dt(iso, with_rel=True):
+    """Format timestamp ISO jadi enak dibaca + waktu relatif."""
+    from datetime import datetime as _dt
+    if not iso:
+        return "<span class='text-muted'>-</span>"
+    try:
+        d = _dt.fromisoformat(iso)
+    except (ValueError, TypeError):
+        return html.escape(str(iso))
+    s = html.escape(d.strftime("%d %b %Y, %H:%M"))
+    if not with_rel:
+        return s
+    rel = _ap_rel_time((_dt.now() - d).total_seconds())
+    return f"{s} <span class='text-muted' style='font-size:.72rem;'>({rel})</span>"
+
+
+def _ap_next_due(task):
+    """Hitung kapan post berikutnya berdasarkan last_post/created_at + interval."""
+    from datetime import datetime as _dt, timedelta as _td
+    if not task.get("is_active"):
+        return "<span class='text-muted'>nonaktif</span>"
+    if task.get("force_post"):
+        return "<span style='color:var(--accent);font-weight:600;'>segera</span>"
+    ref_raw = task.get("last_post") or task.get("created_at")
+    try:
+        ref = _dt.fromisoformat(ref_raw) if ref_raw else None
+    except (ValueError, TypeError):
+        ref = None
+    if ref is None:
+        return "<span style='color:var(--accent);font-weight:600;'>segera</span>"
+    nxt = ref + _td(minutes=max(1, int(task.get("interval_minutes", 1))))
+    if nxt <= _dt.now():
+        return "<span style='color:var(--accent);font-weight:600;'>segera</span>"
+    return _ap_fmt_dt(nxt.isoformat())
+
+
 @app.route("/autopost")
 @login_required
 def page_autopost():
@@ -2331,46 +2388,56 @@ def page_autopost():
     for t in tasks:
         status_color = "var(--success)" if t["is_active"] else "var(--danger)"
         status_text = "Aktif" if t["is_active"] else "Mati"
+        toggle_label = "Matikan" if t["is_active"] else "Aktifkan"
         tasks_html += f"""
         <tr>
             <td><strong>#{t['id']}</strong></td>
-            <td><code>{t['channel_id']}</code></td>
-            <td>{t['interval_minutes']}m</td>
-            <td>{t['message'][:60]}...</td>
+            <td><code>{_ap_short(t['channel_id'], 40)}</code></td>
+            <td>{html.escape(str(t['interval_minutes']))}m</td>
+            <td title="{html.escape(str(t['message'] or ''))}">{_ap_short(t['message'], 60)}</td>
+            <td>{_ap_fmt_dt(t.get('last_post'))}</td>
+            <td>{_ap_next_due(t)}</td>
             <td><span style="color:{status_color};font-weight:600;">{status_text}</span></td>
-            <td>
+            <td style="white-space:nowrap;">
+                <form method="POST" action="/autopost/post-now/{t['id']}" style="display:inline;">
+                    <button type="submit" class="btn btn-sm btn-primary" title="Post sekarang (max ~1 menit)">Post</button>
+                </form>
                 <a href="/autopost/edit/{t['id']}" class="btn btn-sm">Edit</a>
                 <form method="POST" action="/autopost/toggle/{t['id']}" style="display:inline;">
-                    <button type="submit" class="btn btn-sm">Toggle</button>
+                    <button type="submit" class="btn btn-sm">{toggle_label}</button>
                 </form>
                 <form method="POST" action="/autopost/delete/{t['id']}" style="display:inline;">
-                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Hapus?')">Hapus</button>
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Hapus task ini?')">Hapus</button>
                 </form>
             </td>
         </tr>"""
     
     if not tasks_html:
-        tasks_html = "<tr><td colspan=6 class='empty'>Belum ada autopost task.</td></tr>"
+        tasks_html = "<tr><td colspan=8 class='empty'>Belum ada autopost task.</td></tr>"
     
     history_html = ""
     for h in history:
-        status_icon = "✅" if h["status"] == "success" else "❌"
+        ok = h["status"] == "success"
+        badge_color = "var(--success)" if ok else "var(--danger)"
+        badge_bg = "rgba(95,168,134,.14)" if ok else "rgba(220,90,90,.14)"
+        badge_text = "Sukses" if ok else "Gagal"
         history_html += f"""
         <tr>
             <td>{h['id']}</td>
-            <td>#{h['task_id']}</td>
-            <td>{h['message'][:50]}...</td>
-            <td>{status_icon}</td>
-            <td>{h['created_at']}</td>
+            <td><code>#{h['task_id']}</code></td>
+            <td title="{html.escape(str(h['message'] or ''))}">{_ap_short(h['message'], 45)}</td>
+            <td><span style="color:{badge_color};background:{badge_bg};font-weight:600;padding:.15rem .5rem;border-radius:999px;font-size:.72rem;">{badge_text}</span></td>
+            <td>{_ap_short(h.get('detail'), 70) if h.get('detail') else '<span class="text-muted">-</span>'}</td>
+            <td>{_ap_fmt_dt(h['created_at'])}</td>
         </tr>"""
     
     if not history_html:
-        history_html = "<tr><td colspan=5 class='empty'>Belum ada history.</td></tr>"
+        history_html = "<tr><td colspan=6 class='empty'>Belum ada history.</td></tr>"
     
     content = f"""
     <div class="page-header">
         <h2>AutoPost</h2>
-        <p class="text-muted">Kelola auto-post pesan ke channel Discord.</p>
+        <p class="text-muted">Kelola auto-post pesan ke channel Discord. Token diambil dari environment <code>AUTOPOSTER_TOKEN</code> saat runtime.</p>
     </div>
     
     <div class="card">
@@ -2401,7 +2468,7 @@ def page_autopost():
         <div class="table-wrapper">
             <table>
                 <thead>
-                    <tr><th>ID</th><th>Channel ID</th><th>Interval</th><th>Pesan</th><th>Status</th><th>Aksi</th></tr>
+                    <tr><th>ID</th><th>Channel ID</th><th>Interval</th><th>Pesan</th><th>Terakhir Post</th><th>Berikutnya</th><th>Status</th><th>Aksi</th></tr>
                 </thead>
                 <tbody>{tasks_html}</tbody>
             </table>
@@ -2413,7 +2480,7 @@ def page_autopost():
         <div class="table-wrapper">
             <table>
                 <thead>
-                    <tr><th>ID</th><th>Task</th><th>Pesan</th><th>Status</th><th>Waktu</th></tr>
+                    <tr><th>ID</th><th>Task</th><th>Pesan</th><th>Status</th><th>Detail</th><th>Waktu</th></tr>
                 </thead>
                 <tbody>{history_html}</tbody>
             </table>
@@ -2428,11 +2495,27 @@ def page_autopost():
 def autopost_add():
     from utils.autoposter_settings import add_autopost_task
     channel_id = request.form.get("channel_id", "").strip()
-    interval_minutes = int(request.form.get("interval_minutes", 60))
+    interval_minutes = safe_int(request.form.get("interval_minutes", 60), min_val=1) or 60
     message = request.form.get("message", "").strip()
-    token = os.environ.get("AUTOPOSTER_TOKEN", "")
-    add_autopost_task(channel_id, message, interval_minutes, token)
+    # Token TIDAK disimpan di DB (resolusi via env AUTOPOSTER_TOKEN saat runtime).
+    add_autopost_task(channel_id, message, interval_minutes, "")
     flash("AutoPost berhasil ditambahkan.", "success")
+    return redirect(url_for("page_autopost"))
+
+
+@app.route("/autopost/post-now/<int:tid>", methods=["POST"])
+@login_required
+def autopost_post_now(tid):
+    from utils.autoposter_settings import get_autopost_task, request_force_post
+    task = get_autopost_task(tid)
+    if not task:
+        flash("Task tidak ditemukan.", "error")
+        return redirect(url_for("page_autopost"))
+    if not task.get("is_active"):
+        flash("Task sedang nonaktif. Aktifkan dulu sebelum post.", "error")
+        return redirect(url_for("page_autopost"))
+    request_force_post(tid)
+    flash(f"Task #{tid} dijadwalkan post sekarang (maks ~1 menit).", "success")
     return redirect(url_for("page_autopost"))
 
 
@@ -2462,9 +2545,13 @@ def autopost_edit(tid):
         flash("Task tidak ditemukan.", "error")
         return redirect(url_for("page_autopost"))
     
+    status_color = "var(--success)" if task["is_active"] else "var(--danger)"
+    status_text = "Aktif" if task["is_active"] else "Nonaktif"
     content = f"""
     <div class="page-header">
         <h2>Edit AutoPost #{tid}</h2>
+        <p class="text-muted">Status: <span style="color:{status_color};font-weight:600;">{status_text}</span>
+        &middot; Terakhir post: {_ap_fmt_dt(task.get('last_post'))}</p>
     </div>
     
     <div class="card">
@@ -2473,16 +2560,16 @@ def autopost_edit(tid):
                 <div class="form-grid-2">
                     <div>
                         <label>Channel ID (pisahkan dengan koma untuk multiple)</label>
-                        <input type="text" name="channel_id" value="{task['channel_id']}" required>
+                        <input type="text" name="channel_id" value="{html.escape(str(task['channel_id'] or ''))}" required>
                     </div>
                     <div>
                         <label>Interval (menit)</label>
-                        <input type="number" name="interval_minutes" value="{task['interval_minutes']}" min="1" required>
+                        <input type="number" name="interval_minutes" value="{html.escape(str(task['interval_minutes']))}" min="1" required>
                     </div>
                 </div>
                 <div>
                     <label>Pesan</label>
-                    <textarea name="message" rows="5" required>{task['message']}</textarea>
+                    <textarea name="message" rows="5" required>{html.escape(str(task['message'] or ''))}</textarea>
                 </div>
                 <div style="margin-top:1rem;display:flex;gap:0.5rem;">
                     <button type="submit" class="btn btn-primary">Simpan</button>
@@ -2499,10 +2586,10 @@ def autopost_edit(tid):
 @login_required
 def autopost_edit_save(tid):
     from utils.autoposter_settings import update_autopost_task
-    request.form.get("channel_id", "").strip()
-    interval_minutes = int(request.form.get("interval_minutes", 60))
+    channel_id = request.form.get("channel_id", "").strip()
+    interval_minutes = safe_int(request.form.get("interval_minutes", 60), min_val=1) or 60
     message = request.form.get("message", "").strip()
-    update_autopost_task(tid, message=message, interval_minutes=interval_minutes)
+    update_autopost_task(tid, channel_id=channel_id, message=message, interval_minutes=interval_minutes)
     flash("AutoPost berhasil diupdate.", "success")
     return redirect(url_for("page_autopost"))
 
