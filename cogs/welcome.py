@@ -100,7 +100,7 @@ class WelcomeCog(commands.Cog):
 
     @app_commands.command(name="setwelcome", description="[ADMIN] Set channel & gambar welcome/boost (PNG/JPG)")
     @app_commands.describe(
-        action="channel / image / boostimage / test / testboost / testdm / off",
+        action="channel / image / boostimage / test / testboost / testleave / testdm / off",
         channel="Channel untuk pesan welcome",
         image="File gambar PNG/JPG (upload langsung)"
     )
@@ -142,6 +142,8 @@ class WelcomeCog(commands.Cog):
             await self._send_welcome(interaction.user, test=True, interaction=interaction)
         elif action == "testboost":
             await self._send_boost(interaction.user, test=True, interaction=interaction)
+        elif action == "testleave":
+            await self._send_leave_test(interaction.user, interaction=interaction)
         elif action == "testdm":
             await self._send_welcome_dm(interaction.user, interaction=interaction)
         elif action == "off":
@@ -150,7 +152,7 @@ class WelcomeCog(commands.Cog):
             await interaction.followup.send("✅ Welcome message dinonaktifkan.", ephemeral=True)
         else:
             await interaction.followup.send(
-                "Action tidak dikenal. Gunakan: `channel`, `image`, `boostimage`, `test`, `testboost`, `testdm`, `off`",
+                "Action tidak dikenal. Gunakan: `channel`, `image`, `boostimage`, `test`, `testboost`, `testleave`, `testdm`, `off`",
                 ephemeral=True
             )
 
@@ -176,6 +178,25 @@ class WelcomeCog(commands.Cog):
         channel = self.bot.get_channel(self._welcome_channel_id)
         if not channel:
             return
+
+        # Kartu leave (gambar) bila diaktifkan admin di panel.
+        try:
+            from utils import welcome_theme as wtheme
+            _ltheme = wtheme.load_theme("leave")
+        except Exception:
+            _ltheme = None
+        if _ltheme and _ltheme.get("enabled"):
+            try:
+                remain = sum(1 for m in member.guild.members if not m.bot)
+            except Exception:
+                remain = None
+            values = {"name": member.display_name[:24]}
+            if remain is not None:
+                values["membercount"] = f"Tersisa {remain} member"
+            if await self._send_card("leave", member, values, _ltheme,
+                                     channel=channel):
+                return
+
         now = datetime.datetime.now(datetime.timezone.utc)
         joined = member.joined_at
         if joined:
@@ -239,29 +260,31 @@ class WelcomeCog(commands.Cog):
             print(f"[Welcome] Gagal ambil avatar: {e}")
         return None
 
-    async def _send_welcome_card(self, member, member_count, theme,
-                                 channel=None, test=False, interaction=None):
-        """Render & kirim kartu welcome (gambar). Return True bila terkirim,
-        False agar pemanggil fallback ke embed klasik."""
+    async def _send_card(self, kind, member, values, theme,
+                         channel=None, test=False, interaction=None,
+                         content=None, preview_label="Pratinjau kartu:"):
+        """Render & kirim kartu notifikasi (welcome/boost/leave) sebagai gambar.
+
+        Return True bila terkirim, False agar pemanggil fallback ke embed klasik.
+        Background kustom per jenis = data/<kind>cardbg.<ext>.
+        """
         try:
-            from cogs.profile import render_welcome_card
+            from cogs.profile import render_notify_card
             avatar_bytes = await self._fetch_avatar_bytes(member)
-            bg = _find_image(WELCOME_CARD_BG_BASE)
-            buf = render_welcome_card(
-                member.display_name, avatar_bytes,
-                member_count=member_count, theme=theme, bg_path=bg,
-            )
-            file = discord.File(buf, filename="welcome.png")
+            bg = _find_image(f"{kind}cardbg")
+            buf = render_notify_card(kind, avatar_bytes, values=values,
+                                     theme=theme, bg_path=bg)
+            file = discord.File(buf, filename=f"{kind}.png")
             if test and interaction:
-                await interaction.followup.send(content="Pratinjau kartu welcome:", file=file)
+                await interaction.followup.send(content=preview_label, file=file)
             else:
                 ch = channel or self.bot.get_channel(self._welcome_channel_id)
                 if not ch:
                     return False
-                await ch.send(content=member.mention, file=file)
+                await ch.send(content=content, file=file)
             return True
         except Exception as e:
-            print(f"[Welcome] Kartu welcome gagal, fallback embed: {e}")
+            print(f"[Welcome] Kartu {kind} gagal, fallback embed: {e}")
             return False
 
     async def _send_welcome(self, member: discord.Member, test=False, interaction=None):
@@ -278,12 +301,16 @@ class WelcomeCog(commands.Cog):
         # Kartu welcome (gambar) bila diaktifkan admin di panel.
         try:
             from utils import welcome_theme as wtheme
-            _wtheme = wtheme.load_theme()
+            _wtheme = wtheme.load_theme("welcome")
         except Exception:
             _wtheme = None
         if _wtheme and _wtheme.get("enabled"):
-            if await self._send_welcome_card(member, member_count, _wtheme,
-                                             channel=channel, test=test, interaction=interaction):
+            values = {"name": member.display_name[:24],
+                      "membercount": f"Member #{member_count}"}
+            if await self._send_card("welcome", member, values, _wtheme,
+                                     channel=channel, test=test, interaction=interaction,
+                                     content=member.mention,
+                                     preview_label="Pratinjau kartu welcome:"):
                 return
 
         title, desc = welcomelib.render_welcome(member.display_name, STORE_NAME, member_count)
@@ -315,6 +342,27 @@ class WelcomeCog(commands.Cog):
         channel = self.bot.get_channel(self._welcome_channel_id)
         if not channel:
             return
+
+        # Kartu boost (gambar) bila diaktifkan admin di panel.
+        try:
+            from utils import welcome_theme as wtheme
+            _btheme = wtheme.load_theme("boost")
+        except Exception:
+            _btheme = None
+        if _btheme and _btheme.get("enabled"):
+            try:
+                boost_n = member.guild.premium_subscription_count
+            except Exception:
+                boost_n = None
+            values = {"name": member.display_name[:24]}
+            if boost_n is not None:
+                values["membercount"] = f"{boost_n}x boost server"
+            if await self._send_card("boost", member, values, _btheme,
+                                     channel=channel, test=test, interaction=interaction,
+                                     content=member.mention,
+                                     preview_label="Pratinjau kartu boost:"):
+                return
+
         boost_title, boost_desc = welcomelib.render_boost(member.mention, STORE_NAME)
         embed = discord.Embed(title=boost_title, description=boost_desc, color=0xFF73FA)
         try:
@@ -335,6 +383,36 @@ class WelcomeCog(commands.Cog):
                 await interaction.followup.send("Gambar boost belum diupload. Preview embed:", embed=embed)
             else:
                 await channel.send(embed=embed)
+
+
+    async def _send_leave_test(self, member: discord.Member, interaction=None):
+        """Preview kartu leave (untuk `/setwelcome action:testleave`).
+
+        Hanya merender bila kartu leave diaktifkan di panel; bila tidak, beri
+        tahu admin bahwa leave masih memakai embed klasik (preview-nya muncul
+        otomatis saat ada member keluar)."""
+        try:
+            from utils import welcome_theme as wtheme
+            _ltheme = wtheme.load_theme("leave")
+        except Exception:
+            _ltheme = None
+        if not (_ltheme and _ltheme.get("enabled")):
+            if interaction:
+                await interaction.followup.send(
+                    "Kartu leave belum diaktifkan di panel (Editor Kartu → tab Leave). "
+                    "Saat nonaktif, member keluar tetap pakai embed klasik.",
+                    ephemeral=True)
+            return
+        try:
+            remain = sum(1 for m in member.guild.members if not m.bot)
+        except Exception:
+            remain = None
+        values = {"name": member.display_name[:24]}
+        if remain is not None:
+            values["membercount"] = f"Tersisa {remain} member"
+        await self._send_card("leave", member, values, _ltheme,
+                              test=True, interaction=interaction,
+                              preview_label="Pratinjau kartu leave:")
 
 
     async def _send_general_greeting(self, member: discord.Member):
