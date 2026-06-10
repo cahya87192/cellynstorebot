@@ -424,6 +424,164 @@ def render_achievement_card(name: str, avatar_bytes, badge_names, tier: str = "B
 
 
 
+RATING_BG_BASE = "ratingcardbg"
+
+
+def _rating_bg_path():
+    """Path background kartu testimoni/rating (atau None). Di-upload via panel:
+    data/ratingcardbg.<ext>. Satu background global."""
+    for ext in ALLOWED_IMAGE_EXTS:
+        path = os.path.join(DATA_DIR, RATING_BG_BASE + ext)
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def _wrap_text(draw, text, font, max_w, max_lines):
+    """Bungkus `text` jadi beberapa baris yang muat di lebar `max_w` (piksel).
+
+    Memotong ke `max_lines` baris; baris terakhir diberi elipsis bila masih ada
+    sisa. Murni Pillow (pakai draw.textlength)."""
+    words = str(text).split()
+    if not words:
+        return []
+
+    def width(s):
+        try:
+            return draw.textlength(s, font=font)
+        except Exception:
+            return len(s) * (font.size * 0.5 if hasattr(font, "size") else 8)
+
+    lines, cur = [], ""
+    for w in words:
+        trial = (cur + " " + w).strip()
+        if width(trial) <= max_w or not cur:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = w
+            if len(lines) >= max_lines:
+                break
+    if len(lines) < max_lines and cur:
+        lines.append(cur)
+
+    # Bila masih ada kata tersisa (terpotong), tambahkan elipsis ke baris akhir.
+    used = sum(len(l.split()) for l in lines)
+    if used < len(words) and lines:
+        last = lines[-1]
+        while last and width(last + "\u2026") > max_w:
+            parts = last.rsplit(" ", 1)
+            if len(parts) == 1:
+                last = last[:-1]
+            else:
+                last = parts[0]
+        lines[-1] = (last + "\u2026").strip()
+    return lines
+
+
+def render_rating_card(name: str, avatar_bytes, *, stars: str, review=None,
+                       theme=None, bg_path=None) -> io.BytesIO:
+    """Render kartu testimoni/ulasan pelanggan -> PNG BytesIO. Murni Pillow.
+
+    Dipakai cogs/reviews.publish_review saat kartu rating diaktifkan di panel.
+    Elemen: foto profil (ring warna bisa diatur), judul, nama, bintang, dan
+    teks ulasan (dibungkus multi-baris). TANPA nama layanan. Posisi/warna/ukuran
+    font/visibilitas/opacity/font kustom dari `theme` (utils.rating_theme).
+    `bg_path` = background kustom (cover-fit RATING_W×RATING_H); None = gradien
+    default. Teks polos (font bundel tak render emoji warna).
+    """
+    from utils import rating_theme as ratingthemelib
+    W, H = ratingthemelib.RATING_W, ratingthemelib.RATING_H
+
+    theme = ratingthemelib.merge_theme(theme)
+    el = theme["elements"]
+    font_file = theme.get("font_file")
+
+    def fnt(size, bold=False):
+        return _font(size, bold=bold, font_file=font_file)
+
+    def rgb(key, fallback):
+        try:
+            return ratingthemelib.hex_to_rgb(el[key]["color"])
+        except Exception:
+            return fallback
+
+    bg = None
+    if bg_path:
+        try:
+            src = Image.open(bg_path).convert("RGBA")
+            sw, sh = src.size
+            scale = max(W / sw, H / sh)
+            nw, nh = int(sw * scale), int(sh * scale)
+            src = src.resize((nw, nh))
+            left, top = (nw - W) // 2, (nh - H) // 2
+            bg = src.crop((left, top, left + W, top + H))
+        except Exception:
+            bg = None
+    if bg is None:
+        bg = _gradient((28, 28, 40), (74, 60, 30)).resize((W, H)).convert("RGBA")
+    card = bg
+
+    panel = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    pd = ImageDraw.Draw(panel)
+    _rounded(pd, (20, 20, W - 20, H - 20), 26, (0, 0, 0, int(theme["panel_opacity"])))
+    card = Image.alpha_composite(card, panel)
+    d = ImageDraw.Draw(card)
+
+    # Avatar bulat + ring (warna bisa diatur).
+    av = el["avatar"]
+    if av.get("show", True):
+        ring = ratingthemelib.hex_to_rgb(av.get("ring_color") or ratingthemelib.RING_DEFAULT)
+        av_size = int(av["size"])
+        ax, ay = int(av["x"]), int(av["y"])
+        d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=ring + (255,))
+        if avatar_bytes:
+            try:
+                im = Image.open(io.BytesIO(avatar_bytes))
+                circ = _circle_avatar(im, av_size)
+                card.paste(circ, (ax, ay), circ)
+            except Exception:
+                d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+        else:
+            d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+
+    # Judul (teks bisa diganti).
+    if el["title"].get("show", True):
+        e = el["title"]
+        d.text((e["x"], e["y"]), str(e.get("text") or ratingthemelib.DEFAULT_TITLE),
+               font=fnt(e["size"], e.get("bold", True)), fill=rgb("title", (255, 193, 7)))
+
+    # Nama pelanggan (dinamis).
+    if el["name"].get("show", True):
+        e = el["name"]
+        d.text((e["x"], e["y"]), (name or "Pelanggan")[:24],
+               font=fnt(e["size"], e.get("bold", True)), fill=rgb("name", (255, 255, 255)))
+
+    # Bintang rating (dinamis).
+    if el["stars"].get("show", True) and stars:
+        e = el["stars"]
+        d.text((e["x"], e["y"]), str(stars),
+               font=fnt(e["size"], e.get("bold", True)), fill=rgb("stars", (255, 210, 77)))
+
+    # Teks ulasan (dinamis, dibungkus multi-baris). Dilewati bila kosong.
+    if el["review"].get("show", True) and review:
+        e = el["review"]
+        rx, ry = int(e["x"]), int(e["y"])
+        size = int(e["size"])
+        review_font = fnt(size, e.get("bold", False))
+        max_w = max(80, W - rx - 40)
+        lines = _wrap_text(d, review, review_font, max_w, max_lines=3)
+        line_h = size + 8
+        for i, line in enumerate(lines):
+            d.text((rx, ry + i * line_h), line, font=review_font,
+                   fill=rgb("review", (226, 228, 236)))
+
+    buf = io.BytesIO()
+    card.convert("RGB").save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+
 # Gradien latar default per jenis kartu notifikasi (dipakai bila tak ada
 # background kustom). Senada dengan warna ring/aksen tiap jenis.
 NOTIFY_GRADIENTS = {

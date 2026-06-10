@@ -29,6 +29,42 @@ VALID_RATINGS = (1, 2, 3, 4, 5)
 # Batas waktu memberi rating sebelum garansi hangus.
 RATING_DEADLINE_HOURS = 24
 
+# Batas panjang teks ulasan yang diterima & ditampilkan, supaya rapi saat
+# dirender di kartu testimoni (tidak kepanjangan / berantakan / tak muat).
+# Dipakai sebagai max_length modal input DAN sebagai pemotong saat render.
+REVIEW_MAX_LEN = 180
+
+
+def clamp_review_text(text, max_len: int = REVIEW_MAX_LEN):
+    """Rapikan & pangkas teks ulasan agar muat di kartu/embed.
+
+    - Mengembalikan None bila kosong.
+    - Menggabungkan spasi/baris baru berlebih jadi satu spasi.
+    - Memotong di batas kata (bila wajar) lalu menambah elipsis '…'.
+    """
+    if text is None:
+        return None
+    s = " ".join(str(text).split())  # rapikan whitespace (termasuk newline)
+    if not s:
+        return None
+    if len(s) <= max_len:
+        return s
+    cut = s[:max_len].rstrip()
+    sp = cut.rfind(" ")
+    if sp >= max_len - 24:        # potong di kata terakhir bila tak buang terlalu banyak
+        cut = cut[:sp].rstrip()
+    return cut + "\u2026"
+
+
+def star_glyphs(rating) -> str:
+    """Bintang sebagai glyph teks biasa (★/☆) — render baik di font kartu
+    (font bundel tak menampilkan emoji warna ⭐)."""
+    try:
+        r = max(0, min(5, int(rating or 0)))
+    except (TypeError, ValueError):
+        r = 0
+    return "\u2605" * r + "\u2606" * (5 - r)
+
 
 def init_reviews_db():
     """Buat tabel `reviews` bila belum ada. Idempoten."""

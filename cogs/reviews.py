@@ -117,15 +117,16 @@ class ReviewModal(discord.ui.Modal):
         self.rating = rating
         self.review_text = discord.ui.TextInput(
             label="Ulasan kamu (opsional)",
-            placeholder="Ceritakan pengalaman belanjamu... (boleh dikosongkan)",
+            placeholder="Ceritakan pengalaman belanjamu singkat saja... (boleh dikosongkan)",
             style=discord.TextStyle.paragraph,
             required=False,
-            max_length=500,
+            max_length=rv.REVIEW_MAX_LEN,
         )
         self.add_item(self.review_text)
 
     async def on_submit(self, interaction: discord.Interaction):
-        text = (self.review_text.value or "").strip() or None
+        # Pangkas & rapikan teks supaya kartu testimoni tidak berantakan.
+        text = rv.clamp_review_text(self.review_text.value)
         ok = rv.submit_rating(self.review_id, self.rating, text)
         if not ok:
             await interaction.response.send_message(
@@ -310,7 +311,7 @@ def build_published_embed(review: dict, member: discord.abc.User | None) -> disc
     rating = max(0, min(5, int(review.get("rating") or 0)))
     star_line = _stars(rating)
 
-    ulasan = (review.get("review_text") or "").strip()
+    ulasan = (rv.clamp_review_text(review.get("review_text")) or "")
     quote = f"❝ {ulasan} ❞" if ulasan else "_(tanpa ulasan teks)_"
 
     # Tanggal DD/MM/YYYY dari rated_at (fallback hari ini).
@@ -663,6 +664,28 @@ class Reviews(commands.Cog):
         except Exception as e:
             print(f"[Reviews] update success log error: {e}")
 
+    async def _build_rating_card_file(self, review: dict, member):
+        """Render kartu testimoni/ulasan PNG -> discord.File (None bila gagal/nonaktif)."""
+        try:
+            name = (getattr(member, "display_name", None)
+                    or getattr(member, "name", None) or f"User {review.get('user_id')}")
+            avatar = await self._fetch_avatar_bytes(member)
+            stars = rv.star_glyphs(review.get("rating"))
+            review_txt = rv.clamp_review_text(review.get("review_text"))
+            from cogs.profile import render_rating_card, _rating_bg_path
+            from utils import rating_theme as ratingthemelib
+            theme = ratingthemelib.load_theme()
+            bg_path = _rating_bg_path()
+            buf = await self.bot.loop.run_in_executor(
+                None, lambda: render_rating_card(
+                    name, avatar, stars=stars, review=review_txt,
+                    theme=theme, bg_path=bg_path)
+            )
+            return discord.File(buf, filename="rating.png")
+        except Exception as e:
+            print(f"[Reviews] render rating card error: {e}")
+            return None
+
     # ── Publikasi ulasan ──────────────────────────
     async def publish_review(self, review_id: int):
         review = rv.get_review(review_id)
@@ -682,6 +705,22 @@ class Reviews(commands.Cog):
             member = guild.get_member(review["user_id"])
         if member is None:
             member = self.bot.get_user(review["user_id"])
+
+        # Kartu testimoni (gambar) bila diaktifkan admin di panel; else embed klasik.
+        try:
+            from utils import rating_theme as ratingthemelib
+            _rtheme = ratingthemelib.load_theme()
+        except Exception:
+            _rtheme = None
+        if _rtheme and _rtheme.get("enabled"):
+            card_file = await self._build_rating_card_file(review, member)
+            if card_file is not None:
+                try:
+                    msg = await channel.send(file=card_file)
+                    rv.set_published(review_id, msg.id)
+                    return
+                except Exception as e:
+                    print(f"[Reviews] publish card error, fallback embed: {e}")
 
         embed = build_published_embed(review, member)
         try:
