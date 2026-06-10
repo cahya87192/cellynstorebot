@@ -14,7 +14,7 @@ Kanvas kartu berukuran ACH_W x ACH_H. Semua koordinat elemen relatif ke kanvas.
 
 import json
 
-from utils.db import get_conn
+from utils import card_theme_base as _base
 
 THEME_KEY = "achievement_card_theme"
 
@@ -55,44 +55,12 @@ ELEMENT_LABELS = [
 ]
 
 
-def _clampi(v, lo, hi, default):
-    try:
-        return max(lo, min(hi, int(v)))
-    except (TypeError, ValueError):
-        return default
-
-
-def _valid_hex(c, default):
-    if not isinstance(c, str):
-        return default
-    s = c.strip()
-    if not s.startswith("#"):
-        s = "#" + s
-    body = s[1:]
-    if len(body) in (3, 6) and all(ch in "0123456789abcdefABCDEF" for ch in body):
-        return "#" + body.upper()
-    return default
-
-
-def hex_to_rgb(c) -> tuple:
-    """'#RRGGBB' / '#RGB' -> (r,g,b). Fallback putih bila invalid."""
-    s = _valid_hex(c, "#FFFFFF")[1:]
-    if len(s) == 3:
-        s = "".join(ch * 2 for ch in s)
-    return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
-
-
-def _ring_color(c, default):
-    """Validasi warna bingkai (ring) avatar.
-
-    None/""/invalid -> None artinya "otomatis" (render memakai warna aksen
-    tier). String hex valid -> '#RRGGBB' (uppercase) untuk override warna ring.
-    """
-    if c is None:
-        return None
-    if isinstance(c, str) and not c.strip():
-        return None
-    return _valid_hex(c, default)
+# Helper umum dipusatkan di utils/card_theme_base.py. Alias lokal dipertahankan
+# untuk kompatibilitas (kode lain & test yang mengaksesnya langsung).
+_clampi = _base.clampi
+_valid_hex = _base.valid_hex
+hex_to_rgb = _base.hex_to_rgb
+_ring_color = _base.ring_color_auto
 
 
 def default_theme() -> dict:
@@ -150,23 +118,11 @@ def merge_theme(raw) -> dict:
 
 def load_theme() -> dict:
     """Baca tema dari bot_state (atau default bila belum ada)."""
-    conn = get_conn()
-    try:
-        row = conn.execute("SELECT value FROM bot_state WHERE key=?", (THEME_KEY,)).fetchone()
-    except Exception:
-        row = None
-    conn.close()
-    return merge_theme(row["value"] if row else None)
+    return merge_theme(_base.read_state(THEME_KEY))
 
 
 def save_theme(raw) -> dict:
     """Validasi + simpan tema ke bot_state. Mengembalikan tema final."""
     theme = merge_theme(raw)
-    conn = get_conn()
-    conn.execute(
-        "INSERT OR REPLACE INTO bot_state (key, value) VALUES (?,?)",
-        (THEME_KEY, json.dumps(theme)),
-    )
-    conn.commit()
-    conn.close()
+    _base.write_state(THEME_KEY, theme)
     return theme

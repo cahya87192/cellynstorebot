@@ -26,7 +26,7 @@ kanvas. Untuk kompatibilitas, WELCOME_W/WELCOME_H = kanvas welcome.
 
 import json
 
-from utils.db import get_conn
+from utils import card_theme_base as _base
 
 # Jenis kartu yang didukung.
 KINDS = ("welcome", "boost", "leave")
@@ -113,31 +113,11 @@ def _normalize_kind(kind):
     return kind if kind in KINDS else "welcome"
 
 
-def _clampi(v, lo, hi, default):
-    try:
-        return max(lo, min(hi, int(v)))
-    except (TypeError, ValueError):
-        return default
-
-
-def _valid_hex(c, default):
-    if not isinstance(c, str):
-        return default
-    s = c.strip()
-    if not s.startswith("#"):
-        s = "#" + s
-    body = s[1:]
-    if len(body) in (3, 6) and all(ch in "0123456789abcdefABCDEF" for ch in body):
-        return "#" + body.upper()
-    return default
-
-
-def hex_to_rgb(c) -> tuple:
-    """'#RRGGBB' / '#RGB' -> (r,g,b). Fallback putih bila invalid."""
-    s = _valid_hex(c, "#FFFFFF")[1:]
-    if len(s) == 3:
-        s = "".join(ch * 2 for ch in s)
-    return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
+# Helper umum dipusatkan di utils/card_theme_base.py. Alias lokal dipertahankan
+# untuk kompatibilitas (kode lain & test yang mengaksesnya langsung).
+_clampi = _base.clampi
+_valid_hex = _base.valid_hex
+hex_to_rgb = _base.hex_to_rgb
 
 
 def _build_default(kind) -> dict:
@@ -218,25 +198,12 @@ def merge_theme(raw, kind="welcome") -> dict:
 def load_theme(kind="welcome") -> dict:
     """Baca tema `kind` dari bot_state (atau default bila belum ada)."""
     kind = _normalize_kind(kind)
-    conn = get_conn()
-    try:
-        row = conn.execute("SELECT value FROM bot_state WHERE key=?",
-                           (THEME_KEYS[kind],)).fetchone()
-    except Exception:
-        row = None
-    conn.close()
-    return merge_theme(row["value"] if row else None, kind)
+    return merge_theme(_base.read_state(THEME_KEYS[kind]), kind)
 
 
 def save_theme(raw, kind="welcome") -> dict:
     """Validasi + simpan tema `kind` ke bot_state. Mengembalikan tema final."""
     kind = _normalize_kind(kind)
     theme = merge_theme(raw, kind)
-    conn = get_conn()
-    conn.execute(
-        "INSERT OR REPLACE INTO bot_state (key, value) VALUES (?,?)",
-        (THEME_KEYS[kind], json.dumps(theme)),
-    )
-    conn.commit()
-    conn.close()
+    _base.write_state(THEME_KEYS[kind], theme)
     return theme
