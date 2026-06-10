@@ -172,15 +172,15 @@ def page_embeds():
           <td style="font-size:.78rem">{auto_info}</td>
           <td style="font-size:.78rem">{next_info}</td>
           <td style="white-space:nowrap">
-            <button class="btn btn-ghost btn-sm" onclick="loadSent('{s['message_id']}')"> Edit</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteSent('{s['message_id']}',this)"></button>
+            <button class="btn btn-ghost btn-sm" onclick="loadSent('{s['message_id']}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteSent('{s['message_id']}',this)">Hapus</button>
           </td></tr>"""
 
     content = f"""
 <div class="page-header">
   <h2 class="page-title">Embed Builder<small>Buat, kirim, dan kelola embed Discord</small></h2>
 </div>
-<div style="display:grid;grid-template-columns:1fr 360px;gap:1.25rem;align-items:start">
+<div class="emb-grid">
 
 <!-- FORM -->
 <div>
@@ -198,8 +198,14 @@ def page_embeds():
   </div>
 
   <div class="card">
-    <div class="card-header"><span class="card-title">Konten Embed</span></div>
+    <div class="emb-tabs">
+      <button type="button" class="emb-tab active" data-tab="konten" onclick="showTab('konten')">Konten</button>
+      <button type="button" class="emb-tab" data-tab="media" onclick="showTab('media')">Author &amp; Media</button>
+      <button type="button" class="emb-tab" data-tab="fields" onclick="showTab('fields')">Fields &amp; Footer</button>
+      <button type="button" class="emb-tab" data-tab="kirim" onclick="showTab('kirim')">Kirim &amp; Jadwal</button>
+    </div>
     <div class="card-body">
+      <div class="emb-panel" id="tab-konten">
       <div class="form-grid form-grid-2">
         <div class="form-group"><label>Title</label><input id="f-title" placeholder="Judul embed"></div>
         <div class="form-group"><label>Title URL</label><input id="f-url" placeholder="https://..."></div>
@@ -211,7 +217,8 @@ def page_embeds():
         <div class="form-group"><label>Color</label><input id="f-color" type="color" value="#5865f2" style="height:38px;padding:3px 5px;cursor:pointer"></div>
         <div class="form-group"><label>Timestamp (opsional)</label><input id="f-timestamp" type="datetime-local"></div>
       </div>
-      <div class="divider"></div>
+      </div>
+      <div class="emb-panel" id="tab-media" hidden>
       <label>Author</label>
       <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-top:.4rem">
         <div class="form-group"><label>Nama</label><input id="f-author-name" placeholder="Nama"></div>
@@ -224,7 +231,8 @@ def page_embeds():
         <div class="form-group"><label>Thumbnail URL</label><input id="f-thumbnail" placeholder="https://..."></div>
         <div class="form-group"><label>Image URL</label><input id="f-image" placeholder="https://..."></div>
       </div>
-      <div class="divider"></div>
+      </div>
+      <div class="emb-panel" id="tab-fields" hidden>
       <label>Footer</label>
       <div class="form-grid form-grid-2" style="margin-top:.4rem">
         <div class="form-group"><label>Teks Footer</label><input id="f-footer-text" placeholder="Footer text"></div>
@@ -236,7 +244,8 @@ def page_embeds():
         <button class="btn btn-ghost btn-sm" onclick="addField()">+ Tambah Field</button>
       </div>
       <div id="fields-container"></div>
-      <div class="divider"></div>
+      </div>
+      <div class="emb-panel" id="tab-kirim" hidden>
       <label>Kirim ke Discord</label>
       <div class="form-grid form-grid-2" style="margin-top:.4rem">
         <div class="form-group"><label>Channel</label>
@@ -275,11 +284,12 @@ def page_embeds():
           </div>
         </div>
       </div>
-      <div class="form-actions" style="margin-top:1rem">
-        <button class="btn btn-ghost" onclick="updatePreview()">Preview</button>
-        <button class="btn btn-primary" onclick="sendEmbed()">Kirim</button>
-        <button class="btn btn-ghost" onclick="clearForm()"> Reset</button>
       </div>
+    </div>
+    <div class="emb-actions">
+      <button class="btn btn-ghost" onclick="updatePreview()">Preview</button>
+      <button class="btn btn-primary" onclick="sendEmbed()">Kirim</button>
+      <button class="btn btn-ghost" onclick="clearForm()">Reset</button>
     </div>
   </div>
 
@@ -287,13 +297,13 @@ def page_embeds():
     <div class="card-header"><span class="card-title">Embed Terkirim</span></div>
     <div class="card-body" style="padding:0">
       <table><thead><tr><th>#</th><th>Label</th><th>Channel</th><th>Message ID</th><th>Waktu</th><th>Auto Send</th><th>Next Send</th><th>Aksi</th></tr></thead>
-      <tbody>{sent_rows or '<tr><td colspan="6" class="empty">Belum ada embed terkirim</td></tr>'}</tbody></table>
+      <tbody>{sent_rows or '<tr><td colspan="8" class="empty">Belum ada embed terkirim</td></tr>'}</tbody></table>
     </div>
   </div>
 </div>
 
 <!-- PREVIEW -->
-<div style="position:sticky;top:1.5rem">
+<div class="emb-preview" style="position:sticky;top:1.5rem">
   <div class="card">
     <div class="card-header"><span class="card-title">Preview</span></div>
     <div class="card-body" style="background:#313338;border-radius:0 0 12px 12px;min-height:120px">
@@ -324,10 +334,21 @@ def page_embeds():
 .rm-field{{position:absolute;top:8px;right:8px;background:rgba(224,85,85,.15);color:var(--danger);border:1px solid rgba(224,85,85,.25);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:.72rem}}
 .toast-item{{background:#3ba55d;color:#fff;padding:10px 16px;border-radius:8px;margin-top:8px;font-size:.84rem;box-shadow:0 2px 8px rgba(0,0,0,.3)}}
 .toast-item.err{{background:#ed4245}}
+.emb-grid{{display:grid;grid-template-columns:1fr 360px;gap:1.25rem;align-items:start}}
+.emb-tabs{{display:flex;gap:.25rem;padding:.5rem .6rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap}}
+.emb-tab{{appearance:none;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted2);font:inherit;font-size:.82rem;font-weight:600;padding:.55rem .8rem;cursor:pointer;border-radius:8px 8px 0 0;transition:color .15s,border-color .15s,background .15s}}
+.emb-tab:hover{{color:var(--text);background:var(--surface2)}}
+.emb-tab.active{{color:var(--accent);border-bottom-color:var(--accent)}}
+.emb-actions{{display:flex;gap:.5rem;padding:.9rem 1.25rem;border-top:1px solid var(--border);background:var(--surface2);flex-wrap:wrap}}
+@media(max-width:980px){{.emb-grid{{grid-template-columns:1fr}}.emb-preview{{position:static!important}}}}
 </style>
 
 <script>
 let fieldCount=0,editingMessageId=null;
+function showTab(t){{
+  document.querySelectorAll('.emb-panel').forEach(function(p){{p.hidden=(p.id!=='tab-'+t);}});
+  document.querySelectorAll('.emb-tab').forEach(function(b){{b.classList.toggle('active', b.dataset.tab===t);}});
+}}
 function toast(msg,err=false){{const b=document.getElementById('toast-box');const e=document.createElement('div');e.className='toast-item'+(err?' err':'');e.textContent=msg;b.appendChild(e);setTimeout(()=>e.remove(),3000);}}
 function addField(n='',v='',inline=false){{
   const i=fieldCount++;const d=document.createElement('div');d.className='field-block';d.id='f'+i;
