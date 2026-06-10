@@ -35,6 +35,10 @@ COLOR = 0xF1C40F
 MIN_ROBUX = 500
 STEP_ROBUX = 500
 MAX_ROBUX = 10_000
+# Batas angka yang DIPAJANG di tabel harga embed katalog. Order tetap bisa
+# sampai MAX_ROBUX lewat modal; ini hanya supaya embed tidak kepanjangan
+# (biar banner tetap kelihatan).
+CATALOG_DISPLAY_MAX = 6_000
 
 
 def _get_setting(key: str) -> str | None:
@@ -86,8 +90,11 @@ def _sanitize_channel_name(name: str) -> str:
 def build_catalog_embed(rate: int) -> discord.Embed:
     price_lines = []
     if rate > 0:
-        for rbx in range(MIN_ROBUX, MAX_ROBUX + 1, STEP_ROBUX):
+        display_max = min(CATALOG_DISPLAY_MAX, MAX_ROBUX)
+        for rbx in range(MIN_ROBUX, display_max + 1, STEP_ROBUX):
             price_lines.append(f"{rbx:>5} = {_format_rp(_calc_total(rbx, rate))}")
+        if MAX_ROBUX > display_max:
+            price_lines.append(f"…s/d {MAX_ROBUX:,} (tinggal ketik jumlahnya saat order)")
     price_table = "```" + "\n".join(price_lines) + "```" if price_lines else "-"
     stock_available = get_robux_stock_available()
     stock_out_total = get_robux_out_total()
