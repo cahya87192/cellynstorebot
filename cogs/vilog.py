@@ -112,6 +112,9 @@ def build_catalog_embed(rate: int) -> discord.Embed:
     _thumb = catalog_settings.get_thumbnail("vilog")
     if _thumb:
         embed.set_thumbnail(url=_thumb)
+    _banner = catalog_settings.get_banner("vilog")
+    if _banner:
+        embed.set_image(url=_banner)
     embed.set_footer(text=vtext.render_text("catalog_footer", store=STORE_NAME, step=STEP_ROBUX, max=MAX_ROBUX))
     return embed
 

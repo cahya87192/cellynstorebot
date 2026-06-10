@@ -435,6 +435,9 @@ class MLStore(commands.Cog):
         _thumb = catalog_settings.get_thumbnail("ml")
         if _thumb:
             embed.set_thumbnail(url=_thumb)
+        _banner = catalog_settings.get_banner("ml")
+        if _banner:
+            embed.set_image(url=_banner)
         embed.set_footer(text=mltext.render_text("catalog_footer", store=STORE_NAME))
         if self.catalog_message_id:
             try:
@@ -486,6 +489,9 @@ class MLStore(commands.Cog):
         _thumb = catalog_settings.get_thumbnail("ml")
         if _thumb:
             embed.set_thumbnail(url=_thumb)
+        _banner = catalog_settings.get_banner("ml")
+        if _banner:
+            embed.set_image(url=_banner)
         embed.set_footer(text=mltext.render_text("catalog_footer", store=STORE_NAME))
         await msg.edit(embed=embed, view=MLBuyView(store_open=is_store_open()))
 

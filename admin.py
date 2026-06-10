@@ -755,7 +755,7 @@ var CMD_ITEMS=[
   {t:'Pelanggan',u:'/customers'},
   {t:'Monitor Garansi',u:'/warranty'},
   {t:'Editor Profil',u:'/profil-theme'},{t:'Editor Badge',u:'/badge-theme'},
-  {t:'Thumbnail Katalog',u:'/catalog-thumbnails'},
+  {t:'Media Katalog',u:'/catalog-thumbnails'},
   {t:'Emoji Katalog',u:'/lainnya/emoji'},
   {t:'Cek Self-Host',u:'/self-host-check'},
   {t:'Editor FAQ',u:'/faq-editor'},
@@ -909,7 +909,7 @@ def render_page(content, **ctx):
     {_grp("Tampilan &amp; Profil", "tampilan", False)}
     {_a("Editor Profil", "/profil-theme", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>', "theme_bp.page_theme")}
     {_a("Editor Badge", "/badge-theme", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="6"/><path d="M8.5 13.5L7 22l5-3 5 3-1.5-8.5"/></svg>', "badge_theme_bp.page_theme")}
-    {_a("Thumbnail Katalog", "/catalog-thumbnails", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>', "catalog_thumb_bp.page")}
+    {_a("Media Katalog", "/catalog-thumbnails", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>', "catalog_thumb_bp.page")}
     {_a("Emoji Katalog", "/lainnya/emoji", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>', "lainnya_emoji_bp.page")}
     {_grpend()}
     {_grp("Teks &amp; Pesan Bot", "teks", False)}

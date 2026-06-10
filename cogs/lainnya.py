@@ -551,6 +551,10 @@ def build_catalog_embed(products):
     if _thumb:
         embed.set_thumbnail(url=_thumb)
 
+    _banner = catalog_settings.get_banner("lainnya")
+    if _banner:
+        embed.set_image(url=_banner)
+
     embed.set_footer(text=latext.render_text("catalog_footer", store=STORE_NAME))
 
     return embed

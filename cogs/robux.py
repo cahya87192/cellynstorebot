@@ -157,6 +157,9 @@ def build_catalog_embed(rate):
     _thumb = catalog_settings.get_thumbnail("robux")
     if _thumb:
         embed.set_thumbnail(url=_thumb)
+    _banner = catalog_settings.get_banner("robux")
+    if _banner:
+        embed.set_image(url=_banner)
     embed.set_footer(text=rbtext.render_text("catalog_footer", store=STORE_NAME))
     return embed
 

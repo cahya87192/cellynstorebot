@@ -41,12 +41,15 @@ def build_sections(specs, load_text, sample_for=None):
 # ikut ter-scan token lain.
 _TEMPLATE = """
 <div class="page-header">
-  <div class="page-title">PAGE_TITLE <small>PAGE_SUB</small></div>
+  <div>
+    <h2>PAGE_TITLE</h2>
+    <p class="text-muted">PAGE_SUB</p>
+  </div>
 </div>
-<div class="card"><div class="card-body">
-  <div class="note" style="margin-bottom:1rem;">PAGE_INTRO</div>
-  <div id="sections"></div>
+<div class="card" style="margin-bottom:1rem;"><div class="card-body">
+  <div class="note" style="margin:0;">PAGE_INTRO</div>
 </div></div>
+<div id="sections"></div>
 
 <script>
 var SECTIONS = SECTIONS_JSON;
@@ -61,7 +64,7 @@ function render(tpl, sample){
 }
 function setStatus(kind, msg, ok){
   document.getElementById('st_'+kind).innerHTML =
-    '<span style="color:var(--'+(ok?'success':'warning')+')">'+(ok?'✓ ':'● ')+msg+'</span>';
+    '<span style="color:var(--'+(ok?'success':'warning')+');font-weight:600;">'+(ok?'\\u2713 ':'\\u25CF ')+msg+'</span>';
 }
 function updatePreview(i){
   var s = SECTIONS[i];
@@ -73,18 +76,28 @@ function build(){
   var html = '';
   SECTIONS.forEach(function(s, i){
     var chips = s.placeholders.length
-      ? 'Placeholder: ' + s.placeholders.map(function(p){ return '<code>'+esc(p)+'</code>'; }).join(' ')
-      : '<span style="color:var(--muted)">Tanpa placeholder</span>';
-    html += '<div class="card" style="margin-bottom:1rem;border:1px solid var(--border);"><div class="card-body">'
-      + '<div style="font-weight:700;margin-bottom:.2rem;">'+esc(s.label)+'</div>'
-      + '<div style="font-size:.78rem;color:var(--muted);margin-bottom:.7rem;">'+chips+'</div>'
-      + '<div class="form-group"><textarea id="txt_'+s.kind+'" rows="ROWS_VAL" style="width:100%;" '
+      ? s.placeholders.map(function(p){
+          return '<code style="background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:.1rem .4rem;font-size:.72rem;">'+esc(p)+'</code>';
+        }).join(' ')
+      : '<span class="text-muted" style="font-size:.75rem;">Tanpa placeholder</span>';
+    html += '<div class="card" style="margin-bottom:1rem;">'
+      + '<div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;">'
+      + '<span style="font-weight:700;">'+esc(s.label)+'</span>'
+      + '<span style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;">'+chips+'</span>'
+      + '</div>'
+      + '<div class="card-body">'
+      + '<div class="form-group" style="margin:0 0 .7rem 0;"><textarea id="txt_'+s.kind+'" rows="ROWS_VAL" style="width:100%;" '
       + 'oninput="updatePreview('+i+');setStatus(\\''+s.kind+'\\',\\'Belum disimpan\\',false);"></textarea></div>'
-      + '<button class="btn btn-primary btn-sm" onclick="saveSec('+i+')">💾 Simpan</button> '
-      + '<button class="btn btn-ghost btn-sm" onclick="resetSec('+i+')">↺ Default</button>'
-      + '<span id="st_'+s.kind+'" style="margin-left:.6rem;font-size:.85rem;"></span>'
-      + '<div style="margin-top:.9rem;border-left:4px solid var(--accent);background:var(--surface3);border-radius:6px;padding:.7rem .9rem;">'
-      + '<div id="pv_'+s.kind+'" style="color:var(--text);"></div></div>'
+      + '<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">'
+      + '<button class="btn btn-primary btn-sm" onclick="saveSec('+i+')">Simpan</button>'
+      + '<button class="btn btn-ghost btn-sm" onclick="resetSec('+i+')">Default</button>'
+      + '<span id="st_'+s.kind+'" style="margin-left:.2rem;font-size:.82rem;"></span>'
+      + '</div>'
+      + '<div style="margin-top:.9rem;">'
+      + '<div class="text-muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;">Pratinjau</div>'
+      + '<div style="border-left:3px solid var(--accent);background:var(--surface3);border-radius:8px;padding:.75rem .95rem;">'
+      + '<div id="pv_'+s.kind+'" style="color:var(--text);line-height:1.5;"></div></div>'
+      + '</div>'
       + '</div></div>';
   });
   document.getElementById('sections').innerHTML = html;
