@@ -28,13 +28,13 @@ MAX_TITLE_LEN = 40
 
 # Elemen yang bisa dikustomisasi + default-nya.
 # Tipe "text": punya size, color, bold, show, x, y.
-# Tipe "avatar": punya size, show, x, y.
+# Tipe "avatar": punya size, show, x, y, ring_color (None = warna tier otomatis).
 # Elemen "title" punya atribut tambahan "text" (judul yang bisa diganti).
 DEFAULT_THEME = {
     "panel_opacity": 150,          # 0-255, panel gelap di atas background
     "font_file": None,             # nama file font di data/ (None = font default)
     "elements": {
-        "avatar": {"type": "avatar", "x": 56,  "y": 75,  "size": 150, "show": True},
+        "avatar": {"type": "avatar", "x": 56,  "y": 75,  "size": 150, "show": True, "ring_color": None},
         "title":  {"type": "text",   "x": 246, "y": 52,  "size": 26, "color": "#F0C85A", "bold": True,  "show": True, "text": DEFAULT_TITLE},
         "name":   {"type": "text",   "x": 246, "y": 92,  "size": 34, "color": "#FFFFFF", "bold": True,  "show": True},
         "badges": {"type": "text",   "x": 246, "y": 150, "size": 22, "color": "#FFFFFF", "bold": True,  "show": True},
@@ -82,6 +82,19 @@ def hex_to_rgb(c) -> tuple:
     return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
 
 
+def _ring_color(c, default):
+    """Validasi warna bingkai (ring) avatar.
+
+    None/""/invalid -> None artinya "otomatis" (render memakai warna aksen
+    tier). String hex valid -> '#RRGGBB' (uppercase) untuk override warna ring.
+    """
+    if c is None:
+        return None
+    if isinstance(c, str) and not c.strip():
+        return None
+    return _valid_hex(c, default)
+
+
 def default_theme() -> dict:
     """Salinan dalam dari DEFAULT_THEME (aman dimodifikasi pemanggil)."""
     return json.loads(json.dumps(DEFAULT_THEME))
@@ -121,6 +134,8 @@ def merge_theme(raw) -> dict:
             base["bold"] = bool(incoming.get("bold", base["bold"]))
         elif base["type"] == "avatar":
             base["size"] = _clampi(incoming.get("size", base["size"]), 32, 300, base["size"])
+            base["ring_color"] = _ring_color(incoming.get("ring_color", base.get("ring_color")),
+                                             base.get("ring_color"))
         elif base["type"] == "image":
             base["size"] = _clampi(incoming.get("size", base["size"]), 32, 300, base["size"])
         # Judul: teks bisa diganti (string non-kosong, dipangkas panjangnya).

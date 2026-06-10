@@ -21,13 +21,13 @@ CARD_H = 360
 
 # Elemen yang bisa dikustomisasi + default-nya.
 # Tipe "text": punya size, color, bold, show, x, y.
-# Tipe "avatar": punya size, show, x, y.
+# Tipe "avatar": punya size, show, x, y, ring_color (None = warna tier otomatis).
 # Tipe "bar": punya w, h, color, show, x, y (+ teks XP terpisah: xptext).
 DEFAULT_THEME = {
     "panel_opacity": 120,          # 0-255, panel gelap di atas background
     "font_file": None,             # nama file font di data/ (None = font default)
     "elements": {
-        "avatar": {"type": "avatar", "x": 60,  "y": 70,  "size": 150, "show": True},
+        "avatar": {"type": "avatar", "x": 60,  "y": 70,  "size": 150, "show": True, "ring_color": None},
         "name":   {"type": "text",   "x": 256, "y": 60,  "size": 46, "color": "#FFFFFF", "bold": True,  "show": True},
         "tier":   {"type": "text",   "x": 256, "y": 116, "size": 26, "color": "#F0C85A", "bold": True,  "show": True},
         "since":  {"type": "text",   "x": 256, "y": 152, "size": 20, "color": "#DCDCE6", "bold": False, "show": True},
@@ -78,6 +78,19 @@ def hex_to_rgb(c) -> tuple:
     return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
 
 
+def _ring_color(c, default):
+    """Validasi warna bingkai (ring) avatar.
+
+    None/""/invalid -> None artinya "otomatis" (render memakai warna aksen
+    tier). String hex valid -> '#RRGGBB' (uppercase) untuk override warna ring.
+    """
+    if c is None:
+        return None
+    if isinstance(c, str) and not c.strip():
+        return None
+    return _valid_hex(c, default)
+
+
 def default_theme() -> dict:
     """Salinan dalam dari DEFAULT_THEME (aman dimodifikasi pemanggil)."""
     return json.loads(json.dumps(DEFAULT_THEME))
@@ -117,6 +130,8 @@ def merge_theme(raw) -> dict:
             base["bold"] = bool(incoming.get("bold", base["bold"]))
         elif base["type"] == "avatar":
             base["size"] = _clampi(incoming.get("size", base["size"]), 32, 300, base["size"])
+            base["ring_color"] = _ring_color(incoming.get("ring_color", base.get("ring_color")),
+                                             base.get("ring_color"))
         elif base["type"] == "bar":
             base["w"] = _clampi(incoming.get("w", base["w"]), 50, CARD_W, base["w"])
             base["h"] = _clampi(incoming.get("h", base["h"]), 6, 80, base["h"])
