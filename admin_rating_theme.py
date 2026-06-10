@@ -20,6 +20,7 @@ import json
 from flask import Blueprint, request, session, redirect, Response, jsonify
 
 from utils import rating_theme as ratingthemelib
+from utils import card_presets
 
 rating_theme_bp = Blueprint("rating_theme_bp", __name__)
 
@@ -175,6 +176,8 @@ def page_theme():
     cur_font = theme.get("font_file") or "(default sistem)"
     has_bg_json = json.dumps(_bg_path() is not None)
     enabled_attr = "checked" if theme.get("enabled") else ""
+    presets_json = json.dumps(card_presets.presets_for("rating"))
+    default_json = json.dumps(ratingthemelib.default_theme())
     cw, ch = ratingthemelib.RATING_W, ratingthemelib.RATING_H
 
     content = f"""
@@ -215,6 +218,18 @@ def page_theme():
           Aktifkan kartu testimoni (gambar)
         </label>
         <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem;">Jika nonaktif, ulasan tetap diposting sebagai embed teks klasik.</div>
+      </div>
+      <div id="cfgWarn" style="display:none;margin:0 0 .8rem;padding:.55rem .7rem;border-radius:8px;
+        background:rgba(240,180,40,.12);border:1px solid rgba(240,180,40,.4);color:var(--warning);font-size:.8rem;"></div>
+      <div class="form-group">
+        <label>Galeri Preset (gaya warna)</label>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+          <select id="presetSel" style="flex:1 1 auto;min-width:160px;">
+            <option value="">— pilih preset —</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="applyPresetSel()">Terapkan</button>
+        </div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem;">Preset hanya mengubah warna &amp; opacity (posisi elemen tetap). Klik Simpan untuk menerapkan ke bot.</div>
       </div>
       <div class="form-group">
         <label>Nama Contoh (pratinjau)</label>
@@ -267,8 +282,33 @@ var THEME = {theme_json};
 var LABELS = {labels_json};
 var ORDER = {order_json};
 var HAS_BG = {has_bg_json};
+var PRESETS = {presets_json};
+var DEFAULT_THEME = {default_json};
 var theme = JSON.parse(JSON.stringify(THEME));
 var CARD_W={cw}, CARD_H={ch};
+
+(function initPresets(){{
+  var ps=document.getElementById('presetSel'); if(!ps) return;
+  PRESETS.forEach(function(p){{ var o=document.createElement('option'); o.value=p.id; o.textContent=p.name; ps.appendChild(o); }});
+}})();
+function applyPresetSel(){{
+  var ps=document.getElementById('presetSel'); if(!ps||!ps.value) return;
+  var p=null; PRESETS.forEach(function(x){{ if(x.id===ps.value) p=x; }}); if(!p) return;
+  if(typeof p.opacity!=='undefined' && p.opacity!==null){{ theme.panel_opacity=p.opacity; var po=document.getElementById('panelOpacity'); if(po) po.value=p.opacity; }}
+  if(p.ring && theme.elements.avatar){{ theme.elements.avatar.ring_color=p.ring; }}
+  if(p.colors){{ for(var k in p.colors){{ if(theme.elements[k]) theme.elements[k].color=p.colors[k]; }} }}
+  renderControls(); markDirty(); setOk('Preset "'+p.name+'" diterapkan — klik Simpan untuk menyimpan.');
+}}
+
+function _stripEnabled(t){{ var c=JSON.parse(JSON.stringify(t)); c.enabled=false; return JSON.stringify(c); }}
+function checkConfigured(){{
+  var w=document.getElementById('cfgWarn'); if(!w) return;
+  var isDefault=(_stripEnabled(theme)===_stripEnabled(DEFAULT_THEME));
+  if(theme.enabled && isDefault && !HAS_BG){{
+    w.style.display='block';
+    w.innerHTML='\\u26A0 Kartu testimoni diaktifkan tapi masih tampilan default & belum ada background. Atur warna/posisi atau pilih preset dulu biar tidak terlihat generik.';
+  }} else {{ w.style.display='none'; }}
+}}
 
 function showThmTab(t){{
   document.querySelectorAll('.thm-panel').forEach(function(p){{p.hidden=(p.id!=='thm-'+t);}});
@@ -278,10 +318,11 @@ function showThmTab(t){{
 var _previewTimer=null;
 function markDirty(){{
   document.getElementById('status').innerHTML='<span style="color:var(--warning)">\\u25CF Perubahan belum disimpan (pratinjau diperbarui...)</span>';
+  checkConfigured();
   if(_previewTimer) clearTimeout(_previewTimer);
   _previewTimer=setTimeout(refreshPreview, 400);
 }}
-function setOk(m){{ document.getElementById('status').innerHTML='<span style="color:var(--success)">\\u2713 '+m+'</span>'; }}
+function setOk(m){{ document.getElementById('status').innerHTML='<span style="color:var(--success)">\\u2713 '+m+'</span>'; checkConfigured(); }}
 
 var sel=document.getElementById('elemSel');
 ORDER.forEach(function(k){{ var o=document.createElement('option'); o.value=k; o.textContent=LABELS[k]||k; sel.appendChild(o); }});
@@ -388,6 +429,6 @@ function uploadFont(){{
 }}
 
 window.addEventListener('resize', renderBoxes);
-renderBoxes(); renderControls(); initBgUI();
+renderBoxes(); renderControls(); initBgUI(); checkConfigured();
 </script>"""
     return render_page(content)
