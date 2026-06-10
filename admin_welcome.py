@@ -363,7 +363,7 @@ def page_dm():
     <label style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">Pratinjau DM</label>
     <div id="pvWrap" style="max-width:460px;margin-top:.4rem;">
       <img id="pvBanner" style="width:100%;border-radius:8px 8px 0 0;display:none;" alt="banner">
-      <div style="border-left:4px solid #00BFFF;background:var(--surface3);border-radius:6px;padding:.85rem 1rem;position:relative;">
+      <div style="border-left:4px solid var(--accent);background:var(--surface3);border-radius:6px;padding:.85rem 1rem;position:relative;">
         <img id="pvThumb" style="position:absolute;top:.85rem;right:1rem;width:64px;height:64px;border-radius:8px;object-fit:cover;display:none;" alt="thumb">
         <div id="pvTitle" style="font-weight:700;margin-bottom:.4rem;padding-right:72px;"></div>
         <div id="pvDesc" style="margin-bottom:.5rem;"></div>

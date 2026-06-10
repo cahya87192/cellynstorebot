@@ -626,6 +626,61 @@ tbody tr:hover td{background:var(--accent-soft);}
 
 /* Input fokus: cincin lembut sesuai aksen */
 input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--ring);}
+
+/* ============================================================
+   CONTENT POLISH 2026 — penyelarasan isi SEMUA halaman
+   Lapisan final yang merapikan elemen di dalam tiap halaman
+   (callout, heading seksi, link, kode, daftar, dll.) sehingga
+   seluruh halaman tampil konsisten. Murni CSS additif, berlaku
+   global lewat render_page/BASE tanpa mengubah markup.
+   ============================================================ */
+
+/* Header tiap halaman: garis pemisah tipis (pola dashboard 2026) */
+.page-header{padding-bottom:1.05rem;border-bottom:1px solid var(--border);margin-bottom:1.4rem;}
+
+/* Heading seksi di dalam kartu (mis. Cek Self-Host, Insights) */
+.card-body > h3,.card-body > h4{
+  font-family:'Plus Jakarta Sans','Inter',sans-serif;
+  font-weight:700;letter-spacing:-.01em;color:var(--text);
+  margin:0 0 .5rem;font-size:1.02rem;line-height:1.3;
+}
+.card-body > h3:not(:first-child),.card-body > h4:not(:first-child){margin-top:1.4rem;}
+.card-body > h3 small,.card-body > h4 small{font-weight:500;color:var(--muted);}
+
+/* Catatan/callout: dari abu-abu polos -> kartu beraksen yang kalem */
+.note{
+  margin-top:1rem;padding:.85rem 1rem .85rem 1.05rem;
+  background:var(--accent-soft);border:1px solid var(--glass-border);
+  border-left:3px solid var(--accent);border-radius:10px;
+  font-size:.82rem;color:var(--text2);line-height:1.55;
+}
+.note b,.note strong{color:var(--text);}
+.note code{background:rgba(255,255,255,.55);}
+html[data-theme="dark"] .note code{background:rgba(255,255,255,.06);}
+
+/* Header sticky utk tabel yg ada di kontainer scroll vertikal */
+.table-wrapper{border-radius:10px;}
+
+/* Link di dalam konten kartu */
+.card-body a:not(.btn){color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;transition:border-color .15s;}
+.card-body a:not(.btn):hover{border-bottom-color:var(--accent);}
+
+/* Pemisah, daftar, blok kode, kbd */
+hr{border:none;height:1px;background:var(--border);margin:1.25rem 0;}
+.card-body ul,.card-body ol{margin:.45rem 0 .45rem 1.15rem;padding:0;}
+.card-body li{margin:.2rem 0;font-size:.86rem;color:var(--text2);line-height:1.5;}
+pre{background:var(--surface3);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;overflow:auto;font-size:.8rem;line-height:1.5;color:var(--text2);font-family:'SFMono-Regular',Consolas,monospace;}
+kbd{background:var(--surface3);border:1px solid var(--border2);border-bottom-width:2px;border-radius:6px;padding:.05rem .4rem;font-size:.75rem;font-family:'SFMono-Regular',Consolas,monospace;color:var(--text2);}
+
+/* Definition list (pasangan kunci/nilai) yg rapi */
+dl{display:grid;grid-template-columns:auto 1fr;gap:.35rem .9rem;margin:.5rem 0;font-size:.86rem;align-items:baseline;}
+dt{color:var(--muted2);font-weight:600;}
+dd{margin:0;color:var(--text);}
+
+/* Sentuhan akhir: radius selaras & empty state lebih lega */
+.rate-display{border-radius:var(--radius-sm);}
+.flash{border-radius:10px;}
+.empty{padding:2.75rem 1rem;}
 </style>
 </head>
 <body>

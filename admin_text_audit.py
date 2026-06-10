@@ -66,11 +66,12 @@ def page_text_audit():
                 "</tr>"
             )
         table = (
+            '<div class="table-wrapper">'
             '<table style="width:100%;border-collapse:collapse;" class="audit-table">'
             '<thead><tr style="text-align:left;border-bottom:1px solid var(--border);">'
             '<th style="padding:.4rem;">Waktu</th><th style="padding:.4rem;">Aksi</th>'
             '<th style="padding:.4rem;">Teks</th><th style="padding:.4rem;">Detail</th>'
-            "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
+            "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
         )
     else:
         table = '<div style="color:var(--muted);padding:1rem 0;">Belum ada riwayat perubahan teks.</div>'
