@@ -15,11 +15,13 @@ import html
 import sqlite3
 import csv
 import io
+import json
 import datetime
 
 from flask import Blueprint, request, session, redirect, Response
 
 from utils import member_names
+from utils import analytics
 
 insights_bp = Blueprint("insights_bp", __name__)
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
@@ -392,4 +394,88 @@ def page_tickets():
   </div>
 </div>
 <script>setTimeout(function(){{location.reload();}}, 30000);</script>"""
+    return render_page(content)
+
+
+
+@insights_bp.route("/analytics")
+def page_analytics():
+    g = _guard()
+    if g:
+        return g
+    from admin import render_page
+
+    summary = analytics.period_summary()
+    per_layanan = analytics.omzet_by_layanan(days=30)
+    items = analytics.top_items(days=30, limit=10)
+
+    def _card(cls, label, p, sub):
+        return (f'<div class="stat-card {cls}"><div class="stat-label">{label}</div>'
+                f'<div class="stat-value" style="font-size:1.4rem;">{_rupiah(p["omzet"])}</div>'
+                f'<div class="stat-sub">{p["tx"]} transaksi · {sub}</div></div>')
+
+    cards = (
+        _card("green", "Hari Ini", summary["today"], "hari ini")
+        + _card("gold", "7 Hari", summary["d7"], "minggu ini")
+        + _card("ml", "30 Hari", summary["d30"], "bulan ini")
+        + _card("robux", "Sepanjang Waktu", summary["all"], "total")
+    )
+
+    # Bar chart omzet per layanan (30 hari).
+    chart_labels = [LAYANAN_LABEL.get(r["layanan"], (r["layanan"] or "-").title()) for r in per_layanan]
+    chart_values = [int(r["omzet"]) for r in per_layanan]
+
+    lay_rows = ""
+    for r in per_layanan:
+        lab = LAYANAN_LABEL.get(r["layanan"], (r["layanan"] or "-").title())
+        lay_rows += (f"<tr><td><span class='badge badge-ml'>{_esc(lab)}</span></td>"
+                     f"<td>{r['tx']}</td><td>{_rupiah(r['omzet'])}</td></tr>")
+    if not lay_rows:
+        lay_rows = "<tr><td colspan='3' class='empty'>Belum ada data transaksi.</td></tr>"
+
+    item_rows = ""
+    for i, it in enumerate(items, 1):
+        item_rows += (f"<tr><td>{i}</td><td>{_esc(it['item'])}</td>"
+                      f"<td>{it['orders']}</td><td>{it['qty']}</td>"
+                      f"<td>{_rupiah(it['omzet'])}</td></tr>")
+    if not item_rows:
+        item_rows = "<tr><td colspan='5' class='empty'>Belum ada item terjual.</td></tr>"
+
+    content = f"""
+<div class="page-header">
+  <div class="page-title">Analitik <small>Ringkasan penjualan &amp; produk terlaris</small></div>
+  <div class="page-actions"><a class="btn btn-ghost" href="/transactions">Lihat transaksi</a></div>
+</div>
+<div class="stats-grid">{cards}</div>
+<div class="card">
+  <div class="card-header"><span class="card-title">Omzet per Layanan (30 hari)</span></div>
+  <div class="card-body"><canvas id="layChart" height="100"></canvas></div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="card-title">Rincian per Layanan (30 hari)</span></div>
+  <div class="table-wrapper">
+    <table><thead><tr><th>Layanan</th><th>Transaksi</th><th>Omzet</th></tr></thead>
+    <tbody>{lay_rows}</tbody></table>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="card-title">Item Terlaris (30 hari)</span></div>
+  <div class="table-wrapper">
+    <table><thead><tr><th>#</th><th>Item</th><th>Order</th><th>Qty</th><th>Omzet</th></tr></thead>
+    <tbody>{item_rows}</tbody></table>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+(function(){{
+  var el=document.getElementById('layChart'); if(!el||!window.Chart) return;
+  new Chart(el,{{type:'bar',
+    data:{{labels:{json.dumps(chart_labels)},datasets:[{{label:'Omzet',data:{json.dumps(chart_values)},
+      backgroundColor:'rgba(37,99,235,.55)',borderColor:'#2563eb',borderWidth:1}}]}},
+    options:{{responsive:true,plugins:{{legend:{{display:false}}}},
+      scales:{{x:{{grid:{{display:false}},ticks:{{color:'#94a3b8',font:{{size:10}}}}}},
+      y:{{grid:{{color:'rgba(148,163,184,.15)'}},ticks:{{color:'#94a3b8',font:{{size:10}}}},beginAtZero:true}}}}}}
+  }});
+}})();
+</script>"""
     return render_page(content)
