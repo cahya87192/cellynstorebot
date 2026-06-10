@@ -8,7 +8,7 @@ from utils import review_text as r
 
 def test_specs_keys_and_defaults():
     expected = {
-        "prompt_title", "prompt_desc", "invoice_title", "invoice_desc", "invoice_footer",
+        "prompt_title", "prompt_desc",
         "expired_title", "expired_desc", "published_title", "reminder_title",
         "reminder_desc", "footer_warning", "thankyou_5star", "thankyou_normal",
     }
@@ -40,8 +40,8 @@ def test_empty_resets_to_default(db):
 
 
 def test_save_isolated_per_kind(db):
-    r.save_text("invoice_title", text="Nota")
-    assert r.load_text("invoice_title") == "Nota"
+    r.save_text("published_title", text="Nota")
+    assert r.load_text("published_title") == "Nota"
     assert r.load_text("prompt_title") == r.DEFAULT_PROMPT_TITLE
     assert r.load_text("expired_title") == r.DEFAULT_EXPIRED_TITLE
 

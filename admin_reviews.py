@@ -54,7 +54,7 @@ def page_review():
         rtext.REVIEW_SPECS, rtext.load_text,
         base_route="/review-editor",
         title="Pesan Rating &amp; Ulasan",
-        subtitle="Prompt, struk, pengingat, kedaluwarsa &amp; ucapan terima kasih",
+        subtitle="Prompt, pengingat, kedaluwarsa &amp; ucapan terima kasih",
         intro=_INTRO,
         rows=3,
         sample_for=ate.flat_sample_resolver(_SAMPLE),
