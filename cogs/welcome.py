@@ -15,6 +15,7 @@ THUMBNAIL = "https://i.imgur.com/CWtUCzj.png"
 DATA_DIR = "data"
 WELCOME_IMAGE_BASE = "welcome"
 BOOST_IMAGE_BASE = "boost"
+WELCOME_CARD_BG_BASE = "welcomecardbg"
 ALLOWED_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp")
 
 
@@ -226,6 +227,43 @@ class WelcomeCog(commands.Cog):
             except Exception as e:
                 print(f"[Welcome] Boost role remove error: {e}")
 
+    async def _fetch_avatar_bytes(self, member: discord.Member):
+        """Ambil byte avatar member (untuk kartu welcome). None bila gagal."""
+        try:
+            url = member.display_avatar.replace(size=256).url
+            async with aiohttp.ClientSession() as s:
+                async with s.get(url) as r:
+                    if r.status == 200:
+                        return await r.read()
+        except Exception as e:
+            print(f"[Welcome] Gagal ambil avatar: {e}")
+        return None
+
+    async def _send_welcome_card(self, member, member_count, theme,
+                                 channel=None, test=False, interaction=None):
+        """Render & kirim kartu welcome (gambar). Return True bila terkirim,
+        False agar pemanggil fallback ke embed klasik."""
+        try:
+            from cogs.profile import render_welcome_card
+            avatar_bytes = await self._fetch_avatar_bytes(member)
+            bg = _find_image(WELCOME_CARD_BG_BASE)
+            buf = render_welcome_card(
+                member.display_name, avatar_bytes,
+                member_count=member_count, theme=theme, bg_path=bg,
+            )
+            file = discord.File(buf, filename="welcome.png")
+            if test and interaction:
+                await interaction.followup.send(content="Pratinjau kartu welcome:", file=file)
+            else:
+                ch = channel or self.bot.get_channel(self._welcome_channel_id)
+                if not ch:
+                    return False
+                await ch.send(content=member.mention, file=file)
+            return True
+        except Exception as e:
+            print(f"[Welcome] Kartu welcome gagal, fallback embed: {e}")
+            return False
+
     async def _send_welcome(self, member: discord.Member, test=False, interaction=None):
         if not self._welcome_channel_id:
             if interaction:
@@ -236,6 +274,18 @@ class WelcomeCog(commands.Cog):
             return
         guild = member.guild
         member_count = sum(1 for m in guild.members if not m.bot)
+
+        # Kartu welcome (gambar) bila diaktifkan admin di panel.
+        try:
+            from utils import welcome_theme as wtheme
+            _wtheme = wtheme.load_theme()
+        except Exception:
+            _wtheme = None
+        if _wtheme and _wtheme.get("enabled"):
+            if await self._send_welcome_card(member, member_count, _wtheme,
+                                             channel=channel, test=test, interaction=interaction):
+                return
+
         title, desc = welcomelib.render_welcome(member.display_name, STORE_NAME, member_count)
         embed = discord.Embed(title=title, description=desc, color=0x00BFFF)
         try:

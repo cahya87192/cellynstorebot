@@ -424,6 +424,101 @@ def render_achievement_card(name: str, avatar_bytes, badge_names, tier: str = "B
 
 
 
+def render_welcome_card(name: str, avatar_bytes, *, member_count=None,
+                        theme=None, bg_path=None) -> io.BytesIO:
+    """Render kartu sambutan member baru -> PNG BytesIO. Murni Pillow.
+
+    Dipakai cogs/welcome.py saat member join (bila kartu welcome diaktifkan di
+    panel). Posisi, warna, ukuran font, teks judul/subjudul, visibilitas, opacity
+    panel & font kustom diambil dari `theme` (utils.welcome_theme). `bg_path` =
+    background kustom (cover-fit WELCOME_W×WELCOME_H); bila None pakai gradien
+    default yang kalem. Teks polos (font bundel tak render emoji warna).
+    """
+    from utils import welcome_theme as wtheme
+    W, H = wtheme.WELCOME_W, wtheme.WELCOME_H
+
+    theme = wtheme.merge_theme(theme)
+    el = theme["elements"]
+    font_file = theme.get("font_file")
+    accent = (139, 155, 224)  # periwinkle kalem untuk ring avatar
+
+    def fnt(size, bold=False):
+        return _font(size, bold=bold, font_file=font_file)
+
+    def rgb(key, fallback):
+        try:
+            return wtheme.hex_to_rgb(el[key]["color"])
+        except Exception:
+            return fallback
+
+    bg = None
+    if bg_path:
+        try:
+            src = Image.open(bg_path).convert("RGBA")
+            sw, sh = src.size
+            scale = max(W / sw, H / sh)
+            nw, nh = int(sw * scale), int(sh * scale)
+            src = src.resize((nw, nh))
+            left, top = (nw - W) // 2, (nh - H) // 2
+            bg = src.crop((left, top, left + W, top + H))
+        except Exception:
+            bg = None
+    if bg is None:
+        bg = _gradient((26, 29, 44), (52, 44, 88)).resize((W, H)).convert("RGBA")
+    card = bg
+
+    panel = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    pd = ImageDraw.Draw(panel)
+    _rounded(pd, (20, 20, W - 20, H - 20), 28, (0, 0, 0, int(theme["panel_opacity"])))
+    card = Image.alpha_composite(card, panel)
+    d = ImageDraw.Draw(card)
+
+    # Avatar bulat + ring aksen.
+    av = el["avatar"]
+    if av.get("show", True):
+        av_size = int(av["size"])
+        ax, ay = int(av["x"]), int(av["y"])
+        d.ellipse((ax - 6, ay - 6, ax + av_size + 6, ay + av_size + 6), fill=accent + (255,))
+        if avatar_bytes:
+            try:
+                im = Image.open(io.BytesIO(avatar_bytes))
+                circ = _circle_avatar(im, av_size)
+                card.paste(circ, (ax, ay), circ)
+            except Exception:
+                d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+        else:
+            d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+
+    # Judul (teks bisa diganti).
+    if el["title"].get("show", True):
+        e = el["title"]
+        d.text((e["x"], e["y"]), str(e.get("text") or "SELAMAT DATANG"),
+               font=fnt(e["size"], e.get("bold", True)), fill=rgb("title", (255, 255, 255)))
+
+    # Nama member (dinamis).
+    if el["name"].get("show", True):
+        e = el["name"]
+        d.text((e["x"], e["y"]), (name or "Member")[:24],
+               font=fnt(e["size"], e.get("bold", True)), fill=rgb("name", (139, 155, 224)))
+
+    # Subjudul / pesan (teks bisa diganti).
+    if el["subtitle"].get("show", True):
+        e = el["subtitle"]
+        d.text((e["x"], e["y"]), str(e.get("text") or ""),
+               font=fnt(e["size"], e.get("bold", False)), fill=rgb("subtitle", (216, 220, 230)))
+
+    # Jumlah member (dinamis) — hanya bila disediakan.
+    if el["membercount"].get("show", True) and member_count is not None:
+        e = el["membercount"]
+        d.text((e["x"], e["y"]), f"Member #{member_count}",
+               font=fnt(e["size"], e.get("bold", False)), fill=rgb("membercount", (166, 177, 198)))
+
+    buf = io.BytesIO()
+    card.convert("RGB").save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+
 def _is_admin(member) -> bool:
     return any(r.id == ADMIN_ROLE_ID for r in getattr(member, "roles", []))
 
