@@ -8,6 +8,26 @@ Window waktu memakai date('now', ...) SQLite (UTC), konsisten dgn closed_at yang
 disimpan dalam ISO UTC.
 """
 
+# Periode yang bisa dipilih di halaman Analitik: (key, days, label).
+PERIODS = (("7", 7, "7 Hari"), ("30", 30, "30 Hari"), ("90", 90, "90 Hari"))
+DEFAULT_PERIOD = "30"
+
+
+def resolve_period(key):
+    """Validasi `key` periode terhadap allowlist. Return (key, days, label).
+
+    Key tak dikenal / kosong / None -> default (30 hari). Murni (tanpa Flask)
+    supaya bisa diuji & dipakai bersama oleh halaman + endpoint export.
+    """
+    k = (key or "").strip()
+    for kk, d, lab in PERIODS:
+        if kk == k:
+            return kk, d, lab
+    for kk, d, lab in PERIODS:
+        if kk == DEFAULT_PERIOD:
+            return kk, d, lab
+    return PERIODS[0]
+
 
 def _period_clause(days):
     """Kembalikan (sql_clause, params) untuk filter `days` terakhir.

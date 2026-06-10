@@ -80,6 +80,19 @@ def _guard():
     return None
 
 
+# Periode yang bisa dipilih di halaman Analitik didefinisikan di utils.analytics
+# (analytics.PERIODS / analytics.resolve_period) supaya logikanya murni & testable.
+
+
+def _parse_period(args):
+    """Ambil periode terpilih dari query (?days=). Default 30 hari.
+
+    Delegasi ke analytics.resolve_period (allowlist tervalidasi) -> mencegah
+    nilai liar masuk ke query / judul halaman / nama file export.
+    """
+    return analytics.resolve_period(args.get("days"))
+
+
 def _layanan_options(selected):
     opts = ['<option value="">Semua layanan</option>']
     for key, label in LAYANAN_LABEL.items():
@@ -406,11 +419,12 @@ def page_analytics():
     from admin import render_page
 
     summary = analytics.period_summary()
-    comp = analytics.period_comparison(days=30)
-    per_layanan = analytics.omzet_by_layanan(days=30)
-    items = analytics.top_items(days=30, limit=10)
-    customers = analytics.top_customers(days=30, limit=10)
-    trend = analytics.daily_omzet(days=30)
+    key, days, plabel = _parse_period(request.args)
+    comp = analytics.period_comparison(days=days)
+    per_layanan = analytics.omzet_by_layanan(days=days)
+    items = analytics.top_items(days=days, limit=10)
+    customers = analytics.top_customers(days=days, limit=10)
+    trend = analytics.daily_omzet(days=days)
 
     def _trend(pct):
         """Badge tren persen: hijau naik, merah turun, abu untuk baru/datar."""
@@ -436,10 +450,10 @@ def page_analytics():
         + _card("robux", "Sepanjang Waktu", summary["all"], "total")
     )
 
-    # Kartu pertumbuhan: 30 hari ini vs 30 hari sebelumnya.
+    # Kartu pertumbuhan: periode terpilih vs periode sebelumnya yg sama panjang.
     growth = f"""
 <div class="card">
-  <div class="card-header"><span class="card-title">Pertumbuhan (30 hari vs 30 hari sebelumnya)</span></div>
+  <div class="card-header"><span class="card-title">Pertumbuhan ({days} hari vs {days} hari sebelumnya)</span></div>
   <div class="card-body" style="display:flex;gap:2rem;flex-wrap:wrap;">
     <div>
       <div class="stat-label">Omzet</div>
@@ -488,37 +502,48 @@ def page_analytics():
     if not item_rows:
         item_rows = "<tr><td colspan='5' class='empty'>Belum ada item terjual.</td></tr>"
 
+    # Toolbar pemilih periode (berlaku ke semua bagian detail di bawah) + export.
+    period_nav = '<div class="card"><div class="card-body" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">'
+    period_nav += '<span class="text-muted" style="font-size:.85rem;">Periode detail:</span>'
+    for k, _d, lab in analytics.PERIODS:
+        cls = "btn" if k == key else "btn btn-ghost"
+        period_nav += f'<a class="{cls}" href="/analytics?days={k}">{lab}</a>'
+    period_nav += (f'<a class="btn btn-ghost" href="/analytics/export.csv?days={key}" '
+                   f'style="margin-left:auto;">&#11015; Export CSV</a>')
+    period_nav += '</div></div>'
+
     content = f"""
 <div class="page-header">
   <div class="page-title">Analitik <small>Ringkasan penjualan &amp; produk terlaris</small></div>
   <div class="page-actions"><a class="btn btn-ghost" href="/transactions">Lihat transaksi</a></div>
 </div>
 <div class="stats-grid">{cards}</div>
+{period_nav}
 {growth}
 <div class="card">
-  <div class="card-header"><span class="card-title">Tren Omzet Harian (30 hari)</span></div>
+  <div class="card-header"><span class="card-title">Tren Omzet Harian ({plabel})</span></div>
   <div class="card-body"><canvas id="trendChart" height="100"></canvas></div>
 </div>
 <div class="card">
-  <div class="card-header"><span class="card-title">Omzet per Layanan (30 hari)</span></div>
+  <div class="card-header"><span class="card-title">Omzet per Layanan ({plabel})</span></div>
   <div class="card-body"><canvas id="layChart" height="100"></canvas></div>
 </div>
 <div class="card">
-  <div class="card-header"><span class="card-title">Rincian per Layanan (30 hari)</span></div>
+  <div class="card-header"><span class="card-title">Rincian per Layanan ({plabel})</span></div>
   <div class="table-wrapper">
     <table><thead><tr><th>Layanan</th><th>Transaksi</th><th>Omzet</th></tr></thead>
     <tbody>{lay_rows}</tbody></table>
   </div>
 </div>
 <div class="card">
-  <div class="card-header"><span class="card-title">Pelanggan Teratas (30 hari)</span></div>
+  <div class="card-header"><span class="card-title">Pelanggan Teratas ({plabel})</span></div>
   <div class="table-wrapper">
     <table><thead><tr><th>#</th><th>Pelanggan</th><th>Order</th><th>Total Belanja</th></tr></thead>
     <tbody>{cust_rows}</tbody></table>
   </div>
 </div>
 <div class="card">
-  <div class="card-header"><span class="card-title">Item Terlaris (30 hari)</span></div>
+  <div class="card-header"><span class="card-title">Item Terlaris ({plabel})</span></div>
   <div class="table-wrapper">
     <table><thead><tr><th>#</th><th>Item</th><th>Order</th><th>Qty</th><th>Omzet</th></tr></thead>
     <tbody>{item_rows}</tbody></table>
@@ -548,3 +573,28 @@ def page_analytics():
 }})();
 </script>"""
     return render_page(content)
+
+
+@insights_bp.route("/analytics/export.csv")
+def export_analytics():
+    """Unduh CSV tren omzet harian sesuai periode terpilih (?days=7|30|90)."""
+    g = _guard()
+    if g:
+        return g
+    key, days, _lab = _parse_period(request.args)
+    rows = analytics.daily_omzet(days=days)
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["tanggal", "transaksi", "omzet"])
+    for r in rows:
+        w.writerow([r["tgl"], r["tx"], r["omzet"]])
+    # Baris total agar langsung kebaca di spreadsheet.
+    w.writerow(["TOTAL", sum(r["tx"] for r in rows), sum(r["omzet"] for r in rows)])
+
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=analitik_{days}h_{stamp}.csv"},
+    )
