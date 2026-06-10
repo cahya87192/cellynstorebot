@@ -95,7 +95,7 @@ def page_sticky():
 
     content = """
 <div class="page-header">
-  <div class="page-title">Kelola Sticky Message <small>Ubah/hapus sticky aktif per channel</small></div>
+  <div class="page-title">Kelola Sticky Message <small>STICKY_COUNT sticky aktif &middot; ubah/hapus per channel</small></div>
 </div>
 <div class="card"><div class="card-body">
   <div class="note" style="margin-bottom:1rem;">
@@ -134,8 +134,8 @@ function render(){
       + '<div class="form-group"><label>Warna embed (hex)</label>'
       + '<input type="text" maxlength="7" value="'+esc(e.color_hex)+'" placeholder="#5865F2" '
       + 'oninput="ENTRIES['+i+'].color_hex=this.value;markDirty();" style="max-width:140px;"></div>'
-      + '<button class="btn btn-primary btn-sm" onclick="saveEntry('+i+')">💾 Simpan</button> '
-      + '<button class="btn btn-ghost btn-sm" onclick="delEntry('+i+')">🗑️ Hapus</button>'
+      + '<button class="btn btn-primary btn-sm" onclick="saveEntry('+i+')">Simpan</button> '
+      + '<button class="btn btn-ghost btn-sm" onclick="delEntry('+i+')">Hapus</button>'
       + '</div></div>';
   });
   if(!ENTRIES.length) html = '<div class="empty">Belum ada sticky aktif. Pasang dari Discord dengan <code>/stick_msg</code>.</div>';
@@ -166,4 +166,5 @@ function delEntry(i){
 render();
 </script>"""
     content = content.replace("ENTRIES_JSON", entries_json)
+    content = content.replace("STICKY_COUNT", str(len(entries)))
     return render_page(content)

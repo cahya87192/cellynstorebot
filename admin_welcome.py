@@ -140,7 +140,9 @@ def page_welcome():
     Channel &amp; gambar welcome/boost diatur dari Discord (<code>/setwelcome</code>). Halaman ini mengubah <b>teksnya</b>.
     Perubahan langsung dipakai pada event berikutnya. Mendukung <b>**bold**</b> ala Discord.
   </div>
+  <h3>Pesan Embed (Welcome / Boost / Leave)</h3>
   <div id="sections"></div>
+  <h3 style="margin-top:1.6rem;">Pesan Teks (Sapaan Publik)</h3>
   <div id="textSections"></div>
 </div></div>
 
@@ -181,8 +183,8 @@ function build(){
       + '<div class="form-group"><label>Isi</label>'
       + '<textarea id="desc_'+s.kind+'" rows="5" style="width:100%;" '
       + 'oninput="updatePreview('+i+');setStatus(\\''+s.kind+'\\',\\'Belum disimpan\\',false);"></textarea></div>'
-      + '<button class="btn btn-primary btn-sm" onclick="saveSec('+i+')">💾 Simpan</button> '
-      + '<button class="btn btn-ghost btn-sm" onclick="resetSec('+i+')">↺ Default</button>'
+      + '<button class="btn btn-primary btn-sm" onclick="saveSec('+i+')">Simpan</button> '
+      + '<button class="btn btn-ghost btn-sm" onclick="resetSec('+i+')">Default</button>'
       + '<span id="st_'+s.kind+'" style="margin-left:.6rem;font-size:.85rem;"></span>'
       + '<div style="margin-top:.9rem;border-left:4px solid var(--accent);background:var(--surface3);border-radius:6px;padding:.7rem .9rem;">'
       + '<div id="pvt_'+s.kind+'" style="font-weight:700;margin-bottom:.35rem;"></div>'
@@ -230,8 +232,8 @@ function buildText(){
       + '<div style="font-size:.78rem;color:var(--muted);margin-bottom:.7rem;">Pesan teks biasa (bukan embed). Placeholder: '+chips+'</div>'
       + '<div class="form-group"><textarea id="txt_'+s.kind+'" rows="3" style="width:100%;" '
       + 'oninput="updateText('+i+');setStatus(\\''+s.kind+'\\',\\'Belum disimpan\\',false);"></textarea></div>'
-      + '<button class="btn btn-primary btn-sm" onclick="saveText('+i+')">💾 Simpan</button> '
-      + '<button class="btn btn-ghost btn-sm" onclick="resetText('+i+')">↺ Default</button>'
+      + '<button class="btn btn-primary btn-sm" onclick="saveText('+i+')">Simpan</button> '
+      + '<button class="btn btn-ghost btn-sm" onclick="resetText('+i+')">Default</button>'
       + '<span id="st_'+s.kind+'" style="margin-left:.6rem;font-size:.85rem;"></span>'
       + '<div style="margin-top:.9rem;border-left:4px solid var(--accent);background:var(--surface3);border-radius:6px;padding:.7rem .9rem;">'
       + '<div id="pvtxt_'+s.kind+'" style="color:var(--text);"></div></div>'
@@ -355,8 +357,8 @@ def page_dm():
   <div class="form-group"><label>Footer</label>
     <input type="text" id="dmFooter" maxlength="2048" style="width:100%;" oninput="upd();dirty();"></div>
 
-  <button class="btn btn-primary btn-sm" onclick="saveDm()">💾 Simpan</button>
-  <button class="btn btn-ghost btn-sm" onclick="resetDm()">↺ Kembalikan default</button>
+  <button class="btn btn-primary btn-sm" onclick="saveDm()">Simpan</button>
+  <button class="btn btn-ghost btn-sm" onclick="resetDm()">Kembalikan default</button>
   <span id="status" style="margin-left:.6rem;font-size:.85rem;"></span>
 
   <div style="margin-top:1.2rem;">
@@ -402,7 +404,7 @@ function renderFieldEditor(){
       + '<div style="text-align:right;margin-top:.3rem;">'
       + '<button class="btn btn-ghost btn-sm" onclick="moveField('+i+',-1)">↑</button> '
       + '<button class="btn btn-ghost btn-sm" onclick="moveField('+i+',1)">↓</button> '
-      + '<button class="btn btn-ghost btn-sm" onclick="delField('+i+')">🗑️</button></div>'
+      + '<button class="btn btn-ghost btn-sm" onclick="delField('+i+')">Hapus</button></div>'
       + '</div>';
   });
   document.getElementById('fieldList').innerHTML = html;
