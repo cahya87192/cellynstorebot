@@ -246,6 +246,8 @@ def page_transactions():
     prev_dis = "disabled" if page <= 1 else ""
     next_dis = "disabled" if page >= total_pages else ""
     export_qs = ("?" + qs) if qs else ""
+    tx_avg = (sum_omzet // total_rows) if total_rows else 0
+    has_filter = any([f["layanan"], f["q"], f["dari"], f["sampai"]])
 
     content = f"""
 <div class="page-header">
@@ -255,14 +257,20 @@ def page_transactions():
   </div>
 </div>
 {_insights_tabs('transactions')}
+<div class="stats-grid">
+  <div class="stat-card ml"><div class="stat-label">Total Transaksi</div><div class="stat-value">{total_rows}</div><div class="stat-sub">sesuai filter</div></div>
+  <div class="stat-card green"><div class="stat-label">Total Omzet</div><div class="stat-value" style="font-size:1.4rem;">{_rupiah(sum_omzet)}</div><div class="stat-sub">sesuai filter</div></div>
+  <div class="stat-card gold"><div class="stat-label">Rata-rata / Transaksi</div><div class="stat-value" style="font-size:1.4rem;">{_rupiah(tx_avg)}</div><div class="stat-sub">omzet \u00f7 transaksi</div></div>
+</div>
 <div class="card">
+  <div class="card-header"><span class="card-title">Filter</span></div>
   <div class="card-body">
     <form method="get" action="/transactions" class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end;">
       <div class="form-group"><label>Cari (item / user id)</label><input type="text" name="q" value="{_esc(f['q'])}" placeholder="mis. Spotify"></div>
       <div class="form-group"><label>Layanan</label><select name="layanan">{_layanan_options(f['layanan'])}</select></div>
       <div class="form-group"><label>Dari</label><input type="date" name="dari" value="{_esc(f['dari'])}"></div>
       <div class="form-group"><label>Sampai</label><input type="date" name="sampai" value="{_esc(f['sampai'])}"></div>
-      <div class="form-group"><button type="submit" class="btn btn-primary">Filter</button></div>
+      <div class="form-group" style="display:flex;gap:.5rem;align-items:end;"><button type="submit" class="btn btn-primary">Filter</button>{'<a class="btn btn-ghost" href="/transactions">Reset</a>' if has_filter else ''}</div>
     </form>
   </div>
 </div>
@@ -370,13 +378,15 @@ def page_customers():
 
     qs = "&".join(f"{k}={html.escape(v)}" for k, v in (("q", q), ("sort", key)) if v)
     qs_amp = ("&" + qs) if qs else ""
+    cust_export_qs = ("?" + qs) if qs else ""
+    has_cust_filter = bool(q) or key != customers.DEFAULT_SORT
     prev_dis = "disabled" if page <= 1 else ""
     next_dis = "disabled" if page >= total_pages else ""
 
     content = f"""
 <div class="page-header">
   <div class="page-title">Pelanggan <small>Direktori pelanggan &amp; riwayat belanja</small></div>
-  <div class="page-actions"><a class="btn btn-ghost" href="/analytics">Lihat analitik</a></div>
+  <div class="page-actions"><a class="btn btn-ghost" href="/customers/export.csv{cust_export_qs}">Export CSV</a><a class="btn btn-ghost" href="/analytics">Lihat analitik</a></div>
 </div>
 {_insights_tabs('customers')}
 <div class="stats-grid">{cards}</div>
@@ -385,7 +395,7 @@ def page_customers():
     <form method="get" action="/customers" class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));align-items:end;">
       <div class="form-group"><label>Cari (nama / user id)</label><input type="text" name="q" value="{_esc(q)}" placeholder="mis. budi atau 12345"></div>
       <div class="form-group"><label>Urutkan</label><select name="sort">{_sort_options(key)}</select></div>
-      <div class="form-group"><button type="submit" class="btn btn-primary">Terapkan</button></div>
+      <div class="form-group" style="display:flex;gap:.5rem;align-items:end;"><button type="submit" class="btn btn-primary">Terapkan</button>{'<a class="btn btn-ghost" href="/customers">Reset</a>' if has_cust_filter else ''}</div>
     </form>
   </div>
 </div>
@@ -430,6 +440,32 @@ def _warranty_remaining_cell(r):
     color = "#d97706" if st == "soon" else "#16a34a"
     dot = "&#128993;" if st == "soon" else "&#128994;"
     return f"<span style='color:{color};'>{dot} {rem} hari lagi</span>{manual}"
+
+
+@insights_bp.route("/customers/export.csv")
+def export_customers():
+    g = _guard()
+    if g:
+        return g
+    q = (request.args.get("q") or "").strip()
+    key, _order, _label = customers.resolve_sort(request.args.get("sort"))
+    total = customers.count_customers(search=q)
+    rows = customers.list_customers(search=q, sort=key, limit=max(total, 1), offset=0)
+    nm = member_names.name_map([r["user_id"] for r in rows])
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["user_id", "nama", "orders", "omzet", "rata_rata", "first_at", "last_at"])
+    for r in rows:
+        avg = (r["omzet"] // r["orders"]) if r["orders"] else 0
+        name = nm.get(str(r["user_id"])) or r.get("name") or ""
+        w.writerow([r["user_id"], name, r["orders"], r["omzet"], avg,
+                    r["first_at"], r["last_at"]])
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=pelanggan_{stamp}.csv"},
+    )
 
 
 @insights_bp.route("/warranty")
