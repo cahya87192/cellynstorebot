@@ -28,12 +28,6 @@ DEFAULT_PROMPT_DESC = (
     "**Tanpa rating sebelum batas waktu, transaksimu TIDAK mendapat garansi.** "
     "Mohon beri rating sesegera mungkin ya! 💛"
 )
-DEFAULT_INVOICE_TITLE = "🧾 Struk Pembelian"
-DEFAULT_INVOICE_DESC = (
-    "Terima kasih sudah berbelanja di **{store}**! 💚\n"
-    "Berikut bukti transaksimu — simpan baik-baik ya."
-)
-DEFAULT_INVOICE_FOOTER = "{store} • Struk Digital"
 DEFAULT_EXPIRED_TITLE = "⌛ Waktu Rating Habis — Garansi Hangus"
 DEFAULT_EXPIRED_DESC = (
     "Batas waktu **{hours} jam** untuk memberi rating sudah lewat, "
@@ -71,24 +65,6 @@ REVIEW_SPECS = {
         "key": "review_prompt_desc",
         "default": DEFAULT_PROMPT_DESC,
         "placeholders": ("{store}", "{hours}"),
-    },
-    "invoice_title": {
-        "label": "Struk/invoice — judul",
-        "key": "review_invoice_title",
-        "default": DEFAULT_INVOICE_TITLE,
-        "placeholders": (),
-    },
-    "invoice_desc": {
-        "label": "Struk/invoice — deskripsi",
-        "key": "review_invoice_desc",
-        "default": DEFAULT_INVOICE_DESC,
-        "placeholders": ("{store}",),
-    },
-    "invoice_footer": {
-        "label": "Struk/invoice — footer",
-        "key": "review_invoice_footer",
-        "default": DEFAULT_INVOICE_FOOTER,
-        "placeholders": ("{store}",),
     },
     "expired_title": {
         "label": "Rating kedaluwarsa — judul",
