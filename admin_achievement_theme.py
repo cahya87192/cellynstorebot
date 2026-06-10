@@ -258,8 +258,15 @@ def page_theme():
 <div class="page-header">
   <div class="page-title">Editor Kartu Badge <small>Geser elemen, atur judul, font, warna & ukuran — lalu Simpan</small></div>
 </div>
+<style>
+.thm-tabs{{display:flex;gap:.25rem;margin-bottom:1rem;border-bottom:1px solid var(--border);flex-wrap:wrap;}}
+.thm-tab{{appearance:none;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted2);font:inherit;font-size:.82rem;font-weight:600;padding:.5rem .75rem;cursor:pointer;border-radius:8px 8px 0 0;}}
+.thm-tab:hover{{color:var(--text);background:var(--surface2);}}
+.thm-tab.active{{color:var(--accent);border-bottom-color:var(--accent);}}
+@media(min-width:920px){{.thm-stage{{position:sticky;top:1.5rem;align-self:flex-start;}}}}
+</style>
 <div class="card"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:1.5rem;align-items:flex-start;">
-  <div style="flex:1 1 560px;min-width:280px;">
+  <div class="thm-stage" style="flex:1 1 560px;min-width:280px;">
     <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem;">
       Seret kotak elemen untuk memindah posisi. Kanvas {achthemelib.ACH_W}×{achthemelib.ACH_H} (skala mengikuti lebar).</div>
     <div id="stage" style="position:relative;width:100%;max-width:840px;margin:0 auto;aspect-ratio:{achthemelib.ACH_W}/{achthemelib.ACH_H};
@@ -272,7 +279,13 @@ def page_theme():
     </div>
     <div id="status" style="margin-top:.6rem;font-size:.85rem;"></div>
   </div>
-  <div style="flex:1 1 300px;min-width:280px;">
+  <div class="thm-col" style="flex:1 1 320px;min-width:280px;">
+    <div class="thm-tabs">
+      <button type="button" class="thm-tab active" data-t="elemen" onclick="showThmTab('elemen')">Elemen</button>
+      <button type="button" class="thm-tab" data-t="tampilan" onclick="showThmTab('tampilan')">Tampilan</button>
+      <button type="button" class="thm-tab" data-t="aset" onclick="showThmTab('aset')">Aset</button>
+    </div>
+    <div class="thm-panel" id="thm-tampilan" hidden>
     <div class="form-group">
       <label>Nama Contoh (pratinjau)</label>
       <input type="text" id="sampleName" maxlength="22" placeholder="ContohMember"
@@ -289,6 +302,8 @@ def page_theme():
       <input type="range" min="0" max="255" id="panelOpacity" value="{theme['panel_opacity']}"
         oninput="theme.panel_opacity=+this.value;markDirty();">
     </div>
+    </div>
+    <div class="thm-panel" id="thm-aset" hidden>
     <div class="form-group">
       <label>Font Kustom — saat ini: <b id="curFont">{cur_font}</b></label>
       <input type="file" id="fontFile" accept=".ttf,.otf">
@@ -313,10 +328,12 @@ def page_theme():
       </div>
       <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem;">Gambar dekoratif untuk mengisi sisi kanan kartu. Atur posisi &amp; ukuran lewat elemen <b>Ikon/Thumbnail</b> di bawah.</div>
     </div>
-    <hr style="border-color:var(--border);margin:1rem 0;">
+    </div>
+    <div class="thm-panel" id="thm-elemen">
     <label style="font-weight:600;">Elemen</label>
     <select id="elemSel" onchange="renderControls()" style="width:100%;margin:.4rem 0 .8rem;"></select>
     <div id="elemControls"></div>
+    </div>
   </div>
 </div></div>
 
@@ -331,6 +348,10 @@ var theme = JSON.parse(JSON.stringify(THEME));
 var CARD_W={achthemelib.ACH_W}, CARD_H={achthemelib.ACH_H};
 
 var _previewTimer=null;
+function showThmTab(t){{
+  document.querySelectorAll('.thm-panel').forEach(function(p){{p.hidden=(p.id!=='thm-'+t);}});
+  document.querySelectorAll('.thm-tab').forEach(function(b){{b.classList.toggle('active', b.dataset.t===t);}});
+}}
 function markDirty(){{
   document.getElementById('status').innerHTML='<span style="color:var(--warning)">● Perubahan belum disimpan (pratinjau diperbarui...)</span>';
   // Debounce: perbarui pratinjau 400ms setelah perubahan terakhir.
