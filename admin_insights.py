@@ -22,6 +22,7 @@ from flask import Blueprint, request, session, redirect, Response
 
 from utils import member_names
 from utils import analytics
+from utils import customers
 
 insights_bp = Blueprint("insights_bp", __name__)
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
@@ -78,6 +79,43 @@ def _guard():
     if not session.get("logged_in"):
         return redirect("/login")
     return None
+
+
+def _days_since(iso):
+    """Jumlah hari (UTC) sejak tanggal ISO `iso` (ambil 10 char pertama).
+
+    Return None bila tidak bisa diparse.
+    """
+    s = (iso or "")[:10]
+    if not s:
+        return None
+    try:
+        d = datetime.date.fromisoformat(s)
+    except ValueError:
+        return None
+    return (datetime.datetime.now(datetime.timezone.utc).date() - d).days
+
+
+def _recency_cell(iso):
+    """Sel 'order terakhir' + badge: aktif (<=30h) / mulai dingin / tidak aktif."""
+    d = _days_since(iso)
+    tgl = (iso or "")[:10] or "-"
+    if d is None:
+        return "-"
+    if d <= 0:
+        rel = "hari ini"
+    elif d == 1:
+        rel = "kemarin"
+    else:
+        rel = f"{d} hari lalu"
+    if d <= 30:
+        color = "#16a34a"
+    elif d <= 90:
+        color = "#d97706"
+    else:
+        color = "#dc2626"
+    return (f"{_esc(tgl)} <span style='color:{color};font-size:.74rem;'>"
+            f"&middot; {rel}</span>")
 
 
 # Periode yang bisa dipilih di halaman Analitik didefinisikan di utils.analytics
@@ -239,6 +277,100 @@ def export_transactions():
         mimetype="text/csv",
         headers={"Content-Disposition": f"attachment; filename=transaksi_{stamp}.csv"},
     )
+
+
+def _sort_options(selected):
+    opts = ""
+    for key, (_order, label) in customers.SORTS.items():
+        sel = " selected" if key == selected else ""
+        opts += f'<option value="{key}"{sel}>{label}</option>'
+    return opts
+
+
+@insights_bp.route("/customers")
+def page_customers():
+    g = _guard()
+    if g:
+        return g
+    from admin import render_page  # lazy import (hindari circular)
+
+    page = max(1, int(request.args.get("page", 1) or 1))
+    per_page = 25
+    q = (request.args.get("q") or "").strip()
+    key, _order, _label = customers.resolve_sort(request.args.get("sort"))
+
+    st = customers.stats()
+    total_rows = customers.count_customers(search=q)
+    rows = customers.list_customers(
+        search=q, sort=key, limit=per_page, offset=(page - 1) * per_page
+    )
+    total_pages = max(1, (total_rows + per_page - 1) // per_page)
+
+    cards = (
+        f'<div class="stat-card green"><div class="stat-label">Total Pelanggan</div>'
+        f'<div class="stat-value">{st["total"]}</div>'
+        f'<div class="stat-sub">punya transaksi</div></div>'
+        f'<div class="stat-card gold"><div class="stat-label">Pelanggan Berulang</div>'
+        f'<div class="stat-value">{st["repeat"]}</div>'
+        f'<div class="stat-sub">&ge; 2 order</div></div>'
+        f'<div class="stat-card ml"><div class="stat-label">Sekali Order</div>'
+        f'<div class="stat-value">{st["single"]}</div>'
+        f'<div class="stat-sub">1 order</div></div>'
+        f'<div class="stat-card robux"><div class="stat-label">Total Belanja</div>'
+        f'<div class="stat-value" style="font-size:1.4rem;">{_rupiah(st["omzet"])}</div>'
+        f'<div class="stat-sub">semua pelanggan</div></div>'
+    )
+
+    nm = member_names.name_map([r["user_id"] for r in rows])
+    body = ""
+    for i, r in enumerate(rows, 1 + (page - 1) * per_page):
+        avg = (r["omzet"] // r["orders"]) if r["orders"] else 0
+        body += (
+            f"<tr><td>{i}</td><td>{_who(r['user_id'], nm)}</td>"
+            f"<td>{r['orders']}</td><td>{_rupiah(r['omzet'])}</td>"
+            f"<td>{_rupiah(avg)}</td><td>{_esc((r['first_at'] or '')[:10] or '-')}</td>"
+            f"<td>{_recency_cell(r['last_at'])}</td>"
+            f"<td><a class='btn btn-ghost btn-sm' href='/transactions?q={_esc(r['user_id'])}'>Transaksi</a></td></tr>"
+        )
+    if not body:
+        body = "<tr><td colspan='8' class='empty'>Tidak ada pelanggan yang cocok.</td></tr>"
+
+    qs = "&".join(f"{k}={html.escape(v)}" for k, v in (("q", q), ("sort", key)) if v)
+    qs_amp = ("&" + qs) if qs else ""
+    prev_dis = "disabled" if page <= 1 else ""
+    next_dis = "disabled" if page >= total_pages else ""
+
+    content = f"""
+<div class="page-header">
+  <div class="page-title">Pelanggan <small>Direktori pelanggan &amp; riwayat belanja</small></div>
+  <div class="page-actions"><a class="btn btn-ghost" href="/analytics">Lihat analitik</a></div>
+</div>
+<div class="stats-grid">{cards}</div>
+<div class="card">
+  <div class="card-body">
+    <form method="get" action="/customers" class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));align-items:end;">
+      <div class="form-group"><label>Cari (nama / user id)</label><input type="text" name="q" value="{_esc(q)}" placeholder="mis. budi atau 12345"></div>
+      <div class="form-group"><label>Urutkan</label><select name="sort">{_sort_options(key)}</select></div>
+      <div class="form-group"><button type="submit" class="btn btn-primary">Terapkan</button></div>
+    </form>
+  </div>
+</div>
+<div class="card">
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>#</th><th>Pelanggan</th><th>Order</th><th>Total Belanja</th><th>Rata-rata</th><th>Sejak</th><th>Order Terakhir</th><th></th></tr></thead>
+      <tbody>{body}</tbody>
+    </table>
+  </div>
+  <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+    <span class="text-muted">{total_rows} pelanggan &middot; Halaman {page} / {total_pages}</span>
+    <div style="display:flex;gap:.5rem;">
+      <a class="btn btn-ghost btn-sm {prev_dis}" href="/customers?page={page-1}{qs_amp}">Sebelumnya</a>
+      <a class="btn btn-ghost btn-sm {next_dis}" href="/customers?page={page+1}{qs_amp}">Berikutnya</a>
+    </div>
+  </div>
+</div>"""
+    return render_page(content)
 
 
 
