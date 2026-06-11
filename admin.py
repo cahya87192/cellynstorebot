@@ -26,14 +26,14 @@ from utils import member_names
 
 
 def _member_cell(uid, nm):
-    """Sel identitas untuk tabel panel: nama (kalau ada) + id kecil; fallback id."""
+    """Sel identitas untuk tabel panel: avatar template + nama saja (tanpa id).
+
+    Fallback ke avatar siluet + id mentah bila nama belum ada di cache.
+    """
     if not uid:
         return "-"
-    name = nm.get(str(uid))
-    if name:
-        return (f"{html.escape(str(name))} <span class='text-muted' "
-                f"style='font-size:.72rem;'>#{uid}</span>")
-    return f"<code>{uid}</code>"
+    from utils import identity
+    return identity.identity_html(uid, nm.get(str(uid)))
 from admin_embed import embed_bp
 from admin_insights import insights_bp
 from admin_profile_theme import theme_bp

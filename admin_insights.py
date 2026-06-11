@@ -24,6 +24,7 @@ from utils import member_names
 from utils import analytics
 from utils import customers
 from utils import warranty_monitor
+from utils import identity
 
 insights_bp = Blueprint("insights_bp", __name__)
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "midman.db")
@@ -65,14 +66,14 @@ def _esc(v):
 
 
 def _who(uid, nm):
-    """Render identitas: nama (kalau ada di cache) + id kecil; fallback id mentah."""
+    """Render identitas: avatar template + nama saja (tanpa id).
+
+    Bila nama belum ada di cache, pakai avatar siluet + id mentah sebagai
+    fallback (satu-satunya pengenal yang tersedia).
+    """
     if not uid:
         return "-"
-    name = nm.get(str(uid))
-    if name:
-        return (f"{_esc(name)} <span class='text-muted' style='font-size:.72rem;'>"
-                f"#{_esc(uid)}</span>")
-    return f"<code>{_esc(uid)}</code>"
+    return identity.identity_html(uid, nm.get(str(uid)))
 
 
 def _guard():
