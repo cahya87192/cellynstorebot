@@ -24,6 +24,7 @@ import discord
 from discord.ext import commands
 
 from utils import product_search_text as pstext
+from utils import search_log
 from utils.config import (
     STORE_NAME,
     GUILD_ID,
@@ -51,6 +52,7 @@ TOKEN_FUZZY_FLOOR = 0.72    # rasio fuzzy di bawah ini dianggap tidak cocok (0)
 RELEVANCE_GAP = 0.18        # hasil yang skornya jauh di bawah skor terbaik dibuang
 VIEW_TIMEOUT = 180          # detik tombol aktif
 CACHE_TTL = 60              # detik cache indeks produk
+LOG_MAX_CORE_TOKENS = 6     # query dgn token inti lebih dari ini dianggap obrolan, tak di-log
 
 COLOR_RESULT = 0x8B5CF6     # ungu lembut
 COLOR_SUGGEST = 0x64748B    # abu kebiruan
@@ -297,6 +299,27 @@ def search(raw_query: str):
     return [], suggestions[:MAX_SUGGEST]
 
 
+def loggable_query(raw_query):
+    """Kembalikan key agregasi bila query layak dicatat sbg 'pencarian produk',
+    atau None bila tidak (kependekan, cuma kata pengisi, atau seperti kalimat
+    obrolan biasa yang panjang).
+
+    Channel pencarian juga dipakai ngobrol komunitas, jadi gerbang ini penting
+    supaya log pencarian nihil tidak penuh oleh chat acak. Key memakai bentuk
+    ternormalisasi + alias (mis. "yt" & "youtube" menyatu) untuk agregasi.
+    """
+    q_norm = _normalize(raw_query)
+    if len(q_norm) < MIN_LEN:
+        return None
+    tokens = _expand_tokens(q_norm.split())
+    core = [t for t in tokens if t not in _STOPWORDS and len(t) >= 2]
+    if not core:
+        return None
+    if len(core) > LOG_MAX_CORE_TOKENS:
+        return None
+    return " ".join(tokens)
+
+
 # ── Embed ─────────────────────────────────────────────────────────────────────--
 def _clip(query: str, n: int = 80) -> str:
     q = " ".join((query or "").split())
@@ -433,6 +456,18 @@ class ProductSearch(commands.Cog):
         except Exception as e:
             print(f"[ProductSearch] search error: {e}")
             return
+
+        # Catat pencarian nihil (demand insight): tak ada hasil kuat — termasuk
+        # kasus "diam total" (tanpa saran) maupun "ada saran mirip". Channel ini
+        # juga dipakai ngobrol, jadi loggable_query() menyaring chat acak.
+        if not results:
+            key = loggable_query(content)
+            if key:
+                self._cd[message.author.id] = now  # throttle: maks 1/COOLDOWN per user
+                try:
+                    search_log.log_miss(key, content, message.author.id, bool(suggestions))
+                except Exception as e:
+                    print(f"[ProductSearch] log miss error: {e}")
 
         if not results and not suggestions:
             return  # diam saat tak ada yang relevan
