@@ -742,9 +742,9 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{
   m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('active');});
 });
 
-/* THEME */
+/* THEME — default mode malam (dark) bila admin belum pernah memilih tema. */
 (function(){
-  var t = localStorage.getItem('cellyn-theme') || 'light';
+  var t = localStorage.getItem('cellyn-theme') || 'dark';
   document.documentElement.setAttribute('data-theme', t);
 })();
 function toggleTheme(){
