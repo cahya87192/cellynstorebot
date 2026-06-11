@@ -24,9 +24,13 @@ from utils import card_theme_base as _base
 
 THEME_KEY = "rating_card_theme"
 
-# Ukuran kanvas kartu testimoni (banner lebar).
-RATING_W = 900
-RATING_H = 340
+# Ukuran kanvas kartu testimoni (banner lebar; ukuran standar welcome-card).
+RATING_W = 1024
+RATING_H = 450
+
+# Ukuran kanvas LAMA (sebelum diperbesar). Default & tema tersimpan yang dibuat
+# pada ukuran ini diskalakan proporsional ke RATING_W x RATING_H saat ini.
+_LEGACY_CANVAS = (900, 340)
 
 MAX_TEXT_LEN = 60
 
@@ -35,12 +39,13 @@ RING_DEFAULT = "#FFC107"
 
 DEFAULT_TITLE = "ULASAN PELANGGAN"
 
-# Elemen yang bisa dikustomisasi + default-nya.
+# Elemen yang bisa dikustomisasi + default-nya. Koordinat/ukuran ditulis relatif
+# ke `_LEGACY_CANVAS`, lalu diskalakan ke kanvas saat ini di _build_default().
 #   - title : teks statis (editable)
 #   - name  : dinamis (nama member)
 #   - stars : dinamis (mis. "★★★★★")
 #   - review: dinamis (teks ulasan, sudah dipangkas; dibungkus multi-baris)
-DEFAULT_THEME = {
+_LEGACY_DEFAULT = {
     "enabled": False,              # False = tetap pakai embed testimoni klasik
     "panel_opacity": 150,          # 0-255, panel gelap di atas background
     "font_file": None,             # nama file font di data/ (None = font default)
@@ -52,6 +57,19 @@ DEFAULT_THEME = {
         "review": {"type": "text",   "x": 268, "y": 224, "size": 24, "color": "#E2E4EC", "bold": False, "show": True},
     },
 }
+
+
+def _build_default() -> dict:
+    """DEFAULT_THEME pada kanvas saat ini (koordinat legacy diskalakan + penanda)."""
+    theme = json.loads(json.dumps(_LEGACY_DEFAULT))
+    theme["canvas"] = [RATING_W, RATING_H]
+    lw, lh = _LEGACY_CANVAS
+    if (RATING_W, RATING_H) != (lw, lh):
+        _base.rescale_elements(theme["elements"], RATING_W / lw, RATING_H / lh)
+    return theme
+
+
+DEFAULT_THEME = _build_default()
 
 # Urutan & label ramah untuk ditampilkan di editor.
 ELEMENT_LABELS = [
@@ -68,6 +86,34 @@ ELEMENT_LABELS = [
 _clampi = _base.clampi
 _valid_hex = _base.valid_hex
 hex_to_rgb = _base.hex_to_rgb
+
+
+def _scale_factors(raw, cw, ch):
+    """Faktor skala (sx, sy) dari kanvas tema tersimpan ke (cw, ch) saat ini.
+
+    Pakai penanda `canvas`; tema lama tanpa penanda dianggap `_LEGACY_CANVAS`.
+    """
+    rc = raw.get("canvas") if isinstance(raw, dict) else None
+    if isinstance(rc, (list, tuple)) and len(rc) == 2:
+        try:
+            ocw, och = int(rc[0]), int(rc[1])
+        except (TypeError, ValueError):
+            ocw, och = _LEGACY_CANVAS
+    else:
+        ocw, och = _LEGACY_CANVAS
+    if ocw <= 0 or och <= 0 or (ocw, och) == (cw, ch):
+        return 1.0, 1.0
+    return cw / ocw, ch / och
+
+
+def _smul(v, s):
+    """Kalikan nilai numerik dengan faktor `s` (bulatkan). Non-numerik dibiarkan."""
+    if s == 1.0:
+        return v
+    try:
+        return int(round(float(v) * s))
+    except (TypeError, ValueError):
+        return v
 
 
 def default_theme() -> dict:
@@ -90,6 +136,9 @@ def merge_theme(raw) -> dict:
     if not isinstance(raw, dict):
         return theme
 
+    # Skalakan koordinat/ukuran bila tema dibuat untuk kanvas berukuran lain.
+    sx, sy = _scale_factors(raw, RATING_W, RATING_H)
+
     theme["enabled"] = bool(raw.get("enabled", theme["enabled"]))
     theme["panel_opacity"] = _clampi(raw.get("panel_opacity"), 0, 255,
                                      theme["panel_opacity"])
@@ -101,15 +150,19 @@ def merge_theme(raw) -> dict:
         incoming = raw_elems.get(key)
         if not isinstance(incoming, dict):
             continue
-        base["x"] = _clampi(incoming.get("x", base["x"]), 0, RATING_W, base["x"])
-        base["y"] = _clampi(incoming.get("y", base["y"]), 0, RATING_H, base["y"])
+        if "x" in incoming:
+            base["x"] = _clampi(_smul(incoming["x"], sx), 0, RATING_W, base["x"])
+        if "y" in incoming:
+            base["y"] = _clampi(_smul(incoming["y"], sy), 0, RATING_H, base["y"])
         base["show"] = bool(incoming.get("show", base["show"]))
         if base["type"] == "text":
-            base["size"] = _clampi(incoming.get("size", base["size"]), 8, 120, base["size"])
+            if "size" in incoming:
+                base["size"] = _clampi(_smul(incoming["size"], sy), 8, 120, base["size"])
             base["color"] = _valid_hex(incoming.get("color", base["color"]), base["color"])
             base["bold"] = bool(incoming.get("bold", base["bold"]))
         elif base["type"] == "avatar":
-            base["size"] = _clampi(incoming.get("size", base["size"]), 32, 320, base["size"])
+            if "size" in incoming:
+                base["size"] = _clampi(_smul(incoming["size"], sy), 32, 320, base["size"])
             base["ring_color"] = _valid_hex(incoming.get("ring_color", base["ring_color"]),
                                             base["ring_color"])
         if "text" in base:

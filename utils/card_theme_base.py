@@ -46,6 +46,34 @@ def hex_to_rgb(c) -> tuple:
     return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
 
 
+def rescale_elements(elements, sx, sy, ssize=None):
+    """Skalakan koordinat (x, y) & ukuran (size) tiap elemen secara proporsional.
+
+    Dipakai saat ukuran kanvas kartu berubah (mis. memperbesar banner) agar
+    layout lama — baik default maupun kustom tersimpan — tetap proporsional.
+
+      sx, sy : faktor skala sumbu X / Y.
+      ssize  : faktor skala ukuran font/avatar (default = sy).
+
+    Mengubah dict `elements` di tempat lalu mengembalikannya. Nilai non-numerik
+    dibiarkan apa adanya (toleran).
+    """
+    if ssize is None:
+        ssize = sy
+    if not isinstance(elements, dict):
+        return elements
+    for e in elements.values():
+        if not isinstance(e, dict):
+            continue
+        for key, factor in (("x", sx), ("y", sy), ("size", ssize)):
+            if key in e:
+                try:
+                    e[key] = int(round(float(e[key]) * factor))
+                except (TypeError, ValueError):
+                    pass
+    return elements
+
+
 def ring_color_auto(c, default):
     """Validasi warna bingkai (ring) avatar yang mendukung mode "otomatis".
 

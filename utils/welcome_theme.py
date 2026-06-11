@@ -38,12 +38,17 @@ THEME_KEYS = {
     "leave": "leave_card_theme",
 }
 
-# Ukuran kanvas per jenis (semua banner lebar yang sama saat ini).
+# Ukuran kanvas per jenis (banner lebar; ukuran standar welcome-card).
 CANVAS = {
-    "welcome": (1000, 360),
-    "boost": (1000, 360),
-    "leave": (1000, 360),
+    "welcome": (1024, 450),
+    "boost": (1024, 450),
+    "leave": (1024, 450),
 }
+
+# Ukuran kanvas LAMA (sebelum diperbesar). Koordinat default & tema tersimpan
+# yang dibuat pada ukuran ini akan diskalakan proporsional ke CANVAS saat ini
+# (lihat _build_default & migrasi di merge_theme), supaya layout tidak melenceng.
+_LEGACY_CANVAS = (1000, 360)
 
 # Kompatibilitas: alias kanvas welcome + key welcome.
 WELCOME_W, WELCOME_H = CANVAS["welcome"]
@@ -120,15 +125,50 @@ _valid_hex = _base.valid_hex
 hex_to_rgb = _base.hex_to_rgb
 
 
+def _scale_factors(raw, cw, ch):
+    """Faktor skala (sx, sy) dari kanvas tema tersimpan ke kanvas (cw, ch) saat ini.
+
+    Penanda `canvas` di tema dipakai untuk deteksi. Tema lama tanpa penanda
+    dianggap dibuat pada `_LEGACY_CANVAS`. Kembalikan (1.0, 1.0) bila sama/tak perlu.
+    """
+    rc = raw.get("canvas") if isinstance(raw, dict) else None
+    if isinstance(rc, (list, tuple)) and len(rc) == 2:
+        try:
+            ocw, och = int(rc[0]), int(rc[1])
+        except (TypeError, ValueError):
+            ocw, och = _LEGACY_CANVAS
+    else:
+        ocw, och = _LEGACY_CANVAS
+    if ocw <= 0 or och <= 0 or (ocw, och) == (cw, ch):
+        return 1.0, 1.0
+    return cw / ocw, ch / och
+
+
+def _smul(v, s):
+    """Kalikan nilai numerik dengan faktor `s` (bulatkan). Non-numerik dibiarkan."""
+    if s == 1.0:
+        return v
+    try:
+        return int(round(float(v) * s))
+    except (TypeError, ValueError):
+        return v
+
+
 def _build_default(kind) -> dict:
-    """Susun DEFAULT_THEME untuk `kind`."""
+    """Susun DEFAULT_THEME untuk `kind`.
+
+    Koordinat & ukuran elemen ditulis relatif ke `_LEGACY_CANVAS` lalu diskalakan
+    proporsional ke CANVAS[kind] saat ini, sehingga komposisi default identik
+    walau ukuran kanvas berubah.
+    """
     kind = _normalize_kind(kind)
     d = _KIND_DEFAULTS[kind]
     ring = RING_DEFAULTS[kind]
-    return {
+    theme = {
         "enabled": False,            # False = tetap pakai embed klasik (perilaku lama)
         "panel_opacity": 140,        # 0-255, panel gelap di atas background
         "font_file": None,           # nama file font di data/ (None = font default)
+        "canvas": list(CANVAS[kind]),  # penanda ukuran kanvas tema ini dibuat
         "elements": {
             "avatar":      {"type": "avatar", "x": 70,  "y": 95,  "size": 170, "show": True, "ring_color": ring},
             "title":       {"type": "text",   "x": 290, "y": 78,  "size": 30, "color": d["title_color"],    "bold": True,  "show": True, "text": d["title"]},
@@ -137,6 +177,11 @@ def _build_default(kind) -> dict:
             "membercount": {"type": "text",   "x": 290, "y": 248, "size": 22, "color": d["count_color"],    "bold": False, "show": True},
         },
     }
+    cw, ch = CANVAS[kind]
+    lw, lh = _LEGACY_CANVAS
+    if (cw, ch) != (lw, lh):
+        _base.rescale_elements(theme["elements"], cw / lw, ch / lh)
+    return theme
 
 
 # DEFAULT_THEME welcome dipertahankan sebagai konstanta (kompatibilitas).
@@ -165,6 +210,10 @@ def merge_theme(raw, kind="welcome") -> dict:
     if not isinstance(raw, dict):
         return theme
 
+    # Bila tema dibuat untuk kanvas berukuran lain, skalakan koordinat/ukuran
+    # elemen yang masuk agar layout tetap proporsional di kanvas saat ini.
+    sx, sy = _scale_factors(raw, cw, ch)
+
     theme["enabled"] = bool(raw.get("enabled", theme["enabled"]))
     theme["panel_opacity"] = _clampi(raw.get("panel_opacity"), 0, 255,
                                      theme["panel_opacity"])
@@ -176,15 +225,19 @@ def merge_theme(raw, kind="welcome") -> dict:
         incoming = raw_elems.get(key)
         if not isinstance(incoming, dict):
             continue
-        base["x"] = _clampi(incoming.get("x", base["x"]), 0, cw, base["x"])
-        base["y"] = _clampi(incoming.get("y", base["y"]), 0, ch, base["y"])
+        if "x" in incoming:
+            base["x"] = _clampi(_smul(incoming["x"], sx), 0, cw, base["x"])
+        if "y" in incoming:
+            base["y"] = _clampi(_smul(incoming["y"], sy), 0, ch, base["y"])
         base["show"] = bool(incoming.get("show", base["show"]))
         if base["type"] == "text":
-            base["size"] = _clampi(incoming.get("size", base["size"]), 8, 120, base["size"])
+            if "size" in incoming:
+                base["size"] = _clampi(_smul(incoming["size"], sy), 8, 120, base["size"])
             base["color"] = _valid_hex(incoming.get("color", base["color"]), base["color"])
             base["bold"] = bool(incoming.get("bold", base["bold"]))
         elif base["type"] == "avatar":
-            base["size"] = _clampi(incoming.get("size", base["size"]), 32, 320, base["size"])
+            if "size" in incoming:
+                base["size"] = _clampi(_smul(incoming["size"], sy), 32, 320, base["size"])
             base["ring_color"] = _valid_hex(incoming.get("ring_color", base["ring_color"]),
                                             base["ring_color"])
         # Elemen yang punya teks bisa diganti (string non-kosong, dipangkas).
