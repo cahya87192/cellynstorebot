@@ -7,12 +7,15 @@ Top Spender Monthly Leaderboard
 """
 
 import datetime
+import asyncio
+import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 from utils.config import ADMIN_ROLE_ID, STORE_NAME, TOP_SPENDER_BADGE, TOP_SPENDER_ROLE_ID
 from utils.db import get_conn
 from utils import top_spender_text as tstext
+from utils import topspender_theme as tstheme
 
 TOP_SPENDER_TOP_N   = 10
 LEADERBOARD_LIMIT   = 20
@@ -145,13 +148,32 @@ class TopSpender(commands.Cog):
 
         spenders = get_top_spenders(year, month, LEADERBOARD_LIMIT)
         month_name = datetime.date(year, month, 1).strftime("%B %Y")
-        embed = self._build_embed(spenders, month_name, channel.guild)
+
+        card = await self._build_leaderboard_file(spenders, month_name, channel.guild)
 
         try:
+            if card is not None:
+                # Mode gambar: kirim/edit pesan dengan attachment kartu.
+                if self._message_id:
+                    try:
+                        msg = await channel.fetch_message(self._message_id)
+                        await msg.edit(content=None, embed=None, attachments=[card])
+                        await self._update_roles(spenders, channel.guild)
+                        return
+                    except discord.NotFound:
+                        self._message_id = None
+                msg = await channel.send(file=card)
+                self._message_id = msg.id
+                _set_setting("topspender_message_id", str(msg.id))
+                await self._update_roles(spenders, channel.guild)
+                return
+
+            # Mode embed klasik (tema gambar nonaktif).
+            embed = self._build_embed(spenders, month_name, channel.guild)
             if self._message_id:
                 try:
                     msg = await channel.fetch_message(self._message_id)
-                    await msg.edit(embed=embed)
+                    await msg.edit(embed=embed, attachments=[])
                     await self._update_roles(spenders, channel.guild)
                     return
                 except discord.NotFound:
@@ -273,6 +295,59 @@ class TopSpender(commands.Cog):
         embed.set_footer(text=tstext.render_text("footer", store=STORE_NAME))
         return embed
 
+    # ── Kartu gambar (leaderboard) ────────────
+    async def _fetch_avatar_bytes(self, member):
+        """Bytes avatar member (PNG) untuk kartu Top Spender; None bila gagal."""
+        if member is None:
+            return None
+        try:
+            asset = member.display_avatar.with_size(128)
+            async with aiohttp.ClientSession() as s:
+                async with s.get(asset.url) as r:
+                    if r.status == 200:
+                        return await r.read()
+        except Exception:
+            return None
+        return None
+
+    async def _build_leaderboard_file(self, spenders, month_name, guild):
+        """discord.File kartu Top Spender bila tema gambar aktif; None bila nonaktif/gagal.
+
+        None -> pemanggil memakai embed teks klasik (fallback).
+        """
+        try:
+            theme = tstheme.load_theme()
+        except Exception:
+            return None
+        if not (theme and theme.get("enabled")):
+            return None
+
+        rows = int(theme.get("rows", 10))
+        items = []
+        for s in spenders[:rows]:
+            member = guild.get_member(s["user_id"]) if guild else None
+            name = member.display_name if member else f"User {s['user_id']}"
+            items.append({"user_id": s["user_id"], "total": s["total"],
+                          "name": name, "_member": member})
+
+        avatars = {}
+        if theme.get("show_avatars", True):
+            for it in items[:3]:
+                ab = await self._fetch_avatar_bytes(it.get("_member"))
+                if ab:
+                    avatars[it["user_id"]] = ab
+
+        try:
+            from cogs.profile import render_topspender_card, _topspender_bg_path
+            buf = await asyncio.to_thread(
+                render_topspender_card, items, month_name,
+                theme=theme, bg_path=_topspender_bg_path(), avatars=avatars,
+            )
+        except Exception as e:
+            print(f"[TopSpender] render card error: {e}")
+            return None
+        return discord.File(buf, filename="topspender.png")
+
     # ── Slash commands ────────────────────────
 
     @app_commands.command(name="topspender", description="Lihat leaderboard top spender bulan ini")
@@ -281,8 +356,12 @@ class TopSpender(commands.Cog):
         now = datetime.datetime.now(datetime.timezone.utc)
         spenders = get_top_spenders(now.year, now.month, LEADERBOARD_LIMIT)
         month_name = datetime.date(now.year, now.month, 1).strftime("%B %Y")
-        embed = self._build_embed(spenders, month_name, interaction.guild)
-        await interaction.followup.send(embed=embed)
+        card = await self._build_leaderboard_file(spenders, month_name, interaction.guild)
+        if card is not None:
+            await interaction.followup.send(file=card)
+        else:
+            embed = self._build_embed(spenders, month_name, interaction.guild)
+            await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="addspending", description="[ADMIN] Tambah manual spending untuk member")
     @app_commands.describe(member="Member yang ditambah spendingnya", nominal="Jumlah nominal (Rupiah)", note="Catatan (opsional)")
@@ -376,8 +455,12 @@ class TopSpender(commands.Cog):
             return
         spenders = get_top_spenders(year, month, LEADERBOARD_LIMIT)
         month_name = datetime.date(year, month, 1).strftime("%B %Y")
-        embed = self._build_embed(spenders, month_name, ch.guild)
-        await ch.send(embed=embed)
+        card = await self._build_leaderboard_file(spenders, month_name, ch.guild)
+        if card is not None:
+            await ch.send(file=card)
+        else:
+            embed = self._build_embed(spenders, month_name, ch.guild)
+            await ch.send(embed=embed)
         if auto:
             await self._update_roles(spenders, ch.guild)
 
