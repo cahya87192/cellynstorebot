@@ -133,6 +133,19 @@ def _gradient(c1, c2):
     return base
 
 
+def _vgradient(w, h, c1, c2):
+    """Gradien vertikal halus w×h (c1 di atas -> c2 di bawah). Cepat: 1 garis/baris."""
+    base = Image.new("RGB", (w, h), c1)
+    dd = ImageDraw.Draw(base)
+    hh = max(1, h - 1)
+    for y in range(h):
+        t = y / hh
+        dd.line((0, y, w, y), fill=(_lerp(c1[0], c2[0], t),
+                                    _lerp(c1[1], c2[1], t),
+                                    _lerp(c1[2], c2[2], t)))
+    return base
+
+
 def _circle_avatar(img: Image.Image, size: int) -> Image.Image:
     img = img.convert("RGBA").resize((size, size))
     mask = Image.new("L", (size, size), 0)
@@ -756,6 +769,184 @@ def render_welcome_card(name: str, avatar_bytes, *, member_count=None,
         values["membercount"] = f"Member #{member_count}"
     return render_notify_card("welcome", avatar_bytes, values=values,
                               theme=theme, bg_path=bg_path)
+
+
+def _topspender_bg_path():
+    """Path background kartu Top Spender (atau None). Di-upload via panel:
+    data/topspendercardbg.<ext>. Satu background global."""
+    for ext in ALLOWED_IMAGE_EXTS:
+        p = os.path.join(DATA_DIR, "topspendercardbg" + ext)
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def render_topspender_card(spenders, month_name, *, title=None, footer=None,
+                           theme=None, bg_path=None, avatars=None) -> io.BytesIO:
+    """Render leaderboard Top Spender sebagai satu gambar PNG -> BytesIO.
+
+    Murni Pillow (dipanggil di executor). Layout gaya DAFTAR: header, lalu top-3
+    dengan foto profil + medali bernomor, sisanya baris ringkas, ditutup total.
+
+    `spenders` : list dict {user_id, total, name}. Sudah terurut & terbatas.
+    `avatars`  : dict {user_id: bytes} untuk top-3 (opsional).
+    `theme`    : dict utils.topspender_theme. `bg_path`: background kustom.
+    Medali & nomor digambar sebagai bentuk (bukan emoji) agar selalu tampil.
+    """
+    from utils import topspender_theme as tstheme
+    theme = tstheme.merge_theme(theme)
+    W = tstheme.CARD_W
+    colors = theme["colors"]
+    font_file = theme.get("font_file")
+
+    def fnt(size, bold=False):
+        return _font(size, bold=bold, font_file=font_file)
+
+    def col(key, fb=(255, 255, 255)):
+        try:
+            return tstheme.hex_to_rgb(colors[key])
+        except Exception:
+            return fb
+
+    def rp(n):
+        try:
+            return "Rp " + f"{int(n):,}".replace(",", ".")
+        except (TypeError, ValueError):
+            return "Rp 0"
+
+    spenders = list(spenders or [])
+    rows = max(1, int(theme.get("rows", 10)))
+    shown = spenders[:rows]
+    show_av = bool(theme.get("show_avatars", True))
+    top_n = min(3, len(shown)) if show_av else 0
+    rest_n = max(0, len(shown) - top_n)
+
+    PAD = 40
+    HEADER_H = 150
+    ROW_TOP = 104
+    ROW_REST = 64
+    FOOTER_H = 96
+    body_h = top_n * ROW_TOP + rest_n * ROW_REST if shown else 120
+    H = PAD + HEADER_H + body_h + FOOTER_H + PAD
+
+    avatars = avatars or {}
+
+    # Background: kustom (cover-fit) atau gradien vertikal default.
+    bg = None
+    if bg_path:
+        try:
+            src = Image.open(bg_path).convert("RGBA")
+            sw, sh = src.size
+            scale = max(W / sw, H / sh)
+            nw, nh = int(sw * scale), int(sh * scale)
+            src = src.resize((nw, nh))
+            left, top = (nw - W) // 2, (nh - H) // 2
+            bg = src.crop((left, top, left + W, top + H))
+        except Exception:
+            bg = None
+    if bg is None:
+        bg = _vgradient(W, H, tstheme.hex_to_rgb(theme["bg_color1"]),
+                        tstheme.hex_to_rgb(theme["bg_color2"])).convert("RGBA")
+    card = bg
+
+    panel = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    pd = ImageDraw.Draw(panel)
+    _rounded(pd, (PAD - 12, PAD - 12, W - (PAD - 12), H - (PAD - 12)), 30,
+             (0, 0, 0, int(theme["panel_opacity"])))
+    card = Image.alpha_composite(card, panel)
+    d = ImageDraw.Draw(card)
+
+    def trunc(text, font, max_w):
+        text = str(text or "")
+        if d.textlength(text, font=font) <= max_w:
+            return text
+        while text and d.textlength(text + "\u2026", font=font) > max_w:
+            text = text[:-1]
+        return (text + "\u2026") if text else ""
+
+    x = PAD + 16
+    # Header.
+    title = title or f"TOP SPENDER \u2014 {month_name}"
+    d.text((x, PAD + 16), trunc(title, fnt(40, True), W - 2 * x),
+           font=fnt(40, True), fill=col("title", (240, 192, 74)))
+    d.text((x, PAD + 74), trunc(f"Pelanggan paling royal bulan {month_name}",
+           fnt(22), W - 2 * x), font=fnt(22), fill=col("subtitle", (216, 220, 230)))
+    dy = PAD + HEADER_H - 8
+    d.line((x, dy, W - x, dy), fill=col("divider", (58, 63, 75)) + (255,), width=2)
+
+    medal_colors = [(255, 215, 0), (192, 200, 210), (205, 127, 50)]
+    cy = PAD + HEADER_H
+    if not shown:
+        d.text((x, cy + 36), "Belum ada data transaksi bulan ini.",
+               font=fnt(26, True), fill=col("name"))
+    for i, s in enumerate(shown, 1):
+        name = s.get("name") or f"User {s.get('user_id')}"
+        amt = rp(s.get("total"))
+        if show_av and i <= 3:
+            mid = cy + ROW_TOP // 2
+            av_size = 74
+            ax, ay = x, mid - av_size // 2
+            mcol = medal_colors[i - 1]
+            d.ellipse((ax - 4, ay - 4, ax + av_size + 4, ay + av_size + 4),
+                      fill=mcol + (255,))
+            ab = avatars.get(s.get("user_id"))
+            drew = False
+            if ab:
+                try:
+                    im = Image.open(io.BytesIO(ab))
+                    circ = _circle_avatar(im, av_size)
+                    card.paste(circ, (ax, ay), circ)
+                    drew = True
+                except Exception:
+                    drew = False
+            if not drew:
+                d.ellipse((ax, ay, ax + av_size, ay + av_size), fill=(60, 60, 70, 255))
+            # Lencana nomor (lingkaran medali) di pojok kanan-bawah avatar.
+            bsz = 30
+            bx, by = ax + av_size - bsz, ay + av_size - bsz
+            d.ellipse((bx, by, bx + bsz, by + bsz), fill=mcol + (255,))
+            nf = fnt(18, True)
+            tw = d.textlength(str(i), font=nf)
+            d.text((bx + (bsz - tw) / 2, by + 4), str(i), font=nf, fill=(25, 25, 30))
+            # Nama + sub + nominal.
+            tx = ax + av_size + 22
+            afont = fnt(30, True)
+            aw = d.textlength(amt, font=afont)
+            nmax = W - tx - PAD - 16 - aw - 24
+            d.text((tx, mid - 30), trunc(name, fnt(34, True), nmax),
+                   font=fnt(34, True), fill=col("name"))
+            d.text((tx, mid + 10), "royal customer",
+                   font=fnt(18), fill=col("rank", (170, 178, 197)))
+            d.text((W - PAD - 16 - aw, mid - 18), amt, font=afont,
+                   fill=col("amount", (255, 210, 77)))
+        else:
+            mid = cy + ROW_REST // 2
+            rfont = fnt(22, True)
+            d.text((x, mid - 13), f"#{i:02d}", font=rfont, fill=col("rank", (170, 178, 197)))
+            afont = fnt(24, True)
+            aw = d.textlength(amt, font=afont)
+            nx = x + 72
+            nmax = W - nx - PAD - 16 - aw - 24
+            d.text((nx, mid - 14), trunc(name, fnt(24), nmax), font=fnt(24),
+                   fill=col("name"))
+            d.text((W - PAD - 16 - aw, mid - 14), amt, font=afont,
+                   fill=col("amount", (255, 210, 77)))
+            d.line((x, cy + ROW_REST - 1, W - x, cy + ROW_REST - 1),
+                   fill=col("divider", (58, 63, 75)) + (90,), width=1)
+        cy += ROW_TOP if (show_av and i <= 3) else ROW_REST
+
+    # Footer total.
+    total_all = sum(int(s.get("total") or 0) for s in shown)
+    fy = H - PAD - FOOTER_H + 18
+    d.line((x, fy - 6, W - x, fy - 6), fill=col("divider", (58, 63, 75)) + (255,), width=2)
+    foot = footer or f"Total belanja Top {len(shown)} \u2014 {rp(total_all)}"
+    d.text((x, fy + 12), trunc(foot, fnt(26, True), W - 2 * x),
+           font=fnt(26, True), fill=col("total", (95, 209, 140)))
+
+    out = io.BytesIO()
+    card.convert("RGB").save(out, format="PNG")
+    out.seek(0)
+    return out
 
 
 def _is_admin(member) -> bool:
