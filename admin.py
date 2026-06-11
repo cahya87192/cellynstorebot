@@ -809,7 +809,7 @@ restoreNavState();
 var CMD_ITEMS=[
   {t:'Dashboard',u:'/'},{t:'Mobile Legends',u:'/ml'},{t:'Free Fire',u:'/ff'},
   {t:'Robux Store',u:'/robux'},{t:'GP Topup',u:'/gp'},{t:'Lainnya',u:'/lainnya'},
-  {t:'QRIS',u:'/qr'},{t:'Statistik',u:'/stats'},{t:'Analitik',u:'/analytics'},{t:'Transaksi',u:'/transactions'},
+  {t:'QRIS',u:'/qr'},{t:'Analitik',u:'/analytics'},{t:'Transaksi',u:'/transactions'},
   {t:'Tiket Aktif',u:'/tickets'},{t:'Performa Admin',u:'/admins'},
   {t:'Pelanggan',u:'/customers'},
   {t:'Monitor Garansi',u:'/warranty'},
@@ -958,7 +958,6 @@ def render_page(content, **ctx):
     {_a("Lainnya", "/lainnya", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>', "page_lainnya")}
     {_grpend()}
     {_grp("Penjualan &amp; Insight", "insight", True)}
-    {_a("Statistik", "/stats", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', "page_stats")}
     {_a("Analitik", "/analytics", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>', "insights_bp.page_analytics")}
     {_a("Transaksi", "/transactions", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M3 12h18M3 18h12"/></svg>', "insights_bp.page_transactions")}
     {_a("Pelanggan", "/customers", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', "insights_bp.page_customers")}
@@ -1199,8 +1198,7 @@ def index():
       {_qa("/admins", "star", "Performa Admin", "ranking staff")}
       {_qa("/robux", "robux", "Kelola Robux", "produk & rate")}
       {_qa("/ml", "ml", "Kelola ML/FF", "produk topup")}
-      {_qa("/stats", "money", "Statistik", "omzet & transaksi")}
-      {_qa("/analytics", "money", "Analitik", "tren & produk laris")}
+      {_qa("/analytics", "money", "Analitik", "tren, produk laris & jam sibuk")}
     </div>
   </div>
 </div>
@@ -1876,192 +1874,12 @@ def page_reviews():
 
 @app.route("/stats")
 def page_stats():
+    # Halaman "Statistik" lama sudah dipensiunkan. Seluruh isinya — termasuk
+    # "Jam Tersibuk" — kini digabung ke halaman Analitik (/analytics). Redirect
+    # permanen di sini supaya bookmark / tautan lama tetap berfungsi.
     if not session.get("logged_in"):
         return redirect(url_for("login"))
-    from utils.db import get_conn
-    conn = get_conn()
-    c = conn.cursor()
-
-    # Total per layanan
-    c.execute("SELECT layanan, COUNT(*) as total, SUM(nominal) as omzet FROM transaction_log GROUP BY layanan")
-    per_layanan = {row["layanan"]: {"total": row["total"], "omzet": row["omzet"] or 0} for row in c.fetchall()}
-
-    # Total keseluruhan
-    c.execute("SELECT COUNT(*) as total, SUM(nominal) as omzet FROM transaction_log")
-    row = c.fetchone()
-    grand_total = row["total"] or 0
-    grand_omzet = row["omzet"] or 0
-
-    # 7 hari terakhir (harian)
-    c.execute("""
-        SELECT date(closed_at) as tgl, COUNT(*) as total, SUM(nominal) as omzet
-        FROM transaction_log
-        WHERE closed_at >= date('now', '-6 days')
-        GROUP BY date(closed_at)
-        ORDER BY tgl ASC
-    """)
-    harian = c.fetchall()
-
-    # Produk terlaris (top 5)
-    c.execute("""
-        SELECT item, COUNT(*) as total
-        FROM transaction_log
-        WHERE item IS NOT NULL AND item != '-'
-        GROUP BY item ORDER BY total DESC LIMIT 5
-    """)
-    terlaris = c.fetchall()
-
-    # Jam tersibuk
-    c.execute("""
-        SELECT strftime('%H', closed_at) as jam, COUNT(*) as total
-        FROM transaction_log
-        GROUP BY jam ORDER BY total DESC LIMIT 5
-    """)
-    peak_hours = c.fetchall()
-
-    # 30 hari terakhir
-    c.execute("""
-        SELECT date(closed_at) as tgl, COUNT(*) as total, SUM(nominal) as omzet
-        FROM transaction_log
-        WHERE closed_at >= date('now', '-29 days')
-        GROUP BY date(closed_at)
-        ORDER BY tgl ASC
-    """)
-    bulanan = c.fetchall()
-
-    conn.close()
-
-    label_map = {"midman":"Midman Trade","robux":"Robux","ml":"ML","ff":"Free Fire","jualbeli":"Jual Beli","cloudphone":"Cloud Phone","nitro":"Discord Nitro","scaset":"SC/Aset Game"}
-
-    # Stat cards
-    layanan_list = [
-        ("midman","💼","#7c5cbf"),("robux","🎮","#E91E63"),
-        ("ml","💎","#3498DB"),("ff","🔥","#FF6B35"),("jualbeli","🤝","#4dbb8a"),
-        ("cloudphone","📱","#00BFFF"),("nitro","💜","#5865F2"),("scaset","🎮","#F0A500")
-    ]
-    stat_cards = ""
-    for key, ico, color in layanan_list:
-        d = per_layanan.get(key, {"total":0,"omzet":0})
-        stat_cards += f"""
-        <div class="stat-card" style="border-top:2px solid {color}20;position:relative;overflow:hidden;">
-          <div style="position:absolute;top:-15px;right:-15px;font-size:3rem;opacity:.06;">{ico}</div>
-          <div style="font-size:1.6rem;margin-bottom:.2rem;">{ico}</div>
-          <div class="stat-label">{label_map[key]}</div>
-          <div class="stat-value" style="color:{color};">{d['total']}</div>
-          <div class="stat-sub">Rp {d['omzet']:,}</div>
-        </div>"""
-
-    # Chart data harian (7 hari)
-    from datetime import date, timedelta
-    today = date.today()
-    days7 = [(today - timedelta(days=i)).isoformat() for i in range(6,-1,-1)]
-    harian_map = {row["tgl"]: {"total": row["total"], "omzet": row["omzet"] or 0} for row in harian}
-    chart_labels = [d[-5:] for d in days7]
-    chart_total  = [harian_map.get(d, {}).get("total", 0) for d in days7]
-    [harian_map.get(d, {}).get("omzet", 0) for d in days7]
-
-    # Chart data 30 hari
-    days30 = [(today - timedelta(days=i)).isoformat() for i in range(29,-1,-1)]
-    bulanan_map = {row["tgl"]: {"total": row["total"], "omzet": row["omzet"] or 0} for row in bulanan}
-    chart30_labels = [d[-5:] for d in days30]
-    chart30_total  = [bulanan_map.get(d, {}).get("total", 0) for d in days30]
-
-    # Tabel terlaris
-    terlaris_html = ""
-    for i, row in enumerate(terlaris, 1):
-        terlaris_html += f"<tr><td>{i}</td><td>{row['item']}</td><td>{row['total']}</td></tr>"
-    if not terlaris_html:
-        terlaris_html = "<tr><td colspan=3 class='empty'>Belum ada data</td></tr>"
-
-    # Peak hours
-    peak_html = ""
-    for row in peak_hours:
-        peak_html += f"<tr><td>{row['jam']}:00</td><td>{row['total']} transaksi</td></tr>"
-    if not peak_html:
-        peak_html = "<tr><td colspan=2 class='empty'>Belum ada data</td></tr>"
-
-    content = f"""
-<div class="page-header">
-  <div class="page-title">Statistik<small>Data transaksi sukses semua layanan</small></div>
-</div>
-
-<!-- Summary Cards -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
-  <div class="stat-card" style="border-top:2px solid var(--accent);">
-    <div class="stat-label">Total Transaksi</div>
-    <div class="stat-value">{grand_total}</div>
-    <div class="stat-sub">Semua layanan</div>
-  </div>
-  <div class="stat-card" style="border-top:2px solid var(--success);">
-    <div class="stat-label">Total Omzet</div>
-    <div class="stat-value" style="font-size:1.4rem;">Rp {grand_omzet:,}</div>
-    <div class="stat-sub">Semua layanan</div>
-  </div>
-</div>
-
-<!-- Per Layanan -->
-<div class="stats-grid" style="margin-bottom:1.5rem;">
-  {stat_cards}
-</div>
-
-<!-- Charts -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
-  <div class="card">
-    <div class="card-header"><span class="card-title">Transaksi 7 Hari</span></div>
-    <div class="card-body"><canvas id="chart7" height="180"></canvas></div>
-  </div>
-  <div class="card">
-    <div class="card-header"><span class="card-title">Transaksi 30 Hari</span></div>
-    <div class="card-body"><canvas id="chart30" height="180"></canvas></div>
-  </div>
-</div>
-
-<!-- Tabel bawah -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-  <div class="card">
-    <div class="card-header"><span class="card-title">Produk Terlaris</span></div>
-    <table>
-      <thead><tr><th>#</th><th>Item</th><th>Terjual</th></tr></thead>
-      <tbody>{terlaris_html}</tbody>
-    </table>
-  </div>
-  <div class="card">
-    <div class="card-header"><span class="card-title">Jam Tersibuk</span></div>
-    <table>
-      <thead><tr><th>Jam</th><th>Transaksi</th></tr></thead>
-      <tbody>{peak_html}</tbody>
-    </table>
-  </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<script>
-const chartDefaults = {{
-  responsive: true,
-  plugins: {{ legend: {{ display: false }} }},
-  scales: {{
-    x: {{ grid: {{ color: 'rgba(15,23,42,.06)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }} }},
-    y: {{ grid: {{ color: 'rgba(15,23,42,.06)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }}, beginAtZero: true }}
-  }}
-}};
-new Chart(document.getElementById('chart7'), {{
-  type: 'bar',
-  data: {{
-    labels: {chart_labels},
-    datasets: [{{ data: {chart_total}, backgroundColor: 'rgba(90,109,196,.35)', borderColor: '#5a6dc4', borderWidth: 1, borderRadius: 4 }}]
-  }},
-  options: chartDefaults
-}});
-new Chart(document.getElementById('chart30'), {{
-  type: 'line',
-  data: {{
-    labels: {chart30_labels},
-    datasets: [{{ data: {chart30_total}, borderColor: '#5fa886', backgroundColor: 'rgba(95,168,134,.14)', borderWidth: 2, pointRadius: 2, fill: true, tension: .4 }}]
-  }},
-  options: chartDefaults
-}});
-</script>"""
-    return render_page(content)
+    return redirect("/analytics", code=301)
 
 
 # ── LAINNYA (Cloud Phone & Nitro) ─────────────────────────────────────────────
