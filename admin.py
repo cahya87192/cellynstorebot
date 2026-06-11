@@ -966,6 +966,7 @@ def render_page(content, **ctx):
     {_a("Tiket Aktif", "/tickets", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/></svg>', "insights_bp.page_tickets")}
     {_a("Performa Admin", "/admins", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>', "insights_bp.page_admins")}
     {_a("Rating &amp; Ulasan", "/reviews", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', "page_reviews")}
+    {_a("Pencarian Nihil", "/search-misses", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>', "page_search_misses")}
     {_grpend()}
     {_grp("Tampilan &amp; Profil", "tampilan", False)}
     {_a("Editor Profil", "/profil-theme", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>', "theme_bp.page_theme")}
@@ -2277,6 +2278,105 @@ def lainnya_delete(pid):
     conn.close()
     flash("Produk berhasil dihapus!", "success")
     return redirect(url_for("page_lainnya"))
+
+
+# ── PENCARIAN NIHIL (demand insight) ────────────────────────────────────────────
+@app.route("/search-misses")
+def page_search_misses():
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    from utils import search_log
+    rows = search_log.top_misses(300)
+    total, uniq = search_log.stats()
+
+    if rows:
+        trs = ""
+        for r in rows:
+            q = html.escape(r["last_query"] or r["query_key"])
+            key = html.escape(r["query_key"])
+            when = (r["last_at"] or "")[:16].replace("T", " ")
+            if r["had_suggestion"]:
+                sug = '<span class="badge badge-aktif">mirip ada</span>'
+            else:
+                sug = '<span class="badge badge-nonaktif">tak ada</span>'
+            trs += f"""
+            <tr>
+              <td><strong>{q}</strong></td>
+              <td style="text-align:center;font-weight:700;">{r["count"]}x</td>
+              <td>{sug}</td>
+              <td style="color:var(--muted);font-size:.82rem;white-space:nowrap;">{when}</td>
+              <td style="text-align:right;">
+                <form method="POST" action="/search-misses/delete" style="margin:0;display:inline;">
+                  <input type="hidden" name="query_key" value="{key}">
+                  <button type="submit" class="btn-sm btn-danger" onclick="return confirm('Hapus entri ini?')">Hapus</button>
+                </form>
+              </td>
+            </tr>"""
+        listing = f"""
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Daftar Pencarian Nihil</span>
+            <form method="POST" action="/search-misses/clear" style="margin:0;">
+              <button type="submit" class="btn-sm btn-warn" onclick="return confirm('Kosongkan SEMUA catatan pencarian nihil?')">Bersihkan Semua</button>
+            </form>
+          </div>
+          <table>
+            <thead><tr><th>Yang Dicari</th><th style="text-align:center;">Frekuensi</th><th>Produk Mirip?</th><th>Terakhir</th><th></th></tr></thead>
+            <tbody>{trs}</tbody>
+          </table>
+        </div>"""
+    else:
+        listing = ('<div class="card"><div class="card-body empty">'
+                   'Belum ada pencarian nihil yang tercatat. 🎉</div></div>')
+
+    content = f"""
+<div class="page-header">
+  <div class="page-title">Pencarian Nihil<small>Yang dicari member di channel pencarian tapi belum ada di katalog</small></div>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-body" style="display:flex;gap:2.5rem;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:.76rem;color:var(--muted2);font-weight:600;">Total Pencarian</div>
+      <div style="font-size:1.4rem;font-weight:700;">{total:,}x</div>
+    </div>
+    <div>
+      <div style="font-size:.76rem;color:var(--muted2);font-weight:600;">Kata Kunci Unik</div>
+      <div style="font-size:1.4rem;font-weight:700;">{uniq:,}</div>
+    </div>
+  </div>
+</div>
+
+{listing}
+
+<div class="card" style="margin-top:1.25rem;">
+  <div class="card-body" style="color:var(--muted);font-size:.84rem;line-height:1.6;">
+    💡 Daftar ini terisi otomatis saat member mengetik di channel pencarian dan bot tidak menemukan kecocokan. Kolom <strong>Produk Mirip?</strong>: <em>mirip ada</em> = ada produk yang menyerupai (member mungkin salah ketik / beda istilah); <em>tak ada</em> = belum punya sama sekali, peluang untuk menambah produk baru. Obrolan biasa sudah disaring agar tidak ikut tercatat.
+  </div>
+</div>
+"""
+    return render_page(content)
+
+
+@app.route("/search-misses/delete", methods=["POST"])
+def search_misses_delete():
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    from utils import search_log
+    key = request.form.get("query_key", "")
+    if search_log.delete_miss(key):
+        flash("Entri pencarian dihapus.", "success")
+    return redirect(url_for("page_search_misses"))
+
+
+@app.route("/search-misses/clear", methods=["POST"])
+def search_misses_clear():
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    from utils import search_log
+    n = search_log.clear_all()
+    flash(f"{n} catatan pencarian dibersihkan.", "success")
+    return redirect(url_for("page_search_misses"))
 
 
 # ── QR SLOTS ───────────────────────────────────────────────────────────────────
