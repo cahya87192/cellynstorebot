@@ -10,6 +10,7 @@ Command:
 
 import io
 import os
+import math
 import datetime
 
 import aiohttp
@@ -491,6 +492,37 @@ def _wrap_text(draw, text, font, max_w, max_lines):
     return lines
 
 
+def _star_points(cx, cy, r_out, r_in, n=5, rot=-math.pi / 2):
+    """Titik-titik bintang `n` sudut (default 5) di sekitar (cx, cy)."""
+    pts = []
+    for i in range(n * 2):
+        r = r_out if i % 2 == 0 else r_in
+        a = rot + i * math.pi / n
+        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts
+
+
+def _draw_stars(draw, x, y, size, filled, total, color):
+    """Gambar deretan bintang sebagai bentuk (polygon) mulai dari kiri-atas (x, y).
+
+    `filled` bintang pertama terisi penuh, sisanya hanya garis (kosong). Dibuat
+    font-independent supaya bintang selalu tampil walau font kartu (bundel /
+    kustom) tidak punya glyph ★/☆.
+    """
+    r_out = size * 0.5
+    r_in = r_out * 0.42
+    step = size * 1.12
+    cy = y + r_out
+    line_w = max(2, int(size * 0.07))
+    for i in range(total):
+        cx = x + r_out + i * step
+        pts = _star_points(cx, cy, r_out, r_in)
+        if i < filled:
+            draw.polygon(pts, fill=color)
+        else:
+            draw.polygon(pts, outline=color, width=line_w)
+
+
 def render_rating_card(name: str, avatar_bytes, *, stars: str, review=None,
                        theme=None, bg_path=None) -> io.BytesIO:
     """Render kartu testimoni/ulasan pelanggan -> PNG BytesIO. Murni Pillow.
@@ -569,11 +601,17 @@ def render_rating_card(name: str, avatar_bytes, *, stars: str, review=None,
         d.text((e["x"], e["y"]), (name or "Pelanggan")[:24],
                font=fnt(e["size"], e.get("bold", True)), fill=rgb("name", (255, 255, 255)))
 
-    # Bintang rating (dinamis).
+    # Bintang rating (dinamis). Digambar sebagai bentuk (bukan teks) agar selalu
+    # tampil walau font kartu tak punya glyph ★/☆.
     if el["stars"].get("show", True) and stars:
         e = el["stars"]
-        d.text((e["x"], e["y"]), str(stars),
-               font=fnt(e["size"], e.get("bold", True)), fill=rgb("stars", (255, 210, 77)))
+        s = str(stars)
+        filled = s.count("\u2605")
+        total = filled + s.count("\u2606")
+        if total <= 0:
+            total = 5
+        _draw_stars(d, int(e["x"]), int(e["y"]), int(e["size"]),
+                    filled, total, rgb("stars", (255, 210, 77)))
 
     # Teks ulasan (dinamis, dibungkus multi-baris). Dilewati bila kosong.
     if el["review"].get("show", True) and review:
