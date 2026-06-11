@@ -439,6 +439,16 @@ def _rating_bg_path():
     return None
 
 
+def _notify_bg_path(kind):
+    """Path background kartu notifikasi welcome/boost/leave (atau None).
+    Di-upload via Editor Kartu: data/<kind>cardbg.<ext>."""
+    for ext in ALLOWED_IMAGE_EXTS:
+        path = os.path.join(DATA_DIR, f"{kind}cardbg" + ext)
+        if os.path.exists(path):
+            return path
+    return None
+
+
 def _wrap_text(draw, text, font, max_w, max_lines):
     """Bungkus `text` jadi beberapa baris yang muat di lebar `max_w` (piksel).
 
@@ -937,6 +947,84 @@ class MemberProfile(commands.Cog):
         else:
             await interaction.followup.send(
                 "❌ Gagal menyimpan. Pastikan format PNG/JPG/WEBP.", ephemeral=True)
+
+
+    @app_commands.command(
+        name="cardpreview",
+        description="[ADMIN] Pratinjau kartu (welcome/boost/leave/rating/profil/badge) render asli Discord")
+    @app_commands.describe(jenis="Jenis kartu yang ingin dipratinjau")
+    @app_commands.choices(jenis=[
+        app_commands.Choice(name="Welcome", value="welcome"),
+        app_commands.Choice(name="Boost", value="boost"),
+        app_commands.Choice(name="Leave", value="leave"),
+        app_commands.Choice(name="Rating/Testimoni", value="rating"),
+        app_commands.Choice(name="Profil", value="profil"),
+        app_commands.Choice(name="Badge", value="badge"),
+    ])
+    async def cardpreview(self, interaction: discord.Interaction,
+                          jenis: app_commands.Choice[str]):
+        if not _is_admin(interaction.user):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+
+        kind = jenis.value
+        user = interaction.user
+        name = user.display_name
+        avatar = await self._fetch_avatar(user)
+
+        def _render():
+            # welcome / boost / leave -> kartu notifikasi
+            if kind in ("welcome", "boost", "leave"):
+                from utils import welcome_theme as wtheme
+                theme = wtheme.load_theme(kind)
+                sample_count = {
+                    "welcome": "Member #123",
+                    "boost": "3x boost server",
+                    "leave": "Tersisa 122 member",
+                }[kind]
+                values = {"name": name[:24], "membercount": sample_count}
+                return render_notify_card(kind, avatar, values=values,
+                                          theme=theme, bg_path=_notify_bg_path(kind))
+            # rating / testimoni
+            if kind == "rating":
+                from utils import rating_theme as ratingthemelib
+                stars = "\u2605" * 5
+                review = ("Pelayanan cepat & amanah, harga bersaing. "
+                          "Recommended banget, next order lagi!")
+                return render_rating_card(name, avatar, stars=stars, review=review,
+                                          theme=ratingthemelib.load_theme(),
+                                          bg_path=_rating_bg_path())
+            # profil & badge -> pakai data profil asli admin yang memanggil
+            data = profilelib.get_member_profile(user.id)
+            rank, is_priority = self._rank_of(user.id)
+            badges = _compute_badges(data, rank, is_priority)
+            tier = data.get("tier") or "Bronze"
+            if kind == "profil":
+                return render_profile_card(name, avatar, data, rank=rank, badges=badges,
+                                           bg_path=_bg_path_for(tier), theme=themelib.load_theme())
+            # badge
+            badge_names = badges or ["Pelanggan Setia"]
+            return render_achievement_card(name, avatar, badge_names, tier,
+                                           theme=achthemelib.load_theme(),
+                                           bg_path=_badge_bg_path_for(tier),
+                                           icon_path=_badge_icon_path())
+
+        try:
+            buf = await self.bot.loop.run_in_executor(None, _render)
+            file = discord.File(buf, filename=f"preview_{kind}.png")
+            note = ""
+            if kind in ("welcome", "boost", "leave", "rating"):
+                note = " _(data contoh; nama & avatar = kamu)_"
+            elif kind in ("profil", "badge"):
+                note = " _(pakai data profil kamu)_"
+            await interaction.followup.send(
+                content=f"Pratinjau kartu **{jenis.name}**{note}", file=file, ephemeral=True)
+        except Exception as e:
+            print(f"[Profile] cardpreview render error ({kind}): {e}")
+            await interaction.followup.send(
+                f"❌ Gagal merender pratinjau kartu **{jenis.name}**: `{str(e)[:150]}`",
+                ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
