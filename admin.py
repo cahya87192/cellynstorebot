@@ -2087,7 +2087,7 @@ def page_lainnya():
             status = "Aktif" if p["active"] else "Nonaktif"
             status_badge = f'<span class="badge badge-{"aktif" if p["active"] else "nonaktif"}">{status}</span>'
             rows += f"""
-            <tr>
+            <tr data-name="{p["name"].lower().replace('"', "&quot;")}">
               <td>{p["id"]}</td>
               <td>{p["name"]}</td>
               <td>Rp {p["harga"]:,}</td>
@@ -2101,8 +2101,8 @@ def page_lainnya():
               </td>
             </tr>"""
         cat_html += f"""
-        <div class="card" style="margin-bottom:1rem;">
-          <div class="card-header"><span class="card-title">{cat}</span></div>
+        <div class="card lainnya-cat" data-cat="{cat.lower().replace('"', "&quot;")}" style="margin-bottom:1rem;">
+          <div class="card-header"><span class="card-title">{cat}</span><span style="color:var(--muted2);font-size:.8rem;font-weight:600;">{len(items)} item</span></div>
           <table>
             <thead><tr><th>ID</th><th>Nama</th><th>Harga</th><th>Status</th><th>Aksi</th></tr></thead>
             <tbody>{rows}</tbody>
@@ -2136,8 +2136,39 @@ def page_lainnya():
   </div>
 </div>
 
+<!-- Cari -->
+<div style="margin-bottom:1rem;">
+  <input id="lainnyaSearch" type="text" placeholder="Cari kategori atau nama item..." oninput="filterLainnya()" autocomplete="off" style="width:100%;padding:.6rem .9rem;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:.9rem;">
+</div>
+
 <!-- Daftar Produk -->
 {cat_html if cat_html else '<div class="card"><div class="card-body empty">Belum ada produk</div></div>'}
+<div id="lainnyaNoResult" class="card" style="display:none;"><div class="card-body empty">Tidak ada hasil yang cocok</div></div>
+
+<script>
+function filterLainnya(){{
+  var q = (document.getElementById('lainnyaSearch').value || '').trim().toLowerCase();
+  var cards = document.querySelectorAll('.lainnya-cat');
+  var anyVisible = false;
+  cards.forEach(function(card){{
+    var cat = card.getAttribute('data-cat') || '';
+    var catMatch = q === '' || cat.indexOf(q) !== -1;
+    var rows = card.querySelectorAll('tr[data-name]');
+    var rowVisible = 0;
+    rows.forEach(function(tr){{
+      var name = tr.getAttribute('data-name') || '';
+      var show = catMatch || name.indexOf(q) !== -1;
+      tr.style.display = show ? '' : 'none';
+      if (show) rowVisible++;
+    }});
+    var cardShow = catMatch || rowVisible > 0;
+    card.style.display = cardShow ? '' : 'none';
+    if (cardShow) anyVisible = true;
+  }});
+  var nr = document.getElementById('lainnyaNoResult');
+  if (nr) nr.style.display = anyVisible ? 'none' : '';
+}}
+</script>
 """
     return render_page(content)
 
