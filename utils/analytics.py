@@ -195,6 +195,37 @@ def top_customers(days=30, limit=10):
     ]
 
 
+def peak_hours(days=30, limit=5):
+    """Jam tersibuk berdasarkan jumlah transaksi untuk `days` terakhir.
+
+    Mengelompokkan transaksi per jam (UTC, dari closed_at) lalu mengurutkan
+    dari yang paling ramai. days=None -> all-time. Return list of dict
+    {jam, tx, omzet} dengan jam = int 0..23 (urut tx desc, lalu jam asc).
+    """
+    from utils.db import get_conn
+    clause, params = _period_clause(days)
+    # strftime() pada NULL menghasilkan NULL -> buang baris tanpa closed_at.
+    if clause:
+        clause += " AND closed_at IS NOT NULL"
+    else:
+        clause = " WHERE closed_at IS NOT NULL"
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            f"SELECT CAST(strftime('%H', closed_at) AS INTEGER) AS jam, "
+            f"COUNT(*) AS tx, COALESCE(SUM(nominal),0) AS omzet "
+            f"FROM transaction_log{clause} "
+            f"GROUP BY jam ORDER BY tx DESC, jam ASC LIMIT ?",
+            params + [int(limit)],
+        ).fetchall()
+    finally:
+        conn.close()
+    return [
+        {"jam": r["jam"], "tx": r["tx"] or 0, "omzet": r["omzet"] or 0}
+        for r in rows if r["jam"] is not None
+    ]
+
+
 def top_items(days=30, limit=10):
     """Item paling laku (urut jumlah order desc) untuk `days` terakhir.
 

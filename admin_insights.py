@@ -724,6 +724,7 @@ def page_analytics():
     items = analytics.top_items(days=days, limit=10)
     customers = analytics.top_customers(days=days, limit=10)
     trend = analytics.daily_omzet(days=days)
+    peak = analytics.peak_hours(days=days, limit=8)
 
     def _trend(pct):
         """Badge tren persen: hijau naik, merah turun, abu untuk baru/datar."""
@@ -801,6 +802,22 @@ def page_analytics():
     if not item_rows:
         item_rows = "<tr><td colspan='5' class='empty'>Belum ada item terjual.</td></tr>"
 
+    # Jam tersibuk (dipindah dari halaman Statistik lama) — ikut periode terpilih.
+    peak_max = max((p["tx"] for p in peak), default=0)
+    peak_rows = ""
+    for p in peak:
+        jam = f"{int(p['jam']):02d}:00"
+        pct = int(round(p["tx"] / peak_max * 100)) if peak_max else 0
+        bar = (f"<div style='background:var(--surface2);border-radius:6px;height:8px;"
+               f"overflow:hidden;'><div style='width:{pct}%;height:100%;"
+               f"background:var(--accent);'></div></div>")
+        peak_rows += (f"<tr><td><code>{jam}</code> <span class='text-muted' "
+                      f"style='font-size:.72rem;'>UTC</span></td>"
+                      f"<td>{p['tx']}</td><td>{_rupiah(p['omzet'])}</td>"
+                      f"<td style='min-width:120px;'>{bar}</td></tr>")
+    if not peak_rows:
+        peak_rows = "<tr><td colspan='4' class='empty'>Belum ada data transaksi.</td></tr>"
+
     # Toolbar pemilih periode (berlaku ke semua bagian detail di bawah) + export.
     period_nav = '<div class="card"><div class="card-body" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">'
     period_nav += '<span class="text-muted" style="font-size:.85rem;">Periode detail:</span>'
@@ -852,6 +869,14 @@ def page_analytics():
     <table><thead><tr><th>#</th><th>Item</th><th>Order</th><th>Qty</th><th>Omzet</th></tr></thead>
     <tbody>{item_rows}</tbody></table>
   </div>
+</div>
+<div class="card">
+  <div class="card-header"><span class="card-title">Jam Tersibuk ({plabel})</span></div>
+  <div class="table-wrapper">
+    <table><thead><tr><th>Jam</th><th>Transaksi</th><th>Omzet</th><th>Aktivitas</th></tr></thead>
+    <tbody>{peak_rows}</tbody></table>
+  </div>
+  <div class="card-body"><span class="text-muted">Jam dihitung dari waktu transaksi selesai (closed_at) dalam UTC.</span></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
