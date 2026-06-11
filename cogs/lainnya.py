@@ -252,7 +252,88 @@ def load_lainnya_products():
     return [{"id": r["id"], "category": r["category"], "name": r["name"], "harga": r["harga"]} for r in rows]
 
 
+# ── HELPER UBAH HARGA (command !setharga) ──────────────────────────────────────
+def load_all_lainnya_products():
+    """Semua produk Lainnya (aktif & nonaktif) untuk keperluan admin (ubah harga)."""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT id, category, name, harga, active FROM lainnya_products ORDER BY category, id")
+    rows = c.fetchall()
+    conn.close()
+    return [{"id": r["id"], "category": r["category"], "name": r["name"],
+             "harga": r["harga"], "active": r["active"]} for r in rows]
 
+
+def update_lainnya_harga(product_id: int, harga: int) -> bool:
+    """Update harga 1 produk Lainnya. Return True bila ada baris yang berubah."""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("UPDATE lainnya_products SET harga=? WHERE id=?", (harga, product_id))
+    changed = c.rowcount
+    conn.commit()
+    conn.close()
+    return changed > 0
+
+
+def parse_harga(text):
+    """Parse string harga jadi int rupiah, atau None bila tidak valid.
+
+    Dukung format umum yang biasa diketik admin:
+      '25000', '25.000', '25,000' (pemisah ribuan), '25rb', '25k' (x1000).
+    Harga harus > 0.
+    """
+    if text is None:
+        return None
+    t = str(text).strip().lower().replace(" ", "")
+    if not t:
+        return None
+    mult = 1
+    if t.endswith("rb"):
+        t, mult = t[:-2], 1000
+    elif t.endswith("k"):
+        t, mult = t[:-1], 1000
+    t = t.replace(".", "").replace(",", "")
+    if not t.isdigit():
+        return None
+    val = int(t) * mult
+    return val if val > 0 else None
+
+
+def split_query_harga(raw):
+    """Pisahkan argumen !setharga jadi (query, harga|None).
+
+    Token TERAKHIR dianggap harga bila valid sbg angka DAN ada >=2 token.
+    Selain itu harga=None (mode lihat/daftar) — aman untuk nama item yang
+    diakhiri angka, karena tanpa harga tidak ada perubahan yang dilakukan.
+    """
+    parts = (raw or "").split()
+    if not parts:
+        return "", None
+    if len(parts) >= 2:
+        harga = parse_harga(parts[-1])
+        if harga is not None:
+            return " ".join(parts[:-1]), harga
+    return (raw or "").strip(), None
+
+
+def match_lainnya_items(items, query):
+    """Cari produk dari list `items` berdasarkan query.
+
+    - '#<id>'        -> cocokkan id persis
+    - nama persis    -> diutamakan (case-insensitive)
+    - substring nama -> fallback (case-insensitive)
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+    if q.startswith("#") and q[1:].strip().isdigit():
+        pid = int(q[1:].strip())
+        return [p for p in items if p["id"] == pid]
+    ql = q.lower()
+    exact = [p for p in items if p["name"].lower() == ql]
+    if exact:
+        return exact
+    return [p for p in items if ql in p["name"].lower()]
 
 
 def save_lainnya_ticket(ticket: dict):
@@ -1428,6 +1509,124 @@ class LainnyaStore(commands.Cog):
         await self.refresh_catalog()
 
         await ctx.send("✅ Katalog berhasil dikirim!", delete_after=5)
+
+
+    @commands.command(name="setharga")
+    async def set_harga(self, ctx, *, args: str = ""):
+        """Ubah harga item katalog Lainnya tanpa buka admin panel (admin-only).
+
+        Pemakaian:
+          !setharga <kata kunci/nama> <harga>   -> ubah harga item yang cocok
+          !setharga #<id> <harga>               -> ubah by ID (paling pasti)
+          !setharga <kata kunci>                -> lihat item cocok + ID + harga
+        Format harga: 25000 / 25.000 / 25rb / 25k
+        """
+        if not any(r.id == ADMIN_ROLE_ID for r in getattr(ctx.author, "roles", [])):
+            return
+
+        raw = (args or "").strip()
+        if not raw:
+            await ctx.send(embed=self._setharga_help_embed())
+            return
+
+        query, harga = split_query_harga(raw)
+        items = load_all_lainnya_products()
+        matches = match_lainnya_items(items, query)
+
+        # ── Mode lihat/daftar (tanpa harga) ────────────────────────────────
+        if harga is None:
+            if not matches:
+                await ctx.send(
+                    f"❌ Tidak ada item yang cocok dengan **{query}**.\n"
+                    f"Coba kata kunci lain."
+                )
+                return
+            await ctx.send(embed=self._setharga_matches_embed(
+                matches, query,
+                title="🔎 Item ditemukan",
+                note="Ubah harga: `!setharga #<id> <harga>` atau "
+                     "`!setharga <nama> <harga>`.",
+            ))
+            return
+
+        # ── Mode set harga ─────────────────────────────────────────────────
+        if not matches:
+            await ctx.send(
+                f"❌ Tidak ada item yang cocok dengan **{query}** (harga: Rp {harga:,}).\n"
+                f"Cek nama/ID dulu: `!setharga {query}`."
+            )
+            return
+
+        if len(matches) > 1:
+            await ctx.send(embed=self._setharga_matches_embed(
+                matches, query,
+                title="⚠️ Lebih dari satu item cocok",
+                note=f"Sebutkan ID spesifik biar pasti, mis. "
+                     f"`!setharga #{matches[0]['id']} {harga}`.",
+            ))
+            return
+
+        p = matches[0]
+        old = p["harga"]
+        if not update_lainnya_harga(p["id"], harga):
+            await ctx.send("❌ Gagal memperbarui harga (item tidak ditemukan di DB).")
+            return
+
+        embed = discord.Embed(title="✅ Harga diperbarui", color=COLOR_LAINNYA)
+        embed.add_field(name="Item", value=f"`#{p['id']}` **{p['name']}**", inline=False)
+        embed.add_field(name="Kategori", value=p["category"], inline=True)
+        if old == harga:
+            embed.add_field(name="Harga", value=f"Rp {harga:,} _(tidak berubah)_", inline=True)
+        else:
+            embed.add_field(name="Harga", value=f"~~Rp {old:,}~~ → **Rp {harga:,}**", inline=True)
+        if not p.get("active"):
+            embed.set_footer(text="Item ini NONAKTIF — tidak tampil di katalog sampai diaktifkan.")
+        await ctx.send(embed=embed)
+
+    def _setharga_help_embed(self):
+        embed = discord.Embed(
+            title="🏷️ !setharga — ubah harga item Lainnya",
+            description=("Ubah harga item katalog **Lainnya** langsung dari "
+                         "Discord (tanpa buka admin panel)."),
+            color=COLOR_LAINNYA,
+        )
+        embed.add_field(
+            name="Pemakaian",
+            value=("`!setharga <nama/kata kunci> <harga>`\n"
+                   "`!setharga #<id> <harga>`  _(paling pasti)_\n"
+                   "`!setharga <kata kunci>`  _(lihat item + ID + harga)_"),
+            inline=False,
+        )
+        embed.add_field(
+            name="Format harga",
+            value="`25000` · `25.000` · `25rb` · `25k`  (semua = Rp 25.000)",
+            inline=False,
+        )
+        embed.add_field(
+            name="Contoh",
+            value=("`!setharga redfinger vip 7day 25000`\n"
+                   "`!setharga nitro` → lihat daftar, lalu `!setharga #9 30000`"),
+            inline=False,
+        )
+        return embed
+
+    def _setharga_matches_embed(self, matches, query, *, title, note):
+        embed = discord.Embed(title=title, color=COLOR_LAINNYA)
+        limit = 20
+        shown = matches[:limit]
+        lines = []
+        for p in shown:
+            tag = "" if p.get("active") else "  · _(nonaktif)_"
+            lines.append(
+                f"`#{p['id']}` **{p['name']}** — Rp {p['harga']:,}  ·  {p['category']}{tag}"
+            )
+        desc = "\n".join(lines)
+        if len(matches) > limit:
+            desc += f"\n… dan {len(matches) - limit} item lain. Persempit kata kunci."
+        embed.description = desc[:4096]
+        embed.add_field(name="Kata kunci", value=f"`{query}`"[:1024], inline=False)
+        embed.add_field(name="Langkah berikutnya", value=note[:1024], inline=False)
+        return embed
 
 
 
