@@ -21,7 +21,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from utils.config import (
-    GUILD_ID, STORE_NAME, TESTIMONI_CHANNEL_ID,
+    GUILD_ID, STORE_NAME, TESTIMONI_CHANNEL_ID, ADMIN_ROLE_ID,
     REVIEWER_BADGE_ROLE_ID, REVIEWER_BADGE_THRESHOLD,
     ROBUX_CATALOG_CHANNEL_ID, ML_CATALOG_CHANNEL_ID,
     VILOG_CATALOG_CHANNEL_ID, MIDMAN_CHANNEL_ID,
@@ -728,6 +728,68 @@ class Reviews(commands.Cog):
             embed.add_field(name="Ulasan Terbaru", value="\n".join(lines)[:1024], inline=False)
         embed.set_footer(text=STORE_NAME)
         await interaction.response.send_message(embed=embed)
+
+    # ── Command test kartu testimoni ──────────────
+    @app_commands.command(
+        name="testrating",
+        description="[ADMIN] Kirim kartu testimoni contoh untuk cek tampilan.",
+    )
+    @app_commands.describe(
+        bintang="Jumlah bintang 1-5 (default 5)",
+        ulasan="Teks ulasan contoh (opsional)",
+        publik="Kirim ke channel testimoni (default: hanya tampil untuk kamu)",
+    )
+    async def testrating(self, interaction: discord.Interaction,
+                         bintang: int = 5, ulasan: str = None, publik: bool = False):
+        # Admin only (pola sama dengan /setwelcome).
+        roles = getattr(interaction.user, "roles", [])
+        if not any(getattr(r, "id", None) == ADMIN_ROLE_ID for r in roles):
+            await interaction.response.send_message("❌ Admin only!", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=not publik)
+
+        bintang = max(1, min(5, int(bintang or 5)))
+        sample = {
+            "user_id": interaction.user.id,
+            "rating": bintang,
+            "review_text": (ulasan
+                            or "Pelayanan ramah & cepat, barang sesuai. Recommended seller! 🔥"),
+        }
+        card_file = await self._build_rating_card_file(sample, interaction.user)
+        if card_file is None:
+            await interaction.followup.send(
+                "❌ Gagal render kartu testimoni. Cek log bot.", ephemeral=True)
+            return
+
+        # Info bila kartu belum diaktifkan (ulasan asli masih tampil sebagai embed).
+        try:
+            from utils import rating_theme as ratingthemelib
+            enabled = bool(ratingthemelib.load_theme().get("enabled"))
+        except Exception:
+            enabled = False
+        note = ("" if enabled else
+                "\n⚠️ Kartu testimoni **belum di-enable** di panel — ulasan asli "
+                "masih tampil sebagai embed. Ini cuma preview.")
+
+        if publik:
+            channel = self.bot.get_channel(TESTIMONI_CHANNEL_ID) if TESTIMONI_CHANNEL_ID else None
+            if channel is None:
+                await interaction.followup.send(
+                    "❌ Channel testimoni belum diset.", ephemeral=True)
+                return
+            try:
+                await channel.send(file=card_file)
+            except Exception as e:
+                await interaction.followup.send(
+                    f"❌ Gagal kirim ke channel testimoni: {e}", ephemeral=True)
+                return
+            await interaction.followup.send(
+                f"✅ Kartu testimoni contoh ({bintang}⭐) dikirim ke {channel.mention}.{note}",
+                ephemeral=True)
+        else:
+            await interaction.followup.send(
+                content=f"Preview kartu testimoni ({bintang}⭐):{note}",
+                file=card_file, ephemeral=True)
 
     # ── Badge reviewer ────────────────────────────
     async def maybe_award_badge(self, user):
